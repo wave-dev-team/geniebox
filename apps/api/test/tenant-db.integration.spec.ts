@@ -9,6 +9,7 @@ import { Migrator } from 'kysely/migration';
 import { ClsService } from 'nestjs-cls';
 
 import { createDb } from '../src/database/create-db.js';
+import { IrreversibleMigrationError } from '../src/database/irreversible-migration.error.js';
 import { migrationProvider } from '../src/database/migrations/index.js';
 import { bootstrapRoles } from '../src/database/roles.js';
 import { type RequestContext, TenantDb } from '../src/database/tenant-db.js';
@@ -97,11 +98,60 @@ it('keeps generated types synchronized with the migrated schema', async () => {
   });
 }, 20_000);
 
-it('rolls back and reapplies the schema with the migration owner', async () => {
-  expect((await migrator.migrateDown()).error).toBeUndefined();
+it('blocks backwards migration when it would erase sign-in identities', async () => {
+  expect((await migrator.migrateDown()).error).toBeInstanceOf(IrreversibleMigrationError);
   const state = await sql<{
     table_name: string | null;
-  }>`select to_regclass('public.metric_definitions') as table_name`.execute(owner);
-  expect(state.rows[0]?.table_name).toBeNull();
-  expect((await migrator.migrateToLatest()).error).toBeUndefined();
+  }>`select to_regclass('public.user_profiles') as table_name`.execute(owner);
+  expect(state.rows[0]?.table_name).toBe('user_profiles');
+});
+
+it('isolates profile reads and writes across tenants', async () => {
+  const identities = [
+    [firstTenant, 'a@geniebox.test'],
+    [secondTenant, 'b@geniebox.test'],
+  ] as const;
+  for (const [tenantId, email] of identities) {
+    await context.runWith({ tenantId }, () =>
+      tenants.transaction((tx) =>
+        tx
+          .insertInto('user_profiles')
+          .values({
+            tenant_id: tenantId,
+            id: tenantId,
+            email,
+            name: email,
+          })
+          .execute(),
+      ),
+    );
+  }
+
+  await context.runWith({ tenantId: firstTenant }, async () => {
+    const rows = await tenants.transaction((tx) => tx.selectFrom('user_profiles').select('email').execute());
+    expect(rows).toEqual([{ email: identities[0][1] }]);
+    const updated = await tenants.transaction((tx) =>
+      tx
+        .updateTable('user_profiles')
+        .set({ name: 'Incorrect tenant' })
+        .where('tenant_id', '=', secondTenant)
+        .executeTakeFirst(),
+    );
+    expect(updated.numUpdatedRows).toBe(0n);
+    await expect(
+      tenants.transaction((tx) =>
+        tx
+          .insertInto('user_profiles')
+          .values({
+            tenant_id: secondTenant,
+            id: firstTenant,
+            email: 'cross@geniebox.test',
+            name: 'Wrong tenant',
+          })
+          .execute(),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
+
+  expect(await runtime.selectFrom('user_profiles').select('email').execute()).toEqual([]);
 });
