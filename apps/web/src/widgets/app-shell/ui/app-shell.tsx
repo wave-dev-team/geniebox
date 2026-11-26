@@ -26,7 +26,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function openSearch(event: KeyboardEvent) {
-      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        typeof event.key === 'string' &&
+        event.key.toLowerCase() === 'k'
+      ) {
         event.preventDefault();
         router.push('/search');
       }
