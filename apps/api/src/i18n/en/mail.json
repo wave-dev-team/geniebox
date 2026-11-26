@@ -1,0 +1,38 @@
+{
+  "login_code": {
+    "subject": "Your Geniebox sign-in code: {code}",
+    "text": "Your sign-in code: {code}\n\nThe code is valid for {ttlMinutes} minutes. If you did not try to sign in, ignore this email."
+  },
+  "verify_email_code": {
+    "subject": "Confirm your email for Geniebox",
+    "text": "Confirmation code: {code}\n\nThe code is valid for {ttlMinutes} minutes."
+  },
+  "reset_password_code": {
+    "subject": "Reset your Geniebox password",
+    "text": "Password reset code: {code}\n\nThe code is valid for {ttlMinutes} minutes. If you did not request a reset, ignore this email: your password stays the same."
+  },
+  "account_invitation": {
+    "subject": "Invitation to \"{accountName}\" on Geniebox",
+    "text": "{inviterName} invites you to \"{accountName}\".\n\nAccept the invitation: {link}\n\nThe link is valid until {expiresAt}."
+  },
+  "support_request": {
+    "subject": "Support request from {from}",
+    "text": "Request {requestId}\n\nFrom: {from}\nProject: {project}\nTopic: {topic}\nJournal access: {attachJournal}\n\n{message}"
+  },
+  "support_turnkey": {
+    "subject": "Turnkey setup request from {from}",
+    "text": "Request {requestId}\n\nFrom: {from}\nProject: {project}\nServices: {services}\nContact: {contact}\nPreferred time: {preferredTime}\n\n{message}"
+  },
+  "connection_ready": {
+    "subject": "A developer connected a service to \"{project}\"",
+    "text": "A service ({provider}) was connected to \"{project}\" using your link. Check result: {status}.\n\nOpen connections: {link}"
+  },
+  "account_blocked": {
+    "subject": "Account “{accountName}” is blocked",
+    "text": "The account “{accountName}” is blocked. Agents are stopped and members cannot sign in; data is kept.\n\nReason: {reason}\n\nReply to this email to lift the block."
+  },
+  "account_unblocked": {
+    "subject": "Account “{accountName}” is unblocked",
+    "text": "The block of “{accountName}” is lifted.\n\n{reason}\n\nOpen Geniebox: {link}"
+  }
+}

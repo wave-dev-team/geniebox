@@ -1,6 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
 import { OutboxService } from './outbox.service.js';
 
-@Module({ providers: [OutboxService], exports: [OutboxService] })
+/** Producer side, available everywhere. The relay and processor live in OutboxWorkerModule. */
+@Global()
+@Module({
+  providers: [OutboxService],
+  exports: [OutboxService],
+})
 export class OutboxModule {}

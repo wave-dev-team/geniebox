@@ -1,66 +1,71 @@
-import { randomUUID } from 'node:crypto';
+import type { Redis } from 'ioredis';
 
-import { z } from 'zod';
-
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { ThrottlerStorage } from '@nestjs/throttler';
 
-import { AppRedis } from '../redis/app-redis.js';
+import { STATE_REDIS } from '../redis/redis.module.js';
 
-const responseSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
-const slidingWindow = `
-local clock = redis.call('TIME')
-local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
-local window = tonumber(ARGV[1])
+interface ThrottlerStorageRecord {
+  totalHits: number;
+  timeToExpire: number;
+  isBlocked: boolean;
+  timeToBlockExpire: number;
+}
+
+// Atomic fixed-window counter with blocking. Returns hits, window TTL ms, block TTL ms.
+const INCREMENT_SCRIPT = `
+local hitsKey = KEYS[1]
+local blockKey = KEYS[2]
+local ttl = tonumber(ARGV[1])
 local limit = tonumber(ARGV[2])
-local blockFor = tonumber(ARGV[3])
-local blocked = redis.call('PTTL', KEYS[2])
-if blocked > 0 then return {limit + 1, blocked, 1, blocked} end
+local blockDuration = tonumber(ARGV[3])
 
-redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
-local count = redis.call('ZCARD', KEYS[1])
-if count >= limit then
-  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
-  local retry = math.max(1, tonumber(oldest[2]) + window - now)
-  if blockFor > 0 then
-    redis.call('SET', KEYS[2], '1', 'PX', blockFor)
-    redis.call('DEL', KEYS[1])
-    retry = blockFor
-  end
-  return {count + 1, retry, 1, retry}
+local blockTtl = redis.call("PTTL", blockKey)
+if blockTtl > 0 then
+  return { limit + 1, redis.call("PTTL", hitsKey), blockTtl }
 end
-redis.call('ZADD', KEYS[1], now, ARGV[4])
-redis.call('PEXPIRE', KEYS[1], window)
-return {count + 1, window, 0, 0}
+
+local hits = redis.call("INCR", hitsKey)
+if hits == 1 then
+  redis.call("PEXPIRE", hitsKey, ttl)
+end
+local hitsTtl = redis.call("PTTL", hitsKey)
+
+if hits > limit then
+  redis.call("SET", blockKey, "1", "PX", blockDuration)
+  return { hits, hitsTtl, blockDuration }
+end
+return { hits, hitsTtl, 0 }
 `;
 
+/** Throttler state in durable Redis so limits hold across instances and restarts. */
 @Injectable()
 export class RedisThrottlerStorage implements ThrottlerStorage {
-  constructor(private readonly redis: AppRedis) {}
+  constructor(@Inject(STATE_REDIS) private readonly redis: Redis) {}
 
-  async increment(key: string, ttl: number, limit: number, blockDuration: number, name: string) {
-    const prefix = `geniebox:throttle:{${key}}:${name}`;
-    try {
-      const [totalHits, reset, blocked, retry] = responseSchema.parse(
-        await this.redis.client.eval(
-          slidingWindow,
-          2,
-          `${prefix}:hits`,
-          `${prefix}:block`,
-          ttl,
-          limit,
-          blockDuration,
-          randomUUID(),
-        ),
-      );
-      return {
-        totalHits,
-        timeToExpire: Math.ceil(reset / 1000),
-        isBlocked: blocked === 1,
-        timeToBlockExpire: Math.ceil(retry / 1000),
-      };
-    } catch {
-      throw new ServiceUnavailableException();
-    }
+  async increment(
+    key: string,
+    ttl: number,
+    limit: number,
+    blockDuration: number,
+    throttlerName: string,
+  ): Promise<ThrottlerStorageRecord> {
+    const prefix = `throttle:${throttlerName}:${key}`;
+    const result = (await this.redis.eval(
+      INCREMENT_SCRIPT,
+      2,
+      `${prefix}:hits`,
+      `${prefix}:block`,
+      ttl,
+      limit,
+      blockDuration,
+    )) as [number, number, number];
+    const [totalHits, hitsTtlMs, blockTtlMs] = result;
+    return {
+      totalHits,
+      timeToExpire: Math.max(0, Math.ceil(hitsTtlMs / 1000)),
+      isBlocked: blockTtlMs > 0,
+      timeToBlockExpire: Math.max(0, Math.ceil(blockTtlMs / 1000)),
+    };
   }
 }

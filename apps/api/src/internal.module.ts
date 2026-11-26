@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
-import { TerminusModule } from '@nestjs/terminus';
+import { APP_GUARD } from '@nestjs/core';
 
-import { RedisModule } from './common/redis/redis.module.js';
+import { DefaultDenyGuard } from './common/guards/default-deny.guard.js';
 import { CoreModule } from './core.module.js';
-import { DatabaseModule } from './database/database.module.js';
 import { HttpCommonModule } from './http-common.module.js';
-import { InternalHealthController } from './modules/health/internal-health.controller.js';
+import { InternalHealthModule } from './modules/health/health.module.js';
 
+/**
+ * Internal API process: binds to INTERNAL_HOST (private network only).
+ * Hosts /internal/* for agents, detailed health and metrics. Service-token auth replaces
+ * DefaultDenyGuard together with the first /internal/agent endpoint.
+ */
 @Module({
-  imports: [CoreModule, HttpCommonModule, DatabaseModule, RedisModule, TerminusModule],
-  controllers: [InternalHealthController],
+  imports: [CoreModule, HttpCommonModule, InternalHealthModule],
+  providers: [{ provide: APP_GUARD, useClass: DefaultDenyGuard }],
 })
 export class InternalModule {}

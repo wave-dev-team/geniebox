@@ -1,7 +1,18 @@
+import 'reflect-metadata';
+
 import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
-import { createApp } from './create-app.js';
+import { ApiModule } from './api.module.js';
+import { configureHttpApp } from './bootstrap/configure-http-app.js';
+import type { Env } from './config/env.schema.js';
 
-const app = await createApp();
-const config = app.get(ConfigService);
-await app.listen(config.getOrThrow<number>('API_PORT'), config.getOrThrow<string>('API_HOST'));
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(ApiModule, { bufferLogs: true });
+  configureHttpApp(app, { kind: 'public' });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  await app.listen(config.get('PUBLIC_PORT', { infer: true }), config.get('PUBLIC_HOST', { infer: true }));
+}
+
+void bootstrap();

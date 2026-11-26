@@ -21,5 +21,6 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /runtime/ .
 USER node
-EXPOSE 8000
+# api: 3000, internal: 3100 (worker has no port).
+EXPOSE 3000 3100
 CMD ["node", "dist/main.js"]

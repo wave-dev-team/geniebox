@@ -150,7 +150,6 @@
     "tabs": {
       "general": "Profile",
       "notifications": "Notifications",
-      "telegram": "Telegram",
       "security": "Sign-in and security"
     },
     "account": "Account",
@@ -351,8 +350,7 @@
     "help": "Help",
     "search": "Search",
     "marketplace": "Marketplace",
-    "notifications": "Notifications",
-    "telegram": "Telegram"
+    "notifications": "Notifications"
   },
   "workspace": {
     "switch": "Switch workspace",

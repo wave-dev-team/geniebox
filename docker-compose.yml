@@ -1,147 +1,147 @@
+# Local development stack for the backend.
+#   docker compose up --build -d --wait
+# The API image is built once from apps/api/Dockerfile; migrate applies roles and migrations
+# before api/internal/worker start. Rebuild after code changes.
+x-app-environment: &app-environment
+  NODE_ENV: development
+  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  PUBLIC_HOST: 0.0.0.0
+  PUBLIC_PORT: 3000
+  INTERNAL_HOST: 0.0.0.0
+  INTERNAL_PORT: 3100
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+  SWAGGER_ENABLED: 'true'
+  DATABASE_URL: ${DATABASE_URL:-postgres://geniebox_app:app_dev_password@postgres:5432/geniebox}
+  DATABASE_SYSTEM_URL: ${DATABASE_SYSTEM_URL:-postgres://geniebox_system:system_dev_password@postgres:5432/geniebox}
+  DATABASE_OWNER_URL: ${DATABASE_OWNER_URL:-postgres://geniebox_owner:owner_dev_password@postgres:5432/geniebox}
+  DATABASE_ADMIN_URL: ${DATABASE_ADMIN_URL:-postgres://postgres:postgres@postgres:5432/postgres}
+  REDIS_STATE_URL: ${REDIS_STATE_URL:-redis://redis-state:6379/0}
+  REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis-cache:6379/0}
+  APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3001}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+  MAIL_TRANSPORT: smtp
+  SMTP_URL: smtp://mail:1025
+  MAIL_FROM: '${MAIL_FROM:-Geniebox <no-reply@geniebox.local>}'
+  SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@geniebox.local}
+  SECRETS_PUBLIC_KEY_FILE: .secrets/kek.pub.pem
+  SECRETS_PRIVATE_KEY_FILES: .secrets/kek.key.pem
+  CONNECTIONS_ALLOW_PRIVATE_HOSTS: 'true'
+  LLM_PROVIDER: fake
+
+x-app: &app
+  image: geniebox-api:local
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+  environment: *app-environment
+  volumes:
+    - ./apps/api/.secrets:/app/.secrets:ro
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis-state:
+      condition: service_healthy
+    redis-cache:
+      condition: service_healthy
+
 services:
-  db:
+  postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-geniebox}
-      POSTGRES_USER: ${POSTGRES_USER:-geniebox_owner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
-      interval: 3s
-      timeout: 3s
-      retries: 15
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    ports:
-      - '127.0.0.1:${DB_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
-  redis:
+  redis-state:
     image: redis:7-alpine
-    command: ['redis-server', '--appendonly', 'yes']
-    volumes:
-      - redis-data:/data
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
     ports:
-      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - ./infra/redis/state.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-state:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
-      interval: 3s
+      interval: 2s
       timeout: 3s
-      retries: 15
+      retries: 30
+
+  redis-cache:
+    image: redis:7-alpine
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    ports:
+      - '127.0.0.1:6380:6379'
+    volumes:
+      - ./infra/redis/cache.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   mail:
     image: axllent/mailpit:v1.31.4
     ports:
-      - '127.0.0.1:${SMTP_PORT:-1025}:1025'
-      - '127.0.0.1:${MAIL_WEB_PORT:-8025}:8025'
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
 
   migrate:
     image: geniebox-api:local
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    environment: *app-environment
     command: ['sh', '-ec', 'node dist/database/cli.js bootstrap && node dist/database/cli.js migrate']
-    environment:
-      DB_MIGRATION_URL: ${DB_MIGRATION_URL}
-      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
 
   api:
-    image: geniebox-api:local
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    environment: &app-environment
-      API_HOST: 0.0.0.0
-      TRUST_PROXY_HOPS: 1
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      AUTH_IDENTITY_SECRET: ${AUTH_IDENTITY_SECRET}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      SMTP_URL: ${SMTP_URL:-smtp://mail:1025}
-      AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:-no-reply@geniebox.test}
-      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
-      CONNECTIONS_ENCRYPTION_KEY: ${CONNECTIONS_ENCRYPTION_KEY:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-}
-      LLM_INCLUDE_WORKSPACE_REPORTS: ${LLM_INCLUDE_WORKSPACE_REPORTS:-false}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-90000}
-      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-768}
-      LLM_DAILY_CALL_LIMIT: ${LLM_DAILY_CALL_LIMIT:-100}
-      LLM_CALLS_PER_MINUTE: ${LLM_CALLS_PER_MINUTE:-30}
-      LLM_INPUT_USD_PER_MTOK: ${LLM_INPUT_USD_PER_MTOK:-0}
-      LLM_OUTPUT_USD_PER_MTOK: ${LLM_OUTPUT_USD_PER_MTOK:-0}
-      AUTH_COOKIE_SECURE: 'false'
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-      mail:
-        condition: service_started
+    <<: *app
+    command: ['node', 'dist/main.js']
+    ports:
+      - '127.0.0.1:3000:3000'
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:8000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  internal:
+    <<: *app
+    command: ['node', 'dist/main.internal.js']
+    ports:
+      - '127.0.0.1:3100:3100'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3100/health/details').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
         ]
       interval: 5s
       timeout: 3s
       retries: 12
 
   worker:
-    image: geniebox-api:local
-    restart: unless-stopped
+    <<: *app
     command: ['node', 'dist/main.worker.js']
-    environment: *app-environment
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-
-  internal:
-    image: geniebox-api:local
-    restart: unless-stopped
-    command: ['node', 'dist/main.internal.js']
-    environment: *app-environment
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://127.0.0.1:8001/internal/health/details').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
-        ]
-      interval: 10s
-      timeout: 3s
-      retries: 12
-
-  web:
-    image: geniebox-web:local
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-
-  proxy:
-    image: caddy:2-alpine
-    ports:
-      - '127.0.0.1:${WEB_PORT:-3000}:80'
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    depends_on:
-      api:
-        condition: service_healthy
-      web:
-        condition: service_started
 
 volumes:
   postgres-data:
-  redis-data:
+  redis-state:

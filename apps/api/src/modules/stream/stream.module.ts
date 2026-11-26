@@ -1,11 +1,20 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
-import { RedisModule } from '../../common/redis/redis.module.js';
+import { AccountsModule } from '../accounts/accounts.module.js';
+import { ProjectsModule } from '../projects/projects.module.js';
 import { StreamController } from './stream.controller.js';
-import { StreamService } from './stream.service.js';
+import { StreamHub } from './stream.hub.js';
+import { StreamPublisher } from './stream.publisher.js';
 
-@Module({ imports: [RedisModule], providers: [StreamService], exports: [StreamService] })
+/** Publisher for API and worker. */
+@Global()
+@Module({ providers: [StreamPublisher], exports: [StreamPublisher] })
 export class StreamPublisherModule {}
 
-@Module({ imports: [StreamPublisherModule], controllers: [StreamController] })
+/** SSE endpoint of the public API. */
+@Module({
+  imports: [AccountsModule, ProjectsModule],
+  controllers: [StreamController],
+  providers: [StreamHub],
+})
 export class StreamModule {}

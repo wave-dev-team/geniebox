@@ -14,7 +14,7 @@ export function safeNextPath(value: string | null | undefined): string | undefin
 
 const withNext = (path: string, next?: string) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 
-type ProfileTab = 'general' | 'notifications' | 'telegram' | 'security';
+type ProfileTab = 'general' | 'notifications' | 'security';
 
 export const routes = {
   root: () => '/',

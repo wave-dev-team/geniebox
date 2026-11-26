@@ -1,7 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
-import { RoutinesDataModule } from '../modules/routines/routines.module.js';
-import { SchedulingService } from './scheduling.service.js';
+import { ScheduledTaskRegistry } from './scheduled-task.registry.js';
+import { ScheduledTasksService } from './scheduled-tasks.service.js';
 
-@Module({ imports: [RoutinesDataModule], providers: [SchedulingService] })
+@Global()
+@Module({
+  providers: [ScheduledTasksService, ScheduledTaskRegistry],
+  exports: [ScheduledTasksService, ScheduledTaskRegistry],
+})
 export class SchedulingModule {}

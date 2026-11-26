@@ -1,6 +1,0 @@
-{
-  "invite": {
-    "subject": "Geniebox workspace invitation",
-    "body": "You were invited to a workspace. Sign in to Geniebox with this email address and enter the code in workspace settings.\n\n{code}\n\nThe code expires in 7 days."
-  }
-}

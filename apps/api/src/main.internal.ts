@@ -5,8 +5,20 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { configureHttpApp } from './bootstrap/configure-http-app.js';
+import type { Env } from './config/env.schema.js';
 import { InternalModule } from './internal.module.js';
 
-const app = await NestFactory.create<NestExpressApplication>(InternalModule, { bufferLogs: true });
-await configureHttpApp(app, 'internal');
-await app.listen(app.get(ConfigService).getOrThrow<number>('INTERNAL_PORT'), '127.0.0.1');
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(InternalModule, {
+    bufferLogs: true,
+  });
+  configureHttpApp(app, { kind: 'internal' });
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  // Never bind the internal listener to a public interface.
+  await app.listen(
+    config.get('INTERNAL_PORT', { infer: true }),
+    config.get('INTERNAL_HOST', { infer: true }),
+  );
+}
+
+void bootstrap();

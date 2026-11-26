@@ -1,24 +1,39 @@
 import { z } from 'zod';
 
-export const mailTransportToken = Symbol('MAIL_TRANSPORT');
-export const mailQueue = 'mail-send';
+import { SUPPORTED_LOCALES } from '../../common/i18n/locales.js';
 
-export const mailMessageSchema = z.object({
-  to: z.email(),
-  subject: z.string().min(1).max(240),
-  text: z.string().min(1).max(12_000),
-});
+/** Template id = key in i18n/<lang>/mail.json; params are interpolated into subject and text. */
+export const MAIL_TEMPLATES = [
+  'login_code',
+  'verify_email_code',
+  'reset_password_code',
+  'account_invitation',
+  'support_request',
+  'support_turnkey',
+  'connection_ready',
+  'account_blocked',
+  'account_unblocked',
+] as const;
+export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
+
 export const mailJobSchema = z.object({
-  tenantId: z.uuid(),
-  traceId: z.string().min(1).max(128),
-  mailId: z.uuid(),
-  ciphertext: z.string().min(40).max(100_000),
-  expiresAt: z.iso.datetime(),
+  to: z.email(),
+  template: z.enum(MAIL_TEMPLATES),
+  locale: z.enum(SUPPORTED_LOCALES),
+  params: z.record(z.string(), z.string()),
+  traceId: z.string().min(1),
 });
-
-export type MailMessage = z.infer<typeof mailMessageSchema>;
 export type MailJob = z.infer<typeof mailJobSchema>;
 
-export interface MailTransport {
-  send(message: MailMessage, id?: string): Promise<void>;
+export interface RenderedMail {
+  to: string;
+  subject: string;
+  text: string;
 }
+
+/** Delivery backend; selected by MAIL_TRANSPORT. */
+export interface MailTransport {
+  send(mail: RenderedMail): Promise<void>;
+}
+
+export const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');

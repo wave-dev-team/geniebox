@@ -1,53 +1,39 @@
 import { type Job, UnrecoverableError } from 'bullmq';
 
-import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Processor } from '@nestjs/bullmq';
+import { Inject } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
+import { I18nService } from 'nestjs-i18n';
 
+import type { AppClsStore } from '../../common/context/app-cls-store.js';
 import { runInContext } from '../../common/context/run-in-context.js';
-import type { RequestContext } from '../../database/tenant-db.js';
-import { MailService } from './mail.service.js';
-import { type MailJob, mailJobSchema, mailQueue } from './mail.types.js';
-import { MailEnvelope } from './mail-envelope.js';
+import { LoggedWorkerHost } from '../../queues/logged-worker-host.js';
+import { QUEUES } from '../../queues/queues.js';
+import { MAIL_TRANSPORT, mailJobSchema, type MailTransport } from './mail.types.js';
 
-@Processor(mailQueue, { concurrency: 1 })
-export class MailSendProcessor extends WorkerHost {
-  private readonly logger = new Logger(MailSendProcessor.name);
-
+@Processor(QUEUES.MAIL_SEND, { concurrency: 5 })
+export class MailSendProcessor extends LoggedWorkerHost {
   constructor(
-    private readonly envelope: MailEnvelope,
-    private readonly mail: MailService,
-    private readonly context: ClsService<RequestContext>,
+    @Inject(MAIL_TRANSPORT) private readonly transport: MailTransport,
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService<AppClsStore>,
   ) {
     super();
   }
 
-  async process(job: Job<MailJob>) {
-    const input = mailJobSchema.safeParse(job.data);
-    if (!input.success) throw new UnrecoverableError('Invalid mail job');
-    if (Date.parse(input.data.expiresAt) <= Date.now()) return;
-    return runInContext(this.context, input.data, async () => {
-      let message;
-      try {
-        message = this.envelope.open(input.data);
-      } catch {
-        throw new UnrecoverableError('Invalid mail envelope');
-      }
-      try {
-        await this.mail.send(message, input.data.mailId);
-      } catch {
-        throw new Error('Mail delivery failed');
-      }
+  async process(job: Job): Promise<void> {
+    const parsed = mailJobSchema.safeParse(job.data);
+    if (!parsed.success) {
+      throw new UnrecoverableError(`Invalid mail job: ${parsed.error.message}`);
+    }
+    const { to, template, locale, params, traceId } = parsed.data;
+    await runInContext(this.cls, { traceId }, async () => {
+      const options = { lang: locale, args: params };
+      await this.transport.send({
+        to,
+        subject: this.i18n.t(`mail.${template}.subject`, options),
+        text: this.i18n.t(`mail.${template}.text`, options),
+      });
     });
-  }
-
-  @OnWorkerEvent('failed')
-  failed(job: Job<MailJob> | undefined) {
-    this.logger.warn({ mailId: job?.id, attempt: job?.attemptsMade }, 'Mail job failed');
-  }
-
-  @OnWorkerEvent('error')
-  error() {
-    this.logger.error('Mail worker unavailable');
   }
 }

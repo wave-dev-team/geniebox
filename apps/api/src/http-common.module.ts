@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 
-import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
-import { CoreModule } from './core.module.js';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
-@Module({ imports: [CoreModule], providers: [HttpExceptionFilter], exports: [HttpExceptionFilter] })
+/** HTTP-only cross-cutting providers shared by both listeners. Each listener sets its own auth guard. */
+@Module({
+  providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
+})
 export class HttpCommonModule {}

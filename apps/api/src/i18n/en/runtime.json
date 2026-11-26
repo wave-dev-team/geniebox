@@ -1,0 +1,53 @@
+{
+  "digestTitle": "Daily digest",
+  "digestDescription": "A short summary: what changed today and which decisions wait for you.",
+  "waitingStep": "Waiting for your decision",
+  "waitingSummary": "waiting for your decision",
+  "runningSummary": "in progress",
+  "proposalText": "I've prepared a proposal — it needs your decision.",
+  "assignedText": "I've assigned the task — the result will appear here when the agent finishes.",
+  "acceptedSummary": "decision accepted",
+  "rejectedSummary": "you declined",
+  "expiredSummary": "decision expired",
+  "accepted": "Accepted. {text}",
+  "acceptedDefault": "Accepted — on it.",
+  "rejected": "You declined — I won't propose this again for {days} days.",
+  "expired": "The decision expired without an answer — the task is closed.",
+  "skippedPaused": "skipped — the agent is paused",
+  "errors": {
+    "BUDGET": {
+      "what": "the AI budget is exhausted",
+      "fix": "raise the budget in project rules or the agent's limit"
+    },
+    "AGENT_PAUSED": {
+      "what": "the agent is paused",
+      "fix": "resume the agent and retry"
+    },
+    "AGENT_GONE": {
+      "what": "the agent was removed",
+      "fix": "give the task to another agent"
+    },
+    "STEP_LIMIT": {
+      "what": "the agent ran out of steps",
+      "fix": "make the task more specific and retry"
+    },
+    "LLM_UNAVAILABLE": {
+      "what": "the AI model did not respond",
+      "fix": "retry later"
+    },
+    "INTERNAL": {
+      "what": "internal error",
+      "fix": "retry; contact support if it persists"
+    },
+    "ACTION_FAILED": {
+      "what": "the action failed: {code}",
+      "fix": "check connections and retry"
+    }
+  },
+  "turnFailed": "Couldn't answer: {what}. Please try again.",
+  "turnPaused": "This agent is paused — write to the manager or resume the agent.",
+  "check_worked": "worked",
+  "check_not_worked": "did not work",
+  "check_inconclusive": "no difference",
+  "checkNoVerdict": "The check ended without a verdict"
+}

@@ -1,6 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
 import { CatalogService } from './catalog.service.js';
 
-@Module({ providers: [CatalogService], exports: [CatalogService] })
+/** The agent catalog for every process (API, worker): in-memory, refreshed on change. */
+@Global()
+@Module({
+  providers: [CatalogService],
+  exports: [CatalogService],
+})
 export class CatalogModule {}

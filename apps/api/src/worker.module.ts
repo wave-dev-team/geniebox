@@ -1,23 +1,34 @@
 import { Module } from '@nestjs/common';
-import { ConditionalModule } from '@nestjs/config';
 
 import { CoreModule } from './core.module.js';
-import { ChatWorkerModule } from './modules/chat/chat.module.js';
-import { MailWorkerModule } from './modules/mail/mail-worker.module.js';
+import { AgentsWorkerModule } from './modules/agents/agents.module.js';
+import { CatalogWorkerModule } from './modules/catalog/catalog-worker.module.js';
+import { ConnectionsWorkerModule } from './modules/connections/connections.module.js';
+import { MailModule, MailWorkerModule } from './modules/mail/mail.module.js';
+import { MetricsWorkerModule } from './modules/metrics/metrics.module.js';
+import { ProjectsWorkerModule } from './modules/projects/projects.module.js';
+import { RuntimeWorkerModule } from './modules/runtime/runtime.module.js';
 import { StreamPublisherModule } from './modules/stream/stream.module.js';
-import { TasksWorkerModule } from './modules/tasks/tasks.module.js';
 import { OutboxWorkerModule } from './outbox/outbox-worker.module.js';
-import { SchedulingModule } from './scheduling/scheduling.module.js';
+import { QueueRootModule } from './queues/queue-root.module.js';
+import { SchedulingWorkerModule } from './scheduling/scheduling-worker.module.js';
 
+/** Background process: outbox relay, queue processors (incl. mail, project tasks), scheduled-task sweeper. No HTTP. */
 @Module({
   imports: [
     CoreModule,
-    StreamPublisherModule,
-    SchedulingModule,
+    QueueRootModule,
     OutboxWorkerModule,
+    SchedulingWorkerModule,
+    MailModule,
     MailWorkerModule,
-    ConditionalModule.registerWhen(ChatWorkerModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
-    ConditionalModule.registerWhen(TasksWorkerModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
+    ProjectsWorkerModule,
+    ConnectionsWorkerModule,
+    AgentsWorkerModule,
+    StreamPublisherModule,
+    RuntimeWorkerModule,
+    MetricsWorkerModule,
+    CatalogWorkerModule,
   ],
 })
 export class WorkerModule {}

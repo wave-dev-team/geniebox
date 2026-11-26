@@ -150,7 +150,6 @@
     "tabs": {
       "general": "Профиль",
       "notifications": "Уведомления",
-      "telegram": "Telegram",
       "security": "Вход и безопасность"
     },
     "account": "Аккаунт",
@@ -351,8 +350,7 @@
     "help": "Помощь",
     "search": "Поиск",
     "marketplace": "Маркетплейс",
-    "notifications": "Уведомления",
-    "telegram": "Telegram"
+    "notifications": "Уведомления"
   },
   "workspace": {
     "switch": "Выбрать рабочее пространство",

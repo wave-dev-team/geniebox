@@ -1,170 +1,162 @@
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 
-import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ApiHeader, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { clearAuthCookies, readRefreshCookie, setAuthCookies } from '../../common/auth/auth-cookie.js';
-import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { StrictThrottle } from '../../common/throttler/strict-throttle.decorator.js';
+import type { IdentityProvider } from '../users/repositories/users.repository.js';
+import { AuthService } from './auth.service.js';
 import {
-  AuthResultDto,
+  AuthResponseDto,
   ChangePasswordDto,
   CodeDto,
   EmailCodeDto,
   EmailDto,
+  IdTokenDto,
   LoginDto,
+  RefreshDto,
   RegisterDto,
-  ResetDto,
-} from './auth.dto.js';
-import { AuthService } from './auth.service.js';
-import { AuthError } from './auth-errors.js';
-import { SessionStore } from './session.store.js';
+  ResetPasswordDto,
+  RevokedSessionsResponseDto,
+  TokenPairResponseDto,
+} from './dto/auth.dto.js';
+import type { SessionMeta } from './sessions/session.store.js';
 
-export type { AuthenticatedRequest } from '../../common/auth/request-actor.js';
-
-const tightRate = { default: { limit: 15, ttl: 60_000 } };
-const meta = (req: Request) => ({ userAgent: req.get('User-Agent'), ip: req.ip });
+function sessionMeta(request: Request): SessionMeta {
+  return { userAgent: request.headers['user-agent'], ip: request.ip };
+}
 
 @ApiTags('auth')
-@ApiHeader({ name: 'X-Geniebox-Request', required: true, schema: { default: '1' } })
 @Controller('auth')
 export class AuthController {
-  private readonly secure: boolean;
-
-  constructor(
-    private readonly auth: AuthService,
-    private readonly sessions: SessionStore,
-    config: ConfigService,
-  ) {
-    this.secure = config.get('AUTH_COOKIE_SECURE') !== 'false' && config.get('NODE_ENV') === 'production';
-  }
+  constructor(private readonly auth: AuthService) {}
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
   @Post('register')
-  @ApiOkResponse({ type: AuthResultDto })
-  @HttpCode(200)
-  async register(
-    @Body() dto: RegisterDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const session = await this.auth.register(dto, meta(request));
-    setAuthCookies(response, this.secure, session);
-    return session.result;
+  @ApiOperation({ summary: 'Sign up with email and password; sends an email verification code' })
+  register(@Body() dto: RegisterDto, @Req() request: Request): Promise<AuthResponseDto> {
+    return this.auth.register(dto, sessionMeta(request));
   }
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
   @Post('login')
-  @ApiOkResponse({ type: AuthResultDto })
-  @HttpCode(200)
-  async login(
-    @Body() dto: LoginDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const session = await this.auth.login(dto.email, dto.password, meta(request));
-    setAuthCookies(response, this.secure, session);
-    return session.result;
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in with email and password' })
+  login(@Body() dto: LoginDto, @Req() request: Request): Promise<AuthResponseDto> {
+    return this.auth.login(dto, sessionMeta(request));
   }
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
   @Post('email-code')
-  @HttpCode(204)
-  requestLoginCode(@Body() dto: EmailDto) {
-    return this.auth.requestCode('login', dto.email);
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Send a sign-in code; signs up on first use. Same response for any email',
+  })
+  async requestLoginCode(@Body() dto: EmailDto): Promise<void> {
+    await this.auth.requestLoginCode(dto.email);
   }
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
   @Post('email-code/verify')
-  @ApiOkResponse({ type: AuthResultDto })
-  @HttpCode(200)
-  async verifyLoginCode(
-    @Body() dto: EmailCodeDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const session = await this.auth.loginWithCode(dto.email, dto.code, meta(request));
-    setAuthCookies(response, this.secure, session);
-    return session.result;
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in (or sign up) with the emailed code' })
+  loginWithCode(@Body() dto: EmailCodeDto, @Req() request: Request): Promise<AuthResponseDto> {
+    return this.auth.loginWithCode(dto, sessionMeta(request));
   }
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
+  @Post('oauth/google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in with a Google ID token' })
+  google(@Body() dto: IdTokenDto, @Req() request: Request): Promise<AuthResponseDto> {
+    return this.oauth('google', dto, request);
+  }
+
+  @Public()
+  @StrictThrottle()
+  @Post('oauth/apple')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sign in with an Apple ID token' })
+  apple(@Body() dto: IdTokenDto, @Req() request: Request): Promise<AuthResponseDto> {
+    return this.oauth('apple', dto, request);
+  }
+
+  @Public()
+  @StrictThrottle()
   @Post('password/forgot')
-  @HttpCode(204)
-  forgotPassword(@Body() dto: EmailDto) {
-    return this.auth.requestCode('reset', dto.email);
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Email a password reset code if the user exists' })
+  async forgotPassword(@Body() dto: EmailDto): Promise<void> {
+    await this.auth.requestPasswordReset(dto.email);
   }
 
   @Public()
-  @Throttle(tightRate)
+  @StrictThrottle()
   @Post('password/reset')
-  @HttpCode(204)
-  resetPassword(@Body() dto: ResetDto) {
-    return this.auth.resetPassword(dto.email, dto.code, dto.newPassword);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Set a new password with the emailed code; signs out all sessions' })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<void> {
+    await this.auth.resetPassword(dto);
   }
 
   @Public()
   @Post('refresh')
-  @HttpCode(204)
-  async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    try {
-      setAuthCookies(response, this.secure, await this.auth.refresh(readRefreshCookie(request)));
-    } catch (error) {
-      if (error instanceof AuthError && error.code === 'SESSION_EXPIRED')
-        clearAuthCookies(response, this.secure);
-      throw error;
-    }
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rotate the refresh token; reuse of an old token revokes the session' })
+  refresh(@Body() dto: RefreshDto): Promise<TokenPairResponseDto> {
+    return this.auth.refresh(dto.refreshToken);
   }
 
+  @ApiBearerAuth()
   @Post('logout')
-  @HttpCode(204)
-  async logout(@Req() request: AuthenticatedRequest, @Res({ passthrough: true }) response: Response) {
-    await this.sessions.revoke(homeActor(request.user));
-    clearAuthCookies(response, this.secure);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Revoke the current session' })
+  async logout(): Promise<void> {
+    await this.auth.logout();
   }
 
+  @ApiBearerAuth()
   @Post('logout-all')
-  @HttpCode(204)
-  async logoutAll(@Req() request: AuthenticatedRequest, @Res({ passthrough: true }) response: Response) {
-    await this.sessions.revokeAll(homeActor(request.user));
-    clearAuthCookies(response, this.secure);
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revoke every session of the current user' })
+  async logoutAll(): Promise<RevokedSessionsResponseDto> {
+    return { revoked: await this.auth.logoutEverywhere() };
   }
 
+  @ApiBearerAuth()
+  @StrictThrottle()
   @Post('email/verification')
-  @Throttle(tightRate)
-  @HttpCode(204)
-  requestVerification(@Req() request: AuthenticatedRequest) {
-    return this.auth.requestVerification(homeActor(request.user));
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Send an email verification code to the current user' })
+  async requestVerification(): Promise<void> {
+    await this.auth.requestEmailVerification();
   }
 
+  @ApiBearerAuth()
+  @StrictThrottle()
   @Post('email/verification/confirm')
-  @Throttle(tightRate)
-  @HttpCode(204)
-  verifyEmail(@Body() dto: CodeDto, @Req() request: AuthenticatedRequest) {
-    return this.auth.verifyEmail(homeActor(request.user), dto.code);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Confirm the current user's email with the code" })
+  async confirmVerification(@Body() dto: CodeDto): Promise<void> {
+    await this.auth.confirmEmailVerification(dto.code);
   }
 
+  @ApiBearerAuth()
+  @StrictThrottle()
   @Post('password/change')
-  @Throttle(tightRate)
-  @HttpCode(204)
-  async changePassword(
-    @Body() dto: ChangePasswordDto,
-    @Req() request: AuthenticatedRequest,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const replacement = await this.auth.changePassword(
-      homeActor(request.user),
-      dto.currentPassword,
-      dto.newPassword,
-      meta(request),
-    );
-    setAuthCookies(response, this.secure, replacement);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Set or change the password; other sessions are signed out' })
+  async changePassword(@Body() dto: ChangePasswordDto): Promise<void> {
+    await this.auth.changePassword(dto);
+  }
+
+  private oauth(provider: IdentityProvider, dto: IdTokenDto, request: Request): Promise<AuthResponseDto> {
+    return this.auth.loginWithProvider(provider, dto, sessionMeta(request));
   }
 }

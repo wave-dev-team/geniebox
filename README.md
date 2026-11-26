@@ -1,154 +1,105 @@
-# Geniebox
+# Geniebox backend
 
-Каркас рабочего пространства интернет-магазина. Главная открывает экран управляющего агента. В боковом меню доступны задачи, агенты, база знаний, подключения и отчёты.
+NestJS + Kysely + PostgreSQL, BullMQ + Redis. Аккаунт — тенант: маршруты живут под
+`/v1/accounts/:accountId/projects/:projectId`, изоляция данных обеспечивается RLS.
 
-## Запуск через Docker Compose
+## Процессы
 
-Нужны Docker и Compose v2. Скопируйте `.env.example` в `.env` и задайте четыре независимых секрета. Для локального запуска можно сгенерировать каждый через `openssl rand -hex 32`.
+Один образ, три entrypoint-а:
 
-- `POSTGRES_PASSWORD` используется владельцем базы.
-- `DB_APP_PASSWORD` используется ролью `geniebox_app`.
-- `JWT_SECRET` используется для подписи токенов.
-- `AUTH_IDENTITY_SECRET` используется для индекса входа по email и проверки одноразовых кодов. Сохраняйте его вместе с резервной копией базы.
-- В локальном Compose используются Redis для сессий и Mailpit для писем. Откройте <http://127.0.0.1:8025>, чтобы получить код подтверждения, входа или сброса пароля.
+| Процесс  | Entry                   | Слушает                       | Назначение                                            |
+| -------- | ----------------------- | ----------------------------- | ----------------------------------------------------- |
+| api      | `dist/main.js`          | `PUBLIC_HOST:PUBLIC_PORT`     | Публичный API, Swagger в development                  |
+| internal | `dist/main.internal.js` | `INTERNAL_HOST:INTERNAL_PORT` | `/health/details`, только приватная сеть              |
+| worker   | `dist/main.worker.js`   | —                             | Outbox relay, очереди, планировщик, агентский runtime |
 
-Заполните URL, подставив те же пароли вместо заполнителей. Для паролей со специальными символами используйте их URL-кодированное представление.
+## Быстрый старт
 
-```dotenv
-DB_MIGRATION_URL=postgresql://geniebox_owner:OWNER_PASSWORD@db:5432/geniebox
-DATABASE_URL=postgresql://geniebox_app:APP_PASSWORD@db:5432/geniebox
-```
+Нужны Docker и Compose v2.
 
 ```bash
-docker compose up --build -d
-curl -fsS http://127.0.0.1:3000/api/health
+cp .env.example apps/api/.env
+(cd apps/api && pnpm secrets:keygen)
+docker compose up --build -d --wait
+curl -fsS http://127.0.0.1:3000/health
 ```
 
-Интерфейс доступен по адресу <http://127.0.0.1:3000>. Caddy направляет `/api` в NestJS на том же origin. Сервис `migrate` создаёт роль приложения и применяет миграции до старта API. Контейнер API получает только URL роли приложения. При конфликте портов задайте `DB_PORT` или `WEB_PORT` в `.env`.
+- API: <http://127.0.0.1:3000>, Swagger: <http://127.0.0.1:3000/docs>
+- Internal: <http://127.0.0.1:3100/health/details>
+- Mailpit: <http://127.0.0.1:8025>
+- Postgres: `localhost:5432` (`postgres` / `postgres`)
+- Redis state/cache: `localhost:6379` / `localhost:6380`
 
-## Локальная разработка
+Сервис `migrate` создаёт роли БД и применяет миграции до старта приложений.
+Пересоберите образ после изменения кода: `docker compose up --build -d`.
 
-Нужны Node.js 22 LTS и pnpm 10.32.1. В командах ниже замените `5432` на значение `DB_PORT`, если изменили его.
+## Локальная разработка без контейнеров приложений
+
+Нужны Node.js 22 и pnpm 10.32.1.
 
 ```bash
 corepack enable
-pnpm install --frozen-lockfile
-docker compose up -d --wait db redis mail
+pnpm install
+docker compose up -d --wait postgres redis-state redis-cache mail
 
-set -a
-. ./.env
-set +a
-export DB_MIGRATION_URL="${DB_MIGRATION_URL/@db:5432/@127.0.0.1:5432}"
-export DATABASE_URL="${DATABASE_URL/@db:5432/@127.0.0.1:5432}"
-export REDIS_URL="${REDIS_URL/redis:6379/127.0.0.1:6379}"
-export SMTP_URL="${SMTP_URL/mail:1025/127.0.0.1:1025}"
-pnpm exec turbo build --filter=@workspace/api
-pnpm --filter @workspace/api db:bootstrap
-pnpm --filter @workspace/api db:migrate
-pnpm dev
+cd apps/api
+set -a; . ./.env; set +a
+pnpm build
+node dist/database/cli.js bootstrap
+node dist/database/cli.js migrate
+pnpm start          # API на :3000
+pnpm start:internal # /health/details на :3100
+pnpm start:worker   # очереди и runtime
 ```
 
-Web по умолчанию слушает порт 3000 и проксирует локальный `/api` на порт 8000. Swagger доступен только в среде разработки по адресу <http://127.0.0.1:8000/api/docs>. Версионируемые маршруты API используют префикс `/api/v1`. Публичный `/api/health` проверяет состояние процесса. Остальные контроллеры защищены по умолчанию.
+Секреты подключений — RSA-пара в `apps/api/.secrets`; приватный ключ читает только worker.
+Сгенерировать: `cd apps/api && pnpm secrets:keygen`.
+
+## База данных
 
 ```bash
-pnpm lint
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm test:integration  # нужен Docker
-pnpm audit --audit-level high
-pnpm build
+cd apps/api
+pnpm db:bootstrap    # роли и база (нужен DATABASE_ADMIN_URL)
+pnpm db:migrate
+pnpm db:status
+pnpm db:rollback     # только обратимая последняя миграция
+pnpm db:types        # regenerated src/database/types.ts из схемы
 ```
 
-После новой миграции выполните `pnpm --filter @workspace/api db:types` с URL владельца базы и обновите сгенерированный тип схемы. Для просмотра состояния и отката последней миграции доступны `db:status` и `db:rollback`.
+Роли фиксированы (`src/database/roles.ts`): `geniebox_owner` (миграции),
+`geniebox_app` (запросы, RLS, без `BYPASSRLS`), `geniebox_system` (`BYPASSRLS`,
+кросс-аккаунтные задачи).
+
+Доступ к данным аккаунта — только через `AccountDb.transaction`; данные пользователя
+вне аккаунта — `UserDb`; `SystemDb` — только с обоснованной причиной.
+
+## Проверки
+
+```bash
+pnpm --filter @workspace/api typecheck
+pnpm --filter @workspace/api build
+pnpm --filter @workspace/api test
+pnpm --filter @workspace/api test:integration   # Testcontainers, нужен Docker
+```
 
 ## Структура
 
-| Путь                                          | Назначение                                                         |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| `apps/web`                                    | Next.js App Router, навигация, локализованные строки и React Query |
-| `apps/api`                                    | NestJS, Swagger, JWT guard, конфигурация и миграции Kysely         |
-| `packages/ui`                                 | Компоненты shadcn/ui и токены Tailwind CSS                         |
-| `packages/types`, `packages/api-client`       | Общий контракт и клиент HTTP                                       |
-| `packages/tsconfig`, `packages/eslint-config` | Общие настройки TypeScript и ESLint                                |
-
-Первая миграция создаёт каталог метрик с составным ключом тенанта и принудительным RLS. Пул приложения подключается отдельной ролью. `TenantDb` выставляет идентификатор тенанта только на время транзакции и берёт его из контекста запроса, который заполняет JWT-стратегия. Интеграционный тест проверяет изоляцию чтения и записи на PostgreSQL.
-
-## Функциональность продукта
-
-Следующий слой разработки включает:
-
-- Загрузку конкурентных исследований и интервью в закрытом контуре.
-- Сопоставление сигналов с привязкой выводов к источникам и существующему бэклогу.
-- Проверку гипотез и настройку критериев успеха, затем измерение эффекта после релиза.
-- Экспорт задачи с тегом «сгенерирована ИИ-помощником» и уведомления продакт-менеджеру.
-
-Доступны регистрация, вход по паролю или коду из письма, подтверждение адреса, восстановление пароля, управление профилем и сеансами, светлая, тёмная и системная темы. С главной можно отправить сообщение управляющему или открыть историю диалога. Ответ появляется по мере генерации. PostgreSQL хранит историю и результаты поручений, Redis обслуживает очередь генерации. В настройках доступны рабочие пространства и приглашения. Подключения и отчёты поддерживают сравнение статистики Яндекс.Метрики за два периода. Telegram и уведомления пока показывают заглушки.
-
-Access JWT живёт 10 минут и хранится в HttpOnly cookie. Refresh действует до 30 дней, ротируется в Redis и отзывается при завершении сеанса. PostgreSQL хранит профили под принудительным RLS. Глобальный индекс входа хранит HMAC адреса и идентификаторы тенанта и пользователя. Миграция профилей необратима из-за риска потери учётных записей.
-
-## Задачи
-
-В разделе «Задачи» доступны активные и завершённые задачи, фильтр по исполнителю, сроки и карточки с результатами. Личную задачу можно изменить, взять в работу, завершить или отменить. При назначении активному агенту задача запускается в очереди. После ошибки её можно повторить. Поручения управляющего из чата появляются в списке автоматически и открываются из сообщения.
-
-`GET /api/v1/tasks` возвращает список с пагинацией, `GET /api/v1/tasks/counts` возвращает счётчики для вкладок. Данные привязаны к тенанту и пользователю. Срок в карточке используется для планирования человеком. Задача, назначенная агенту, начинает выполняться сразу.
-
-## Чат и модель
-
-API поддерживает потоковый OpenAI-совместимый Chat Completions. Ограничение в `LLM_DAILY_CALL_LIMIT` применяется к каждому тенанту и роли за сутки по UTC. `LLM_CALLS_PER_MINUTE` задаёт общий лимит вызовов модели. Параметры `LLM_INPUT_USD_PER_MTOK` и `LLM_OUTPUT_USD_PER_MTOK` используются для учёта стоимости по данным провайдера.
-
-Для разработки можно запустить [llama.cpp](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) с [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) и задать переменные окружения API. Пример ниже рассчитан на API, запущенный на хосте. В Docker укажите URL, доступный из контейнера API.
-
-```bash
-llama-server -m /path/to/qwen2.5-1.5b-instruct-q4_k_m.gguf \
-  --alias qwen2.5-1.5b-instruct --host 127.0.0.1 --port 58181 --ctx-size 8192
+```text
+apps/api/src
+  config/        zod-схема env — единственное место чтения process.env
+  bootstrap/     настройка HTTP-приложения
+  common/        CLS-контекст, исключения, фильтр, guards, i18n, логи, Redis, throttler
+  database/      Kysely, AccountDb/UserDb/SystemDb, роли, bootstrap, миграции, types.ts
+  journal/       неизменяемый журнал действий
+  outbox/        transactional outbox + relay/processor в worker
+  scheduling/    scheduled_tasks в Postgres + sweeper и run processor
+  queues/        имена очередей и политики ретраев
+  modules/       accounts, projects, agents, work, connections, metrics, runtime, stream,
+                 mail, catalog, actions, health, users, auth
+apps/api/test    e2e-тесты (Testcontainers)
 ```
 
-```dotenv
-LLM_BASE_URL=http://127.0.0.1:58181/v1
-LLM_MODEL=qwen2.5-1.5b-instruct
-```
+## Клиенты
 
-Если провайдер требует ключ, задайте `LLM_API_KEY` в окружении API. При пустом `LLM_BASE_URL` история остаётся доступна, генерация отключена. В модель передаются текущий запрос, ограниченная история и, при делегировании, инструкции и ответы выбранных агентов. Адреса почты, имя из профиля и похожие на телефон или платёжный номер строки маскируются. В свободном тексте могут остаться другие персональные данные. Для рабочих данных используйте модель внутри закрытого контура.
-
-API агентов поддерживает реестр, редактирование инструкций и включение или паузу. Новые записи по умолчанию на паузе. Когда доступны активные специалисты, управляющий может назначить до двух внутренних аналитических поручений и использовать результаты в ответе. Выбранный провайдер для делегирования должен поддерживать структурированный вывод JSON Schema. Результаты поручений видны в диалоге.
-
-## Сторонние компоненты
-
-- Web — React, Next.js, Tailwind CSS, shadcn/ui CLI и пресет, Base UI, class-variance-authority, cn, Lucide, tw-animate-css, TanStack Query, React Hook Form, Hook Form Resolvers, next-intl, next-themes, Sonner, cmdk и input-otp.
-- API — NestJS, Express, Swagger, Terminus, Passport, passport-jwt, Throttler, Helmet, Kysely, pg, PostgreSQL, nestjs-cls, nestjs-i18n, nestjs-pino, pino-http, Zod, class-validator, class-transformer, reflect-metadata, RxJS, @nestjs/jwt, Redis, ioredis, Argon2, Nodemailer, Mailpit для локальной почты, BullMQ, @nestjs/bullmq и @nestjs/event-emitter. Локальная модель для проверки чата — Qwen2.5-1.5B-Instruct через llama.cpp.
-- Сборка и проверки — pnpm, Turborepo, TypeScript, ESLint, typescript-eslint, simple-import-sort, Prettier, Husky, lint-staged, concurrently, Jest, ts-jest, Supertest, Testcontainers, kysely-codegen, Renovate, GitHub Actions, Docker Compose и Caddy.
-
-Точные версии npm-пакетов перечислены в манифестах и `pnpm-lock.yaml`.
-
-## Продакшен
-
-Перед первым развёртыванием версии с авторизацией задайте `SMTP_URL` и `AUTH_MAIL_FROM` в `/opt/wave/shared/.env`. Скрипт первого развёртывания добавляет `AUTH_IDENTITY_SECRET`, если переменная отсутствует. Данные Redis сохраняются в отдельном томе.
-
-Слияние в `main` запускает workflow **Deploy production**. Он публикует образы API и web в GHCR с тегом SHA коммита, применяет миграции на стенде и проверяет публичный URL <https://app.geniebox.ru> и health endpoint <https://app.geniebox.ru/api/health>. Стенд принимает публичные запросы через Caddy, а порты приложений доступны только на loopback.
-
-Окружение GitHub `production` разрешает деплой из `main` и содержит `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` и `DEPLOY_KNOWN_HOSTS`. На первом запуске workflow создаёт конфигурацию БД в `/opt/wave/shared/.env`. Эта конфигурация и том PostgreSQL используются во всех следующих релизах.
-
-При провале проверки workflow возвращает предыдущие образы приложения, если они доступны. Изменения схемы БД сохраняются, поэтому релизные миграции должны быть совместимы с предыдущей версией приложения. Для планового отката оформите revert через PR в `main`.
-
-## Яндекс.Метрика и отчёты
-
-Для тестового сценария включите тестовые данные в разделе «Подключения». Для подключения реального счётчика задайте постоянный `CONNECTIONS_ENCRYPTION_KEY` из 64 шестнадцатеричных символов (`openssl rand -hex 32`). Владелец пространства вводит номер счётчика и OAuth-токен с доступом на чтение статистики. Ключ и токен хранятся отдельно. При замене ключа счётчик нужно подключить заново. [Документация авторизации API Яндекс.Метрики](https://yandex.ru/dev/metrika/ru/intro/authorization).
-
-В «Отчётах» выберите показатель и два непересекающихся периода одинаковой длины. При необходимости задайте критерий успеха в процентах. Отчёт сохраняет значения, источник, признак выборки и критерий на момент сравнения. Разница между периодами сама по себе не устанавливает причинный эффект релиза.
-
-Из раздела «Задачи» можно открыть расписания и настроить ежедневное или еженедельное создание личной задачи. Расписание поддерживает паузу и ручной запуск. При пропущенном интервале после восстановления сервиса создаётся одна задача, затем работа продолжается по прежнему расписанию.
-
-В разделе «Агенты» доступны аналитики метрик, гипотез и исследований. Они появляются на паузе в личном реестре каждого участника пространства. Изменения имени и инструкций создают версии. Восстановление прежних инструкций сохраняет их как текущую версию, а история сохраняется. Активным агентам можно поручать задачи вручную и через управляющего.
-
-Аналитик метрик получает до трёх последних сохранённых отчётов пространства, если в закрытом контуре задано `LLM_INCLUDE_WORKSPACE_REPORTS=true`. При настройке внешнего провайдера оставьте параметр выключенным. Задачи и чат записывают версию инструкций в журнал вызовов модели.
-
-## Процессы API
-
-Локальная разработка и Compose запускают три процесса. Публичный API отвечает на порту 8000. Воркер обрабатывает очереди чата и задач, доставляет записи transactional outbox и проверяет расписания. Приватный listener слушает только loopback внутри своего процесса или контейнера и публикует `/internal/health` и проверку PostgreSQL и Redis на `/internal/health/details` на порту 8001. Caddy направляет публичный трафик в процесс API.
-
-При запуске без Compose откройте отдельные процессы командой `pnpm --filter @workspace/api start:worker` и `pnpm --filter @workspace/api start:internal` после сборки и миграций. Настройте окружение так же, как для API. Порт приватного listener при запуске на хосте можно задать через `INTERNAL_PORT`.
-
-Создание сообщения или запуск агентской задачи записывает команду в PostgreSQL той же транзакцией, что и основное изменение. Воркер повторяет отправку при недоступности Redis. Повторные отправки используют стабильный идентификатор BullMQ. Журнал действий сохраняет идентификаторы, статусы и trace ID без текста переписки, результатов модели или ключей доступа. Роль приложения может только добавлять записи в журнал.
-
-Модуль почты выбирает транспорт через `MAIL_TRANSPORT`. `smtp` используется по умолчанию, `log` записывает только идентификатор отправки, а `memory` подходит для локальных тестов. Код входа и восстановления отправляется сразу. Приглашение хранится в outbox в зашифрованном виде, а SMTP-доставка выполняется в воркере с повторами.
+- `apps/web` и `packages/api-client` — отдельные клиентские пакеты; их совместимость с
+  текущим API отдельно не гарантируется.

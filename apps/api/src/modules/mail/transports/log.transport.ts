@@ -1,12 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 
-import type { MailMessage, MailTransport } from '../mail.types.js';
+import type { MailTransport, RenderedMail } from '../mail.types.js';
 
-@Injectable()
+/** Development only (rejected in production by env validation): prints the whole mail. */
 export class LogMailTransport implements MailTransport {
-  private readonly logger = new Logger(LogMailTransport.name);
+  private readonly logger = new Logger('Mail');
 
-  async send(_message: MailMessage, id?: string) {
-    this.logger.log({ mailId: id }, 'Mail captured by log transport');
+  send(mail: RenderedMail): Promise<void> {
+    this.logger.log(`\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n`);
+    return Promise.resolve();
   }
 }

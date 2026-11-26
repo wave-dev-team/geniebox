@@ -1,38 +1,37 @@
-import { randomUUID } from 'node:crypto';
+import { Global, Injectable, Module } from '@nestjs/common';
 
-import type { Transaction } from 'kysely';
+import type { WriteContext } from '../database/write-context.js';
+import type { JournalEntryInput } from './journal.types.js';
 
-import { Injectable } from '@nestjs/common';
-
-import type { DB } from '../database/types.js';
-
-interface JournalEntry {
-  tenantId: string;
-  traceId: string;
-  action: string;
-  targetId: string;
-  actor: { kind: 'user' | 'agent' | 'system'; id?: string; role?: string };
-  result?: string;
-  details?: Record<string, string | number | boolean | null>;
-}
-
+/**
+ * Append-only action journal, written in the same transaction as the action itself.
+ * The table rejects UPDATE/DELETE/TRUNCATE at the database level.
+ */
 @Injectable()
 export class JournalService {
-  async append(tx: Transaction<DB>, entry: JournalEntry) {
-    await tx
+  async record(tx: WriteContext, entry: JournalEntryInput): Promise<void> {
+    await tx.db
       .insertInto('action_journal')
       .values({
-        action: entry.action,
-        actor_id: entry.actor.id ?? null,
-        actor_kind: entry.actor.kind,
+        account_id: tx.accountId ?? null,
+        actor_type: entry.actor.type,
+        actor_id: entry.actor.id,
         actor_role: entry.actor.role ?? null,
-        details: entry.details ?? {},
-        id: randomUUID(),
-        result: entry.result ?? null,
-        target_id: entry.targetId,
-        tenant_id: entry.tenantId,
-        trace_id: entry.traceId,
+        action: entry.action,
+        target_type: entry.target?.type ?? null,
+        target_id: entry.target?.id ?? null,
+        args: entry.args === undefined ? null : JSON.stringify(entry.args),
+        result: entry.result === undefined ? null : JSON.stringify(entry.result),
+        status: entry.status,
+        trace_id: tx.traceId,
       })
       .execute();
   }
 }
+
+@Global()
+@Module({
+  providers: [JournalService],
+  exports: [JournalService],
+})
+export class JournalModule {}

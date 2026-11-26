@@ -1,158 +1,120 @@
-import { randomUUID } from 'node:crypto';
+import type { Selectable, Transaction } from 'kysely';
 
 import { Injectable } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
 
-import type { ProfileUpdate } from '@workspace/types';
+import type { DB, UserIdentities, Users } from '../../../database/types.js';
 
-import { IdentityDirectory } from '../../../database/identity-directory.js';
-import { type RequestContext, TenantDb } from '../../../database/tenant-db.js';
-import { JournalService } from '../../../journal/journal.service.js';
+export type UserRow = Selectable<Users>;
+export type PublicUserRow = Omit<UserRow, 'password_hash'>;
+export type IdentityProvider = 'google' | 'apple';
+export type IdentityRow = Selectable<UserIdentities>;
 
-export interface Identity {
-  tenantId: string;
-  userId: string;
+// Columns readable by the app role (password_hash is not granted to it).
+const PUBLIC_COLUMNS = [
+  'id',
+  'email',
+  'email_verified_at',
+  'display_name',
+  'locale',
+  'timezone',
+  'password_changed_at',
+  'status',
+  'created_at',
+  'updated_at',
+  'blocked_at',
+  'blocked_reason',
+  'last_seen_at',
+] as const;
+
+export interface InsertUser {
+  email: string;
+  password_hash?: string | null;
+  email_verified_at?: Date | null;
+  display_name?: string | null;
+  locale?: string;
+  password_changed_at?: Date | null;
 }
 
+/**
+ * Methods taking `system` run on the system role (auth flows: lookups by email before a user
+ * is known). Methods taking `scoped` run under UserDb/AccountDb and are filtered by RLS.
+ */
 @Injectable()
 export class UsersRepository {
-  constructor(
-    private readonly db: TenantDb,
-    private readonly directory: IdentityDirectory,
-    private readonly context: ClsService<RequestContext>,
-    private readonly journal: JournalService,
-  ) {}
-
-  async register(input: {
-    emailKey: string;
-    email: string;
-    name: string;
-    passwordHash: string | null;
-    locale: string;
-    verified?: boolean;
-  }) {
-    const tenantId = randomUUID();
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction(async (tx) => {
-        const row = await tx
-          .insertInto('user_profiles')
-          .values({
-            tenant_id: tenantId,
-            id: randomUUID(),
-            email: input.email,
-            name: input.name,
-            locale: input.locale,
-            password_hash: input.passwordHash,
-            email_verified_at: input.verified ? new Date() : null,
-          })
-          .returningAll()
-          .executeTakeFirstOrThrow();
-        await tx
-          .insertInto('email_identities')
-          .values({
-            email_key: input.emailKey,
-            tenant_id: tenantId,
-            user_id: row.id,
-          })
-          .execute();
-        return row;
-      }),
-    );
+  findByEmail(system: Transaction<DB>, email: string): Promise<UserRow | undefined> {
+    return system.selectFrom('users').selectAll().where('email', '=', email).executeTakeFirst();
   }
 
-  async findByEmail(emailKey: string) {
-    const entry = await this.directory.find(emailKey);
-    return entry ? this.find({ tenantId: entry.tenant_id, userId: entry.user_id }) : undefined;
+  findById(system: Transaction<DB>, id: string): Promise<UserRow | undefined> {
+    return system.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst();
   }
 
-  find({ tenantId, userId }: Identity) {
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction((tx) =>
-        tx.selectFrom('user_profiles').selectAll().where('id', '=', userId).executeTakeFirst(),
-      ),
-    );
+  insert(system: Transaction<DB>, values: InsertUser): Promise<UserRow> {
+    return system.insertInto('users').values(values).returningAll().executeTakeFirstOrThrow();
   }
 
-  async name({ tenantId, userId }: Identity) {
-    const row = await this.context.runWith({ tenantId }, () =>
-      this.db.transaction((tx) =>
-        tx.selectFrom('user_profiles').select('name').where('id', '=', userId).executeTakeFirstOrThrow(),
-      ),
-    );
-    return row.name;
+  async setPassword(system: Transaction<DB>, id: string, passwordHash: string): Promise<void> {
+    await system
+      .updateTable('users')
+      .set({ password_hash: passwordHash, password_changed_at: new Date() })
+      .where('id', '=', id)
+      .execute();
   }
 
-  update({ tenantId, userId }: Identity, input: ProfileUpdate) {
-    const traceId = this.context.getId() ?? randomUUID();
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction(async (tx) => {
-        const profile = await tx
-          .updateTable('user_profiles')
-          .set({ name: input.name, locale: input.locale, timezone: input.timeZone })
-          .where('id', '=', userId)
-          .returningAll()
-          .executeTakeFirstOrThrow();
-        await this.journal.append(tx, {
-          tenantId,
-          traceId,
-          action: 'user.profile_updated',
-          targetId: userId,
-          actor: { kind: 'user', id: userId },
-        });
-        return profile;
-      }),
-    );
+  /** Returns true if the email was not verified before. */
+  async markEmailVerified(system: Transaction<DB>, id: string): Promise<boolean> {
+    const result = await system
+      .updateTable('users')
+      .set({ email_verified_at: new Date() })
+      .where('id', '=', id)
+      .where('email_verified_at', 'is', null)
+      .executeTakeFirst();
+    return result.numUpdatedRows > 0n;
   }
 
-  verifyEmail({ tenantId, userId }: Identity) {
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction((tx) =>
-        tx
-          .updateTable('user_profiles')
-          .set({ email_verified_at: new Date() })
-          .where('id', '=', userId)
-          .where('email_verified_at', 'is', null)
-          .execute(),
-      ),
-    );
+  findIdentity(
+    system: Transaction<DB>,
+    provider: IdentityProvider,
+    subject: string,
+  ): Promise<IdentityRow | undefined> {
+    return system
+      .selectFrom('user_identities')
+      .selectAll()
+      .where('provider', '=', provider)
+      .where('subject', '=', subject)
+      .executeTakeFirst();
   }
 
-  claimUnverifiedEmail({ tenantId, userId }: Identity) {
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction((tx) =>
-        tx
-          .updateTable('user_profiles')
-          .set({ email_verified_at: new Date(), password_hash: null, password_changed_at: new Date() })
-          .where('id', '=', userId)
-          .where('email_verified_at', 'is', null)
-          .returningAll()
-          .executeTakeFirst(),
-      ),
-    );
+  async insertIdentity(
+    system: Transaction<DB>,
+    values: { user_id: string; provider: IdentityProvider; subject: string; email: string | null },
+  ): Promise<void> {
+    await system.insertInto('user_identities').values(values).execute();
   }
 
-  async changePassword(
-    { tenantId, userId }: Identity,
-    expectedHash: string | null,
-    newHash: string,
-    verifyEmail: boolean,
-  ) {
-    return this.context.runWith({ tenantId }, () =>
-      this.db.transaction((tx) =>
-        tx
-          .updateTable('user_profiles')
-          .set((eb) => ({
-            password_hash: newHash,
-            password_changed_at: new Date(),
-            email_verified_at: verifyEmail
-              ? eb.fn.coalesce('email_verified_at', eb.val(new Date()))
-              : undefined,
-          }))
-          .where('id', '=', userId)
-          .where('password_hash', 'is not distinct from', expectedHash)
-          .returningAll()
-          .executeTakeFirst(),
-      ),
-    );
+  findSelf(scoped: Transaction<DB>, id: string): Promise<PublicUserRow | undefined> {
+    return scoped.selectFrom('users').select(PUBLIC_COLUMNS).where('id', '=', id).executeTakeFirst();
+  }
+
+  updateSelf(
+    scoped: Transaction<DB>,
+    id: string,
+    values: { display_name?: string | null; locale?: string; timezone?: string | null },
+  ): Promise<PublicUserRow | undefined> {
+    return scoped
+      .updateTable('users')
+      .set(values)
+      .where('id', '=', id)
+      .returning(PUBLIC_COLUMNS)
+      .executeTakeFirst();
+  }
+
+  listIdentityProviders(scoped: Transaction<DB>, userId: string): Promise<IdentityProvider[]> {
+    return scoped
+      .selectFrom('user_identities')
+      .select('provider')
+      .where('user_id', '=', userId)
+      .execute()
+      .then((rows) => rows.map((row) => row.provider as IdentityProvider));
   }
 }
