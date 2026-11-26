@@ -15,7 +15,19 @@
       "dependsOn": ["^build"],
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["API_HOST", "API_PORT", "DATABASE_URL", "JWT_SECRET", "NODE_ENV"]
+      "passThroughEnv": [
+        "API_HOST",
+        "API_PORT",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "NODE_ENV",
+        "AUTH_IDENTITY_SECRET",
+        "REDIS_URL",
+        "SMTP_URL",
+        "AUTH_MAIL_FROM",
+        "AUTH_COOKIE_SECURE",
+        "TRUST_PROXY_HOPS"
+      ]
     }
   }
 }

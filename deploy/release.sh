@@ -39,6 +39,10 @@ ENV
   mv -- "$scratch/database.env" "$shared/.env"
 fi
 
+if ! grep -q '^AUTH_IDENTITY_SECRET=.' "$shared/.env"; then
+  printf 'AUTH_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$shared/.env"
+fi
+
 printf 'RELEASE_SHA=%s\n' "$release_sha" > "$release/release.env"
 
 compose() {

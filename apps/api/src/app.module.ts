@@ -13,9 +13,9 @@ import { AcceptLanguageResolver, I18nModule } from 'nestjs-i18n';
 import { LoggerModule } from 'nestjs-pino';
 
 import { JwtGuard } from './common/auth/jwt.guard.js';
-import { JwtStrategy } from './common/auth/jwt.strategy.js';
+import { SameOriginGuard } from './common/auth/same-origin.guard.js';
 import { appEnvironment } from './config/environment.js';
-import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 
 @Module({
@@ -52,11 +52,11 @@ import { HealthModule } from './modules/health/health.module.js';
     }),
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
-    DatabaseModule,
+    AuthModule,
     HealthModule,
   ],
   providers: [
-    JwtStrategy,
+    { provide: APP_GUARD, useClass: SameOriginGuard },
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],

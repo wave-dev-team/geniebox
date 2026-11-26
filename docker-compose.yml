@@ -15,6 +15,25 @@ services:
     ports:
       - '127.0.0.1:${DB_PORT:-5432}:5432'
 
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  mail:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - '127.0.0.1:${SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAIL_WEB_PORT:-8025}:8025'
+
   migrate:
     image: geniebox-api:local
     build:
@@ -35,11 +54,21 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       API_HOST: 0.0.0.0
+      TRUST_PROXY_HOPS: 1
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
+      AUTH_IDENTITY_SECRET: ${AUTH_IDENTITY_SECRET}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SMTP_URL: ${SMTP_URL:-smtp://mail:1025}
+      AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:-no-reply@geniebox.test}
+      AUTH_COOKIE_SECURE: 'false'
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mail:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -72,3 +101,4 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:

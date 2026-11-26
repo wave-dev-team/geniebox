@@ -5,6 +5,8 @@ import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { PinoLogger } from 'nestjs-pino';
 
+import { AuthError, authErrorStatuses } from '../../modules/auth/auth-errors.js';
+
 const errorCodes = new Map<number, string>([
   [400, 'BAD_REQUEST'],
   [401, 'UNAUTHORIZED'],
@@ -24,9 +26,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const statusCode =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-    const code = errorCodes.get(statusCode) ?? (statusCode >= 500 ? 'INTERNAL_ERROR' : 'HTTP_ERROR');
+      exception instanceof AuthError
+        ? authErrorStatuses[exception.code]
+        : exception instanceof HttpException
+          ? exception.getStatus()
+          : HttpStatus.INTERNAL_SERVER_ERROR;
+    const code =
+      exception instanceof AuthError
+        ? exception.code
+        : (errorCodes.get(statusCode) ?? (statusCode >= 500 ? 'INTERNAL_ERROR' : 'HTTP_ERROR'));
     const traceId = this.context.getId();
+    const payload = exception instanceof HttpException ? exception.getResponse() : undefined;
+    const details =
+      typeof payload === 'object' && 'message' in payload && Array.isArray(payload.message)
+        ? payload.message
+        : undefined;
 
     if (statusCode >= 500) {
       this.logger.error({ traceId, statusCode, code }, 'HTTP request failed');
@@ -40,6 +54,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         statusCode,
         code,
         message: this.i18n.translate(`errors.${code}`, { lang: I18nContext.current(host)?.lang }),
+        ...(details && { details }),
         traceId,
         timestamp: new Date().toISOString(),
       });

@@ -1,17 +1,10 @@
 import { type HealthResponse, healthResponseSchema } from '@workspace/types';
 
-export class ApiError extends Error {
-  constructor(public readonly status: number) {
-    super(`API returned HTTP ${status}`);
-  }
-}
+import { request } from './request.js';
+
+export { authApi, profileApi } from './identity.js';
+export { ApiError } from './request.js';
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch('/api/health', { signal, cache: 'no-store' });
-
-  if (!response.ok) {
-    throw new ApiError(response.status);
-  }
-
-  return healthResponseSchema.parse(await response.json());
+  return healthResponseSchema.parse(await (await request('/health', { signal })).json());
 }
