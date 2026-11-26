@@ -1,0 +1,9 @@
+{
+  "extends": "@workspace/tsconfig/node.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": true
+  },
+  "include": ["src", "test"]
+}
