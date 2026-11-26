@@ -7,8 +7,8 @@ import { OutboxModule } from '../../outbox/outbox.module.js';
 import { ModelQueueModule } from '../../queues/model-queue.module.js';
 import { QueueRootModule } from '../../queues/queue-root.module.js';
 import { AgentsModule } from '../agents/agents.module.js';
-import { ProfileModule } from '../profile/profile.module.js';
 import { RuntimeModule } from '../runtime/runtime.module.js';
+import { UsersDataModule } from '../users/users.module.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksProcessor } from './tasks.processor.js';
 import { TasksRepository } from './tasks.repository.js';
@@ -21,7 +21,7 @@ import { TasksService } from './tasks.service.js';
     JournalModule,
     AgentsModule,
     RuntimeModule,
-    ProfileModule,
+    UsersDataModule,
     ConditionalModule.registerWhen(ModelQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
   exports: [TasksRepository, TasksService],

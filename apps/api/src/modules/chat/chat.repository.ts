@@ -9,7 +9,7 @@ import type { ChatTurns, DB } from '../../database/types.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import type { ChatJob } from '../../queues/jobs.js';
-import { ProfileRepository } from '../profile/profile.repository.js';
+import { UsersRepository } from '../users/repositories/users.repository.js';
 
 export interface ChatOwner {
   tenantId: string;
@@ -40,7 +40,7 @@ function ownedTurns(tx: Transaction<DB>, owner: ChatOwner) {
 export class ChatRepository {
   constructor(
     private readonly db: TenantDb,
-    private readonly profiles: ProfileRepository,
+    private readonly profiles: UsersRepository,
     private readonly outbox: OutboxService,
     private readonly journal: JournalService,
   ) {}

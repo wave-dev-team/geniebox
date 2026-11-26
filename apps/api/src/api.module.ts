@@ -18,6 +18,7 @@ import { ReportsModule } from './modules/reports/reports.module.js';
 import { RoutinesModule } from './modules/routines/routines.module.js';
 import { StreamModule } from './modules/stream/stream.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     AppThrottlerModule,
     AuthModule,
+    UsersModule,
     AccountsModule,
     ActionsModule,
     ChatModule,

@@ -8,7 +8,7 @@ import { localeSchema } from '@workspace/types';
 
 import { homeActor, type WorkspaceActor } from '../../common/auth/request-actor.js';
 import { MailEnvelope } from '../mail/mail-envelope.js';
-import { ProfileRepository } from '../profile/profile.repository.js';
+import { UsersRepository } from '../users/repositories/users.repository.js';
 import { AccountsRepository } from './accounts.repository.js';
 
 const inviteLifetime = 7 * 24 * 60 * 60 * 1000;
@@ -18,7 +18,7 @@ const hash = (code: string) => createHash('sha256').update(code).digest('hex');
 export class AccountsService {
   constructor(
     private readonly accounts: AccountsRepository,
-    private readonly profiles: ProfileRepository,
+    private readonly profiles: UsersRepository,
     private readonly mail: MailEnvelope,
     private readonly context: ClsService,
     private readonly i18n: I18nService,

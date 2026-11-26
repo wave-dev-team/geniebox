@@ -1,32 +1,21 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Header,
-  Patch,
-  Req,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Patch, Req } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 
 import { type Profile, updateProfileSchema } from '@workspace/types';
 
-import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
-import { ProfileRepository, toProfile } from './profile.repository.js';
+import { type AuthenticatedRequest } from '../../common/auth/request-actor.js';
+import { UsersService } from './users.service.js';
 
 @ApiTags('profile')
 @Controller('me')
-export class ProfileController {
-  constructor(private readonly profiles: ProfileRepository) {}
+export class UsersController {
+  constructor(private readonly users: UsersService) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ schema: { type: 'object' } })
   async get(@Req() request: AuthenticatedRequest): Promise<Profile> {
-    const profile = await this.profiles.find(homeActor(request.user));
-    if (!profile) throw new UnauthorizedException();
-    return { ...toProfile(profile), tenantId: request.user.tenantId };
+    return this.users.profile(request.user);
   }
 
   @Patch()
@@ -49,7 +38,6 @@ export class ProfileController {
         message: update.success ? [] : update.error.issues.map(({ path, code }) => ({ path, code })),
       });
     }
-    const profile = await this.profiles.update(homeActor(request.user), update.data);
-    return { ...toProfile(profile), tenantId: request.user.tenantId };
+    return this.users.update(request.user, update.data);
   }
 }

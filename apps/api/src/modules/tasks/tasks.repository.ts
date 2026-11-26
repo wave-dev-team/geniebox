@@ -19,7 +19,7 @@ import type { DB } from '../../database/types.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import type { TaskJob } from '../../queues/jobs.js';
-import { ProfileRepository } from '../profile/profile.repository.js';
+import { UsersRepository } from '../users/repositories/users.repository.js';
 
 export interface TaskOwner {
   tenantId: string;
@@ -119,7 +119,7 @@ export function toWorkTask(row: TaskRow): WorkTask {
 export class TasksRepository {
   constructor(
     private readonly db: TenantDb,
-    private readonly profiles: ProfileRepository,
+    private readonly profiles: UsersRepository,
     private readonly outbox: OutboxService,
     private readonly journal: JournalService,
   ) {}

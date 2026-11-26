@@ -6,7 +6,7 @@ import { JwtStrategy } from '../../common/auth/jwt.strategy.js';
 import { RedisModule } from '../../common/redis/redis.module.js';
 import { AccountsDataModule } from '../accounts/accounts-data.module.js';
 import { MailModule } from '../mail/mail.module.js';
-import { ProfileModule } from '../profile/profile.module.js';
+import { UsersDataModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { EmailCodesService } from './email-codes.service.js';
@@ -17,7 +17,7 @@ import { SessionsController } from './sessions.controller.js';
 
 @Module({
   imports: [
-    ProfileModule,
+    UsersDataModule,
     MailModule,
     AccountsDataModule,
     RedisModule,

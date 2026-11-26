@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 import type { Session } from '@workspace/types';
 
 import { AppRedis } from '../../common/redis/app-redis.js';
-import type { Identity } from '../profile/profile.repository.js';
+import type { Identity } from '../users/repositories/users.repository.js';
 import { AuthError } from './auth-errors.js';
 
 export const ACCESS_SECONDS = 10 * 60;

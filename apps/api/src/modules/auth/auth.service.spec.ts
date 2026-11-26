@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 
-import { ProfileRepository } from '../profile/profile.repository.js';
+import { UsersRepository } from '../users/repositories/users.repository.js';
 import { AuthService } from './auth.service.js';
 import { EmailCodesService } from './email-codes.service.js';
 import { LoginAttempts } from './login-attempts.js';
@@ -23,7 +23,7 @@ beforeEach(async () => {
   const module = await Test.createTestingModule({
     providers: [
       AuthService,
-      { provide: ProfileRepository, useValue: { findByEmail } },
+      { provide: UsersRepository, useValue: { findByEmail } },
       { provide: PasswordHasher, useValue: { verify } },
       { provide: EmailCodesService, useValue: { emailKey: (value: string) => value, consume } },
       { provide: LoginAttempts, useValue: { claim, reset } },

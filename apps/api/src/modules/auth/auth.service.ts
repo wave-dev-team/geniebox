@@ -7,7 +7,8 @@ import { I18nContext } from 'nestjs-i18n';
 import { localeSchema } from '@workspace/types';
 
 import type { UserProfiles } from '../../database/types.js';
-import { type Identity, ProfileRepository } from '../profile/profile.repository.js';
+import { normalizeEmail } from '../users/email.js';
+import { type Identity, UsersRepository } from '../users/repositories/users.repository.js';
 import { AuthError } from './auth-errors.js';
 import { EmailCodesService, type EmailPurpose } from './email-codes.service.js';
 import { LoginAttempts } from './login-attempts.js';
@@ -17,7 +18,6 @@ import { ACCESS_SECONDS, type Actor, SessionStore } from './session.store.js';
 type UserRow = Selectable<UserProfiles>;
 type Meta = { userAgent?: string; ip?: string };
 
-const normalise = (email: string) => email.trim().toLowerCase();
 const identity = (user: UserRow): Identity => ({ tenantId: user.tenant_id, userId: user.id });
 const version = (user: UserRow) => user.password_changed_at.toISOString();
 const requestLocale = () => localeSchema.safeParse(I18nContext.current()?.lang).data ?? 'ru';
@@ -29,7 +29,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly profiles: ProfileRepository,
+    private readonly profiles: UsersRepository,
     private readonly passwords: PasswordHasher,
     private readonly codes: EmailCodesService,
     private readonly sessions: SessionStore,
@@ -38,7 +38,7 @@ export class AuthService {
   ) {}
 
   async register(input: { email: string; name: string; password: string; locale?: string }, meta: Meta) {
-    const email = normalise(input.email);
+    const email = normalizeEmail(input.email);
     const emailKey = this.codes.emailKey(email);
     let user: UserRow;
     try {
@@ -65,7 +65,7 @@ export class AuthService {
   }
 
   async login(email: string, password: string, meta: Meta) {
-    const key = this.codes.emailKey(normalise(email));
+    const key = this.codes.emailKey(normalizeEmail(email));
     await this.attempts.claim(key);
     const user = await this.profiles.findByEmail(key);
     const valid = await this.passwords.verify(user?.password_hash ?? undefined, password);
@@ -75,7 +75,7 @@ export class AuthService {
   }
 
   async requestCode(purpose: Exclude<EmailPurpose, 'verify'>, email: string) {
-    const target = normalise(email);
+    const target = normalizeEmail(email);
     const user = await this.byEmail(target);
     if (purpose === 'login') {
       await this.codes.send(purpose, target, user?.locale);
@@ -90,7 +90,7 @@ export class AuthService {
   }
 
   async loginWithCode(email: string, code: string, meta: Meta) {
-    const target = normalise(email);
+    const target = normalizeEmail(email);
     if (!(await this.codes.consume('login', target, code))) throw new AuthError('INVALID_EMAIL_CODE');
     const emailKey = this.codes.emailKey(target);
     let user = await this.profiles.findByEmail(emailKey);
@@ -169,7 +169,7 @@ export class AuthService {
   }
 
   private byEmail(email: string) {
-    return this.profiles.findByEmail(this.codes.emailKey(normalise(email)));
+    return this.profiles.findByEmail(this.codes.emailKey(normalizeEmail(email)));
   }
 
   private async replacePassword(user: UserRow, newPassword: string, verifyEmail = false) {

@@ -12,7 +12,7 @@ import type { DB } from '../../database/types.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import type { MailJob } from '../mail/mail.types.js';
-import type { Identity } from '../profile/profile.repository.js';
+import type { Identity } from '../users/repositories/users.repository.js';
 
 @Injectable()
 export class AccountsRepository {

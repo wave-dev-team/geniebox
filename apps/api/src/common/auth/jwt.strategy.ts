@@ -10,7 +10,7 @@ import { ClsService } from 'nestjs-cls';
 import type { RequestContext } from '../../database/tenant-db.js';
 import { AccountsRepository } from '../../modules/accounts/accounts.repository.js';
 import { SessionStore } from '../../modules/auth/session.store.js';
-import { ProfileRepository } from '../../modules/profile/profile.repository.js';
+import { UsersRepository } from '../../modules/users/repositories/users.repository.js';
 import { ACCESS_COOKIE, readCookie } from './auth-cookie.js';
 import { readWorkspace } from './workspace-cookie.js';
 
@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     config: ConfigService,
     private readonly context: ClsService<RequestContext>,
     private readonly sessions: SessionStore,
-    private readonly profiles: ProfileRepository,
+    private readonly profiles: UsersRepository,
     private readonly accounts: AccountsRepository,
   ) {
     super({
