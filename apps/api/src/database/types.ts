@@ -25,6 +25,20 @@ export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface ActionJournal {
+  action: string;
+  actor_id: string | null;
+  actor_kind: string;
+  actor_role: string | null;
+  created_at: Generated<Timestamp>;
+  details: Json;
+  id: string;
+  result: string | null;
+  target_id: string;
+  tenant_id: string;
+  trace_id: string;
+}
+
 export interface Agents {
   catalog_key: string | null;
   enabled: Generated<boolean>;
@@ -119,6 +133,19 @@ export interface MetricsReports {
   tenant_id: string;
 }
 
+export interface OutboxEvents {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  failed_at: Timestamp | null;
+  id: string;
+  next_attempt_at: Generated<Timestamp>;
+  payload: Json;
+  published_at: Timestamp | null;
+  tenant_id: string;
+  trace_id: string;
+  type: string;
+}
+
 export interface ReportDecisions {
   created_at: Generated<Timestamp>;
   decided_by: string;
@@ -193,6 +220,7 @@ export interface WorkTasks {
 }
 
 export interface DB {
+  action_journal: ActionJournal;
   agent_tasks: AgentTasks;
   agent_versions: AgentVersions;
   agents: Agents;
@@ -202,6 +230,7 @@ export interface DB {
   llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;
   metrics_reports: MetricsReports;
+  outbox_events: OutboxEvents;
   report_decisions: ReportDecisions;
   task_routines: TaskRoutines;
   user_profiles: UserProfiles;

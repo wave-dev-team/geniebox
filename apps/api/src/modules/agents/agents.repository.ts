@@ -3,11 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { type Selectable, sql, type Transaction } from 'kysely';
 
 import { Injectable } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 
 import { agentSchema, agentVersionSchema, type CreateAgent, type UpdateAgent } from '@workspace/types';
 
 import { TenantDb } from '../../database/tenant-db.js';
 import type { Agents, DB } from '../../database/types.js';
+import { JournalService } from '../../journal/journal.service.js';
 import type { CatalogAgent } from '../catalog/catalog.service.js';
 
 export interface AgentOwner {
@@ -38,7 +40,11 @@ function versions(tx: Transaction<DB>, owner: AgentOwner, id: string) {
 
 @Injectable()
 export class AgentsRepository {
-  constructor(private readonly db: TenantDb) {}
+  constructor(
+    private readonly db: TenantDb,
+    private readonly journal: JournalService,
+    private readonly context: ClsService,
+  ) {}
 
   list(owner: AgentOwner, catalog: readonly CatalogAgent[]) {
     return this.db.transaction(async (tx) => {
@@ -159,6 +165,14 @@ export class AgentsRepository {
       .where('id', '=', id)
       .returning(fields)
       .executeTakeFirstOrThrow();
+    await this.journal.append(tx, {
+      tenantId: owner.tenantId,
+      traceId: this.context.getId() ?? randomUUID(),
+      action: 'agent.settings_updated',
+      targetId: id,
+      actor: { kind: 'user', id: owner.userId },
+      details: { revision: row.revision, enabled: row.enabled },
+    });
     return dto(row);
   }
 }

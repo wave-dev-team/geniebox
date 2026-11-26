@@ -6,16 +6,14 @@ import type { Agent, AgentTask, ChatTurn, SendChatMessage } from '@workspace/typ
 
 import { TenantDb } from '../../database/tenant-db.js';
 import type { ChatTurns, DB } from '../../database/types.js';
+import { JournalService } from '../../journal/journal.service.js';
+import { OutboxService } from '../../outbox/outbox.service.js';
+import type { ChatJob } from '../../queues/jobs.js';
 import { ProfileRepository } from '../profile/profile.repository.js';
 
 export interface ChatOwner {
   tenantId: string;
   userId: string;
-}
-
-export interface ChatJob extends ChatOwner {
-  turnId: string;
-  traceId: string;
 }
 
 const pageSize = 30;
@@ -43,6 +41,8 @@ export class ChatRepository {
   constructor(
     private readonly db: TenantDb,
     private readonly profiles: ProfileRepository,
+    private readonly outbox: OutboxService,
+    private readonly journal: JournalService,
   ) {}
 
   async history(owner: ChatOwner, before?: string) {
@@ -111,6 +111,17 @@ export class ChatRepository {
         })
         .returningAll()
         .executeTakeFirstOrThrow();
+      await this.outbox.enqueue(tx, {
+        type: 'chat.requested',
+        payload: { ...owner, turnId: row.id, traceId },
+      });
+      await this.journal.append(tx, {
+        tenantId: owner.tenantId,
+        traceId,
+        action: 'chat.turn_submitted',
+        targetId: row.id,
+        actor: { kind: 'user', id: owner.userId },
+      });
       return { row, created: true };
     });
   }
@@ -173,7 +184,7 @@ export class ChatRepository {
         .returning('id')
         .executeTakeFirst();
       if (!updated || !agents.length) return [];
-      return tx
+      const assignments = await tx
         .insertInto('agent_tasks')
         .values(
           agents.map((agent, position) => ({
@@ -185,8 +196,19 @@ export class ChatRepository {
             position,
           })),
         )
-        .returning('agent_id')
+        .returning(['id', 'agent_id'])
         .execute();
+      for (const assignment of assignments) {
+        await this.journal.append(tx, {
+          tenantId: job.tenantId,
+          traceId: job.traceId,
+          action: 'agent.task_assigned',
+          targetId: assignment.id,
+          actor: { kind: 'system' },
+          details: { agentId: assignment.agent_id, turnId: job.turnId },
+        });
+      }
+      return assignments;
     });
   }
 
@@ -196,8 +218,8 @@ export class ChatRepository {
     status: 'running' | 'completed' | 'failed',
     result?: string,
   ) {
-    return this.db.transaction((tx) =>
-      tx
+    return this.db.transaction(async (tx) => {
+      const updated = await tx
         .updateTable('agent_tasks')
         .set({ status, result, updated_at: sql`clock_timestamp()` })
         .where('tenant_id', '=', job.tenantId)
@@ -206,9 +228,19 @@ export class ChatRepository {
         .where('agent_id', '=', agentId)
         .where('status', 'in', ['pending', 'running'])
         .where('status', '!=', status)
-        .returning('agent_id')
-        .executeTakeFirst(),
-    );
+        .returning('id')
+        .executeTakeFirst();
+      if (updated)
+        await this.journal.append(tx, {
+          tenantId: job.tenantId,
+          traceId: job.traceId,
+          action: 'agent.task_status_changed',
+          targetId: updated.id,
+          actor: { kind: 'agent', id: agentId },
+          result: status,
+        });
+      return updated;
+    });
   }
 
   async update(job: ChatJob, status: ChatTurn['status'], answer?: string | null) {
@@ -222,6 +254,15 @@ export class ChatRepository {
         .where('status', '=', 'pending')
         .returning('id')
         .executeTakeFirst();
+      if (updated && status !== 'pending')
+        await this.journal.append(tx, {
+          tenantId: job.tenantId,
+          traceId: job.traceId,
+          action: 'chat.turn_finished',
+          targetId: job.turnId,
+          actor: { kind: 'system', role: 'manager' },
+          result: status,
+        });
       if (updated && status === 'failed') {
         await tx
           .updateTable('agent_tasks')

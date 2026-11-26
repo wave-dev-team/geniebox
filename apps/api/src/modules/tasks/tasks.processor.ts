@@ -2,12 +2,11 @@ import { type Job, UnrecoverableError } from 'bullmq';
 
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
+import { CLS_ID, ClsService } from 'nestjs-cls';
 
 import type { RequestContext } from '../../database/tenant-db.js';
-import { modelAttempts } from '../runtime/runtime.service.js';
-import type { TaskJob } from './tasks.repository.js';
-import { tasksQueue, TasksService } from './tasks.service.js';
+import { modelAttempts, type TaskJob, taskJobSchema, tasksQueue } from '../../queues/jobs.js';
+import { TasksService } from './tasks.service.js';
 
 @Processor(tasksQueue, { concurrency: 1 })
 export class TasksProcessor extends WorkerHost {
@@ -21,14 +20,19 @@ export class TasksProcessor extends WorkerHost {
   }
 
   async process(job: Job<TaskJob>) {
-    await this.context.runWith({ tenantId: job.data.tenantId }, async () => {
-      try {
-        await this.tasks.run(job.data, job.attemptsMade + 1 >= modelAttempts);
-      } catch (error) {
-        if (error instanceof UnrecoverableError) throw error;
-        throw new Error('Task generation failed');
-      }
-    });
+    const payload = taskJobSchema.safeParse(job.data);
+    if (!payload.success) throw new UnrecoverableError('Invalid job payload');
+    await this.context.runWith(
+      { tenantId: payload.data.tenantId, [CLS_ID]: payload.data.traceId },
+      async () => {
+        try {
+          await this.tasks.run(payload.data, job.attemptsMade + 1 >= modelAttempts);
+        } catch (error) {
+          if (error instanceof UnrecoverableError) throw error;
+          throw new Error('Task generation failed');
+        }
+      },
+    );
   }
 
   @OnWorkerEvent('failed')

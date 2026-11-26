@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-locales.mjs",
-    "dev": "pnpm build && concurrently --kill-others \"tsc -p tsconfig.build.json --watch\" \"node --watch dist/main.js\"",
+    "dev": "pnpm build && concurrently --kill-others \"tsc -p tsconfig.build.json --watch\" \"node --watch dist/main.js\" \"node --watch dist/main.worker.js\" \"node --watch dist/main.internal.js\"",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --testPathIgnorePatterns=integration",
@@ -14,7 +14,9 @@
     "db:migrate": "node dist/database/cli.js migrate",
     "db:rollback": "node dist/database/cli.js rollback",
     "db:status": "node dist/database/cli.js status",
-    "db:types": "kysely-codegen --url 'env(DB_MIGRATION_URL)' --exclude-pattern='public.kysely_*' --out-file src/database/types.ts"
+    "db:types": "kysely-codegen --url 'env(DB_MIGRATION_URL)' --exclude-pattern='public.kysely_*' --out-file src/database/types.ts",
+    "start:worker": "node dist/main.worker.js",
+    "start:internal": "node dist/main.internal.js"
   },
   "dependencies": {
     "@nestjs/bullmq": "12.0.0",

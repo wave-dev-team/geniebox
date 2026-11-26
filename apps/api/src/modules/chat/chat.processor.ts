@@ -2,13 +2,11 @@ import { type Job, UnrecoverableError } from 'bullmq';
 
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
+import { CLS_ID, ClsService } from 'nestjs-cls';
 
 import type { RequestContext } from '../../database/tenant-db.js';
-import { modelAttempts } from '../runtime/runtime.service.js';
-import type { ChatJob } from './chat.repository.js';
+import { type ChatJob, chatJobSchema, chatQueue, modelAttempts } from '../../queues/jobs.js';
 import { ChatService } from './chat.service.js';
-import { chatQueue } from './chat-queue.js';
 
 @Processor(chatQueue, { concurrency: 1 })
 export class ChatProcessor extends WorkerHost {
@@ -22,15 +20,20 @@ export class ChatProcessor extends WorkerHost {
   }
 
   async process(job: Job<ChatJob>) {
+    const payload = chatJobSchema.safeParse(job.data);
+    if (!payload.success) throw new UnrecoverableError('Invalid job payload');
     const finalAttempt = job.attemptsMade + 1 >= modelAttempts;
-    await this.context.runWith({ tenantId: job.data.tenantId }, async () => {
-      try {
-        await this.chat.generate(job.data, finalAttempt);
-      } catch (error) {
-        if (error instanceof UnrecoverableError) throw error;
-        throw new Error('Model generation failed');
-      }
-    });
+    await this.context.runWith(
+      { tenantId: payload.data.tenantId, [CLS_ID]: payload.data.traceId },
+      async () => {
+        try {
+          await this.chat.generate(payload.data, finalAttempt);
+        } catch (error) {
+          if (error instanceof UnrecoverableError) throw error;
+          throw new Error('Model generation failed');
+        }
+      },
+    );
   }
 
   @OnWorkerEvent('failed')

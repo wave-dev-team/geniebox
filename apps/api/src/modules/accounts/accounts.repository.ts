@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { sql, type Transaction } from 'kysely';
 
 import { Injectable } from '@nestjs/common';
@@ -7,6 +9,7 @@ import { workspaceSchema } from '@workspace/types';
 
 import { type RequestContext, TenantDb } from '../../database/tenant-db.js';
 import type { DB } from '../../database/types.js';
+import { JournalService } from '../../journal/journal.service.js';
 import type { Identity } from '../profile/profile.repository.js';
 
 @Injectable()
@@ -14,6 +17,7 @@ export class AccountsRepository {
   constructor(
     private readonly db: TenantDb,
     private readonly context: ClsService<RequestContext>,
+    private readonly journal: JournalService,
   ) {}
 
   async list(identity: Identity) {
@@ -46,10 +50,18 @@ export class AccountsRepository {
     });
   }
 
-  rename(tenantId: string, name: string) {
-    return this.inScope(tenantId, (tx) =>
-      tx.updateTable('workspaces').set({ name }).where('id', '=', tenantId).executeTakeFirst(),
-    );
+  rename(tenantId: string, userId: string, name: string) {
+    const traceId = this.context.getId() ?? randomUUID();
+    return this.inScope(tenantId, async (tx) => {
+      await tx.updateTable('workspaces').set({ name }).where('id', '=', tenantId).executeTakeFirst();
+      await this.journal.append(tx, {
+        tenantId,
+        traceId,
+        targetId: tenantId,
+        action: 'workspace.renamed',
+        actor: { kind: 'user', id: userId, role: 'owner' },
+      });
+    });
   }
 
   saveInvitation(tenantId: string, email: string, tokenHash: string, expiresAt: Date) {
@@ -77,6 +89,7 @@ export class AccountsRepository {
   }
 
   async join(identity: Identity, email: string, tokenHash: string) {
+    const traceId = this.context.getId() ?? randomUUID();
     const invitation = await this.inScope(identity.tenantId, async (tx) => {
       await sql`select set_config('app.invite_hash', ${tokenHash}, true)`.execute(tx);
       return tx
@@ -100,7 +113,7 @@ export class AccountsRepository {
         .executeTakeFirst();
       if (!accepted) return undefined;
 
-      await tx
+      const added = await tx
         .insertInto('workspace_members')
         .values({
           tenant_id: accepted.tenant_id,
@@ -109,7 +122,16 @@ export class AccountsRepository {
           role: 'member',
         })
         .onConflict((conflict) => conflict.columns(['tenant_id', 'user_id']).doNothing())
-        .execute();
+        .returning('user_id')
+        .executeTakeFirst();
+      if (added)
+        await this.journal.append(tx, {
+          tenantId: accepted.tenant_id,
+          traceId,
+          targetId: identity.userId,
+          action: 'workspace.member_joined',
+          actor: { kind: 'user', id: identity.userId, role: 'member' },
+        });
       return accepted.tenant_id;
     });
   }

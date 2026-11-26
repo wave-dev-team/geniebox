@@ -16,17 +16,14 @@ import type {
 
 import { TenantDb } from '../../database/tenant-db.js';
 import type { DB } from '../../database/types.js';
+import { JournalService } from '../../journal/journal.service.js';
+import { OutboxService } from '../../outbox/outbox.service.js';
+import type { TaskJob } from '../../queues/jobs.js';
 import { ProfileRepository } from '../profile/profile.repository.js';
 
 export interface TaskOwner {
   tenantId: string;
   userId: string;
-}
-
-export interface TaskJob extends TaskOwner {
-  taskId: string;
-  runId: string;
-  traceId: string;
 }
 
 export interface TaskFilter {
@@ -123,6 +120,8 @@ export class TasksRepository {
   constructor(
     private readonly db: TenantDb,
     private readonly profiles: ProfileRepository,
+    private readonly outbox: OutboxService,
+    private readonly journal: JournalService,
   ) {}
 
   list(owner: TaskOwner, filter: TaskFilter) {
@@ -175,6 +174,7 @@ export class TasksRepository {
     input: CreateWorkTask,
     agent: Agent | undefined,
     traceId: string,
+    createdBy: 'user' | 'system' = 'user',
   ) {
     const inserted = await tx
       .insertInto('work_tasks')
@@ -194,10 +194,26 @@ export class TasksRepository {
       .returning('id')
       .executeTakeFirst();
     const row = await activity(tx, owner).where('id', '=', input.id).executeTakeFirstOrThrow();
+    if (inserted) {
+      if (row.run_id)
+        await this.outbox.enqueue(tx, {
+          type: 'task.requested',
+          payload: { ...owner, taskId: row.id, runId: row.run_id, traceId },
+        });
+      await this.journal.append(tx, {
+        tenantId: owner.tenantId,
+        traceId,
+        action: 'task.created',
+        targetId: row.id,
+        actor:
+          createdBy === 'user' ? { kind: 'user', id: owner.userId } : { kind: 'system', role: 'scheduler' },
+        details: { userId: owner.userId, agentId: row.agent_id },
+      });
+    }
     return { row, created: Boolean(inserted) };
   }
 
-  edit(owner: TaskOwner, id: string, input: UpdateWorkTask) {
+  edit(owner: TaskOwner, id: string, input: UpdateWorkTask, traceId: string) {
     return this.db.transaction(async (tx) => {
       const updated = await tx
         .updateTable('work_tasks')
@@ -214,7 +230,15 @@ export class TasksRepository {
         .where('status', 'in', ['planned', 'running'])
         .returning('id')
         .executeTakeFirst();
-      return updated ? activity(tx, owner).where('id', '=', id).executeTakeFirst() : undefined;
+      if (!updated) return undefined;
+      await this.journal.append(tx, {
+        tenantId: owner.tenantId,
+        traceId,
+        action: 'task.updated',
+        targetId: id,
+        actor: { kind: 'user', id: owner.userId },
+      });
+      return activity(tx, owner).where('id', '=', id).executeTakeFirst();
     });
   }
 
@@ -235,7 +259,22 @@ export class TasksRepository {
       if (action === 'start' || action === 'complete') query = query.where('agent_id', 'is', null);
       if (action === 'retry') query = query.where('agent_id', 'is not', null);
       const updated = await query.returning('id').executeTakeFirst();
-      return updated ? activity(tx, owner).where('id', '=', id).executeTakeFirst() : undefined;
+      if (!updated) return undefined;
+      const row = await activity(tx, owner).where('id', '=', id).executeTakeFirstOrThrow();
+      if (action === 'retry' && row.run_id)
+        await this.outbox.enqueue(tx, {
+          type: 'task.requested',
+          payload: { ...owner, taskId: id, runId: row.run_id, traceId },
+        });
+      await this.journal.append(tx, {
+        tenantId: owner.tenantId,
+        traceId,
+        action: 'task.status_changed',
+        targetId: id,
+        actor: { kind: 'user', id: owner.userId },
+        result: row.status,
+      });
+      return row;
     });
   }
 
@@ -265,22 +304,29 @@ export class TasksRepository {
   }
 
   updateRun(job: TaskJob, status: 'running' | 'done' | 'failed', result?: string) {
-    return this.db.transaction((tx) =>
-      tx
+    return this.db.transaction(async (tx) => {
+      const updated = await tx
         .updateTable('work_tasks')
-        .set({
-          status,
-          result,
-          updated_at: sql`clock_timestamp()`,
-        })
+        .set({ status, result, updated_at: sql`clock_timestamp()` })
         .where('tenant_id', '=', job.tenantId)
         .where('user_id', '=', job.userId)
         .where('id', '=', job.taskId)
         .where('run_id', '=', job.runId)
         .where('status', 'in', ['planned', 'running'])
         .where('status', '!=', status)
-        .returning('id')
-        .executeTakeFirst(),
-    );
+        .returning(['id', 'agent_id'])
+        .executeTakeFirst();
+      if (updated)
+        await this.journal.append(tx, {
+          tenantId: job.tenantId,
+          traceId: job.traceId,
+          action: 'task.agent_status_changed',
+          targetId: job.taskId,
+          actor: updated.agent_id ? { kind: 'agent', id: updated.agent_id } : { kind: 'system' },
+          result: status,
+          details: { runId: job.runId },
+        });
+      return updated;
+    });
   }
 }

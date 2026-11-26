@@ -39,7 +39,7 @@ services:
   api:
     restart: unless-stopped
     image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
-    environment:
+    environment: &app-environment
       API_HOST: 0.0.0.0
       TRUST_PROXY_HOPS: 1
       DATABASE_URL: ${DATABASE_URL:?required}
@@ -77,6 +77,37 @@ services:
       retries: 12
     ports:
       - '127.0.0.1:8000:8000'
+
+  worker:
+    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
+    restart: unless-stopped
+    command: ['node', 'dist/main.worker.js']
+    environment: *app-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  internal:
+    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
+    restart: unless-stopped
+    command: ['node', 'dist/main.internal.js']
+    environment: *app-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8001/internal/health/details').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   web:
     image: ghcr.io/wave-dev-team/geniebox-web:${RELEASE_SHA:?required}

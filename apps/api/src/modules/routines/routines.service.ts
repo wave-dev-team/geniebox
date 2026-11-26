@@ -2,14 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { type Selectable, sql, type Transaction } from 'kysely';
 
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  type OnModuleDestroy,
-  type OnModuleInit,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 
@@ -43,10 +36,8 @@ function dto(row: Selectable<TaskRoutines>) {
 }
 
 @Injectable()
-export class RoutinesService implements OnModuleInit, OnModuleDestroy {
+export class RoutinesService {
   private readonly logger = new Logger(RoutinesService.name);
-  private timer?: ReturnType<typeof setInterval>;
-  private running?: Promise<void>;
 
   constructor(
     private readonly db: TenantDb,
@@ -55,24 +46,6 @@ export class RoutinesService implements OnModuleInit, OnModuleDestroy {
     private readonly context: ClsService<RequestContext>,
     private readonly events: EventEmitter2,
   ) {}
-
-  onModuleInit() {
-    this.timer = setInterval(() => {
-      this.running ??= this.tick()
-        .catch(() => {
-          this.logger.warn('Task schedules could not be processed');
-        })
-        .finally(() => {
-          this.running = undefined;
-        });
-    }, 60_000);
-    this.timer.unref();
-  }
-
-  async onModuleDestroy() {
-    clearInterval(this.timer);
-    await this.running;
-  }
 
   async tick() {
     for (const row of await this.directory.due()) {
@@ -174,6 +147,7 @@ export class RoutinesService implements OnModuleInit, OnModuleDestroy {
         },
         undefined,
         traceId,
+        scheduled ? 'system' : 'user',
       );
       if (
         !created &&

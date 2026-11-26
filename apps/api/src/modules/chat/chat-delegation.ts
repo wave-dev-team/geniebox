@@ -7,11 +7,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import type { Agent, AgentTask } from '@workspace/types';
 
+import type { ChatJob } from '../../queues/jobs.js';
 import { AgentsService } from '../agents/agents.service.js';
 import { buildMessages, createRedactor } from '../runtime/model-context.js';
 import { ModelError } from '../runtime/model-provider.js';
 import { canRetryModel, DailyLimitError, RuntimeService } from '../runtime/runtime.service.js';
-import { type ChatJob, ChatRepository } from './chat.repository.js';
+import { ChatRepository } from './chat.repository.js';
 import { plannerPrompt } from './manager-prompt.js';
 
 const selectionSchema = z.strictObject({

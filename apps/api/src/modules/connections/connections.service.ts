@@ -1,33 +1,28 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ClsService } from 'nestjs-cls';
 
 import { type MetricaConnectionInput, metricaConnectionSchema } from '@workspace/types';
 
 import { homeActor, type WorkspaceActor } from '../../common/auth/request-actor.js';
-import type { AppEnvironment } from '../../config/environment.js';
 import { TenantDb } from '../../database/tenant-db.js';
+import { JournalService } from '../../journal/journal.service.js';
+import { SecretCipher } from '../../secrets/secret-cipher.js';
 import { AccountsRepository } from '../accounts/accounts.repository.js';
 import { type MetricaPeriod, MetricaProvider } from './metrica.provider.js';
 
 const provider = 'yandex-metrica';
-const aad = (tenantId: string, counterId: string) =>
-  Buffer.from(JSON.stringify([tenantId, provider, counterId]));
-
 @Injectable()
 export class ConnectionsService {
-  private readonly key?: Buffer;
-
   constructor(
-    config: ConfigService<AppEnvironment, true>,
+    private readonly cipher: SecretCipher,
     private readonly db: TenantDb,
     private readonly accounts: AccountsRepository,
     private readonly metrica: MetricaProvider,
-  ) {
-    const key = config.get('CONNECTIONS_ENCRYPTION_KEY', { infer: true });
-    this.key = key ? Buffer.from(key, 'hex') : undefined;
-  }
+    private readonly journal: JournalService,
+    private readonly context: ClsService,
+  ) {}
 
   async list() {
     const row = await this.db.transaction((tx) =>
@@ -38,7 +33,7 @@ export class ConnectionsService {
         .executeTakeFirst(),
     );
     return {
-      liveAvailable: Boolean(this.key),
+      liveAvailable: this.cipher.available,
       metrica: row
         ? metricaConnectionSchema.parse({
             mode: row.mode,
@@ -55,26 +50,47 @@ export class ConnectionsService {
     let credential: string | null = null;
     let counterId: string | null = null;
     if (input.mode === 'live') {
-      credential = this.encrypt(tenantId, input.counterId, input.token);
+      credential = this.cipher.seal([tenantId, provider, input.counterId], input.token);
       counterId = input.counterId;
       const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
       await this.metrica.totals(counterId, input.token, { from: yesterday, to: yesterday });
     }
     const values = { mode: input.mode, credential, counter_id: counterId, updated_at: new Date() };
-    await this.db.transaction((tx) =>
-      tx
+    await this.db.transaction(async (tx) => {
+      await tx
         .insertInto('connections')
         .values({ tenant_id: tenantId, provider, ...values })
         .onConflict((constraint) => constraint.columns(['tenant_id', 'provider']).doUpdateSet(values))
-        .execute(),
-    );
+        .execute();
+      await this.journal.append(tx, {
+        tenantId,
+        traceId: this.context.getId() ?? randomUUID(),
+        targetId: tenantId,
+        actor: { kind: 'user', id: actor.userId, role: 'owner' },
+        action: 'connection.saved',
+        details: { provider, mode: input.mode },
+      });
+    });
   }
 
   async remove(actor: WorkspaceActor) {
     await this.authorize(actor);
-    await this.db.transaction((tx) =>
-      tx.deleteFrom('connections').where('provider', '=', provider).execute(),
-    );
+    await this.db.transaction(async (tx) => {
+      const deleted = await tx
+        .deleteFrom('connections')
+        .where('provider', '=', provider)
+        .returning('tenant_id')
+        .executeTakeFirst();
+      if (!deleted) return;
+      await this.journal.append(tx, {
+        tenantId: actor.tenantId,
+        traceId: this.context.getId() ?? randomUUID(),
+        targetId: actor.tenantId,
+        actor: { kind: 'user', id: actor.userId, role: 'owner' },
+        action: 'connection.removed',
+        details: { provider },
+      });
+    });
   }
 
   async compare(tenantId: string, baseline: MetricaPeriod, comparison: MetricaPeriod) {
@@ -94,7 +110,7 @@ export class ConnectionsService {
     if (!row.credential || !row.counter_id || row.tenant_id !== tenantId) {
       throw new ServiceUnavailableException();
     }
-    const token = this.decrypt(tenantId, row.counter_id, row.credential);
+    const token = this.cipher.open([tenantId, provider, row.counter_id], row.credential);
     const before = await this.metrica.totals(row.counter_id, token, baseline);
     const after = await this.metrica.totals(row.counter_id, token, comparison);
     return {
@@ -120,27 +136,5 @@ export class ConnectionsService {
   private async authorize(actor: WorkspaceActor) {
     if ((await this.accounts.role(actor.tenantId, homeActor(actor))) !== 'owner')
       throw new ForbiddenException();
-  }
-
-  private encrypt(tenantId: string, counterId: string, token: string) {
-    if (!this.key) throw new ServiceUnavailableException();
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.key, iv);
-    cipher.setAAD(aad(tenantId, counterId));
-    const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-    return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString('base64url');
-  }
-
-  private decrypt(tenantId: string, counterId: string, credential: string) {
-    if (!this.key) throw new ServiceUnavailableException();
-    try {
-      const payload = Buffer.from(credential, 'base64url');
-      const decipher = createDecipheriv('aes-256-gcm', this.key, payload.subarray(0, 12));
-      decipher.setAAD(aad(tenantId, counterId));
-      decipher.setAuthTag(payload.subarray(12, 28));
-      return Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString('utf8');
-    } catch {
-      throw new ServiceUnavailableException();
-    }
   }
 }

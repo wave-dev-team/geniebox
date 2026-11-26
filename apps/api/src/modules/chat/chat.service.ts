@@ -9,11 +9,11 @@ import { ClsService } from 'nestjs-cls';
 
 import type { ChatHistory, ChatTurn, SendChatMessage } from '@workspace/types';
 
+import { type ChatJob, chatJobId, chatQueue, modelJobOptions } from '../../queues/jobs.js';
 import { buildMessages } from '../runtime/model-context.js';
-import { canRetryModel, DailyLimitError, modelAttempts, RuntimeService } from '../runtime/runtime.service.js';
-import { type ChatJob, type ChatOwner, ChatRepository, toChatTurn } from './chat.repository.js';
+import { canRetryModel, DailyLimitError, RuntimeService } from '../runtime/runtime.service.js';
+import { type ChatOwner, ChatRepository, toChatTurn } from './chat.repository.js';
 import { ChatDelegation } from './chat-delegation.js';
-import { chatQueue } from './chat-queue.js';
 import { managerPrompt, managerPromptVersion, managerRole } from './manager-prompt.js';
 
 class ChatTurnEvent {
@@ -69,7 +69,7 @@ export class ChatService {
     if (!saved) return undefined;
     const job = { ...owner, turnId: saved.row.id, traceId: saved.row.trace_id };
     if (saved.created) this.publish(job, 'pending');
-    if (saved.row.status === 'pending' && (await this.ensureQueued(job)) === 'failed') {
+    if (!saved.created && saved.row.status === 'pending' && (await this.ensureQueued(job)) === 'failed') {
       await this.finish(job, 'failed');
       saved.row.status = 'failed';
     }
@@ -131,15 +131,12 @@ export class ChatService {
   private async ensureQueued(job: ChatJob) {
     if (!this.queue) return;
     try {
-      const jobId = `t-${job.tenantId}-${job.userId}-${job.turnId}`;
+      const jobId = chatJobId(job);
       const existing = await this.queue.getJob(jobId);
       if (existing) return await existing.getState();
       await this.queue.add('generate', job, {
         jobId,
-        attempts: modelAttempts,
-        backoff: { type: 'exponential', delay: 1000 },
-        removeOnComplete: { age: 3600, count: 1000 },
-        removeOnFail: { age: 7 * 24 * 3600, count: 5000 },
+        ...modelJobOptions,
       });
     } catch {
       this.logger.warn({ traceId: job.traceId, turnId: job.turnId }, 'Chat turn awaits queue recovery');

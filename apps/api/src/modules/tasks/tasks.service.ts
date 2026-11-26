@@ -9,12 +9,12 @@ import { ClsService } from 'nestjs-cls';
 
 import type { CreateWorkTask, TaskAction, TaskStatus, UpdateWorkTask, WorkTask } from '@workspace/types';
 
+import { modelJobOptions, type TaskJob, taskJobId, tasksQueue } from '../../queues/jobs.js';
 import { AgentsService } from '../agents/agents.service.js';
 import { buildMessages } from '../runtime/model-context.js';
-import { canRetryModel, modelAttempts, RuntimeService } from '../runtime/runtime.service.js';
+import { canRetryModel, RuntimeService } from '../runtime/runtime.service.js';
 import {
   type TaskFilter,
-  type TaskJob,
   type TaskOwner,
   type TaskRow,
   TasksRepository,
@@ -29,7 +29,6 @@ const taskEvents = {
   cancelled: 'task.cancelled',
 } satisfies Record<TaskStatus, string>;
 
-export const tasksQueue = 'tasks-run';
 export type TaskMutation = WorkTask | 'missing' | 'conflict';
 
 class TaskEvent {
@@ -88,15 +87,16 @@ export class TasksService {
         'task.created',
         new TaskEvent(owner.tenantId, owner.userId, row.id, row.trace_id, 'planned'),
       );
-    return toWorkTask(await this.syncQueue(owner, row));
+    return toWorkTask(created ? row : await this.syncQueue(owner, row));
   }
 
   async edit(owner: TaskOwner, id: string, input: UpdateWorkTask): Promise<TaskMutation> {
-    const task = await this.repository.edit(owner, id, input);
+    const traceId = this.traceId();
+    const task = await this.repository.edit(owner, id, input, traceId);
     if (!task) return (await this.repository.find(owner, id)) ? 'conflict' : 'missing';
     this.events.emit(
       'task.updated',
-      new TaskEvent(owner.tenantId, owner.userId, id, this.traceId(), task.status as TaskStatus),
+      new TaskEvent(owner.tenantId, owner.userId, id, traceId, task.status as TaskStatus),
     );
     return toWorkTask(task);
   }
@@ -115,7 +115,7 @@ export class TasksService {
       taskEvents[next.status as TaskStatus],
       new TaskEvent(owner.tenantId, owner.userId, id, traceId, next.status as TaskStatus),
     );
-    return toWorkTask(await this.syncQueue(owner, next));
+    return toWorkTask(next);
   }
 
   async run(job: TaskJob, finalAttempt: boolean) {
@@ -149,16 +149,13 @@ export class TasksService {
   private async syncQueue(owner: TaskOwner, row: TaskRow) {
     if (!this.queue || !row.run_id || !['planned', 'running'].includes(row.status)) return row;
     const payload = { ...owner, taskId: row.id, runId: row.run_id, traceId: row.trace_id };
-    const jobId = `t-${owner.tenantId}-${owner.userId}-${row.id}-${row.run_id}`;
+    const jobId = taskJobId(payload);
     try {
       const stored = await this.queue.getJob(jobId);
       if (!stored) {
         await this.queue.add('run', payload, {
           jobId,
-          attempts: modelAttempts,
-          backoff: { type: 'exponential', delay: 1000 },
-          removeOnComplete: { age: 3600, count: 1000 },
-          removeOnFail: { age: 7 * 24 * 3600, count: 5000 },
+          ...modelJobOptions,
         });
       } else if ((await stored.getState()) === 'failed') {
         await this.setState(payload, 'failed');

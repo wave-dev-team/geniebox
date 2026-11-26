@@ -84,10 +84,17 @@ else
     sudo systemctl reload caddy
   fi
   if [[ -n "$previous" ]]; then
-    compose "$previous" up --detach --no-deps --wait --wait-timeout 180 api web
+    compose "$release" stop worker internal
+    restore_services=(api web)
+    while IFS= read -r service; do
+      case "$service" in
+        worker|internal) restore_services+=("$service") ;;
+      esac
+    done < <(compose "$previous" config --services)
+    compose "$previous" up --detach --no-deps --wait --wait-timeout 180 "${restore_services[@]}"
     printf 'Restored previous application images\n' >&2
   else
-    compose "$release" stop api web
+    compose "$release" stop api web worker internal
   fi
   exit 1
 fi

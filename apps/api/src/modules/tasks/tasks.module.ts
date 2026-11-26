@@ -1,32 +1,36 @@
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 
 import { DatabaseModule } from '../../database/database.module.js';
+import { JournalModule } from '../../journal/journal.module.js';
+import { OutboxModule } from '../../outbox/outbox.module.js';
+import { ModelQueueModule } from '../../queues/model-queue.module.js';
+import { QueueRootModule } from '../../queues/queue-root.module.js';
 import { AgentsModule } from '../agents/agents.module.js';
 import { ProfileModule } from '../profile/profile.module.js';
 import { RuntimeModule } from '../runtime/runtime.module.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksProcessor } from './tasks.processor.js';
 import { TasksRepository } from './tasks.repository.js';
-import { tasksQueue, TasksService } from './tasks.service.js';
-
-@Module({
-  imports: [BullModule.registerQueue({ name: tasksQueue })],
-  exports: [BullModule],
-})
-class TaskQueueModule {}
+import { TasksService } from './tasks.service.js';
 
 @Module({
   imports: [
     DatabaseModule,
+    OutboxModule,
+    JournalModule,
     AgentsModule,
     RuntimeModule,
     ProfileModule,
-    ConditionalModule.registerWhen(TaskQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
+    ConditionalModule.registerWhen(ModelQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
-  controllers: [TasksController],
-  exports: [TasksRepository],
-  providers: [TasksRepository, TasksService, TasksProcessor],
+  exports: [TasksRepository, TasksService],
+  providers: [TasksRepository, TasksService],
 })
+export class TasksDataModule {}
+
+@Module({ imports: [TasksDataModule], controllers: [TasksController], exports: [TasksDataModule] })
 export class TasksModule {}
+
+@Module({ imports: [TasksDataModule, QueueRootModule], providers: [TasksProcessor] })
+export class TasksWorkerModule {}

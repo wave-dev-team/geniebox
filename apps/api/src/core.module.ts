@@ -5,27 +5,12 @@ import type { Response } from 'express';
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { PassportModule } from '@nestjs/passport';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ClsModule, ClsServiceManager } from 'nestjs-cls';
 import { AcceptLanguageResolver, I18nModule } from 'nestjs-i18n';
 import { LoggerModule } from 'nestjs-pino';
 
-import { JwtGuard } from './common/auth/jwt.guard.js';
-import { SameOriginGuard } from './common/auth/same-origin.guard.js';
 import { appEnvironment } from './config/environment.js';
-import { AccountsModule } from './modules/accounts/accounts.module.js';
-import { ActionsModule } from './modules/actions/actions.module.js';
-import { AuthModule } from './modules/auth/auth.module.js';
-import { ChatModule } from './modules/chat/chat.module.js';
-import { ConnectionsModule } from './modules/connections/connections.module.js';
-import { HealthModule } from './modules/health/health.module.js';
-import { ReportsModule } from './modules/reports/reports.module.js';
-import { RoutinesModule } from './modules/routines/routines.module.js';
-import { StreamModule } from './modules/stream/stream.module.js';
-import { TasksModule } from './modules/tasks/tasks.module.js';
 
 @Module({
   imports: [
@@ -59,24 +44,8 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
       loaderOptions: { path: fileURLToPath(new URL('./i18n', import.meta.url)) },
       resolvers: [AcceptLanguageResolver],
     }),
-    PassportModule.register({ defaultStrategy: 'jwt', session: false }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     EventEmitterModule.forRoot(),
-    AuthModule,
-    AccountsModule,
-    ActionsModule,
-    ChatModule,
-    ConnectionsModule,
-    ReportsModule,
-    RoutinesModule,
-    TasksModule,
-    StreamModule,
-    HealthModule,
   ],
-  providers: [
-    { provide: APP_GUARD, useClass: SameOriginGuard },
-    { provide: APP_GUARD, useClass: JwtGuard },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  exports: [LoggerModule],
 })
-export class AppModule {}
+export class CoreModule {}

@@ -5,6 +5,7 @@ export const appEnvironment = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     API_HOST: z.string().min(1).default('127.0.0.1'),
     API_PORT: z.coerce.number().int().positive().max(65535).default(8000),
+    INTERNAL_PORT: z.coerce.number().int().positive().max(65_535).default(8001),
     DATABASE_URL: z.string().url(),
     JWT_SECRET: z.string().min(32),
     AUTH_IDENTITY_SECRET: z.string().min(32),

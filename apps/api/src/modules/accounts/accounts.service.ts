@@ -37,7 +37,7 @@ export class AccountsService {
 
   async rename(actor: WorkspaceActor, name: string) {
     await this.requireOwner(actor);
-    await this.accounts.rename(actor.tenantId, name);
+    await this.accounts.rename(actor.tenantId, actor.userId, name);
   }
 
   async members(actor: WorkspaceActor) {

@@ -6,8 +6,6 @@ import { AppRedis } from '../../common/redis/app-redis.js';
 import { type ModelCallSource, ModelCallsRepository } from './model-calls.repository.js';
 import { ModelError, type ModelMessage, ModelProvider } from './model-provider.js';
 
-export const modelAttempts = 3;
-
 export class DailyLimitError extends Error {}
 
 export function canRetryModel(error: unknown) {

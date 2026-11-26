@@ -9,7 +9,7 @@ import request from 'supertest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { z } from 'zod';
 
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 
 import { chatHistorySchema, taskPageSchema, workTaskSchema } from '@workspace/types';
@@ -20,6 +20,7 @@ import { bootstrapRoles } from '../src/database/roles.js';
 import { type RequestContext, TenantDb } from '../src/database/tenant-db.js';
 import { MetricaProvider } from '../src/modules/connections/metrica.provider.js';
 import { RoutinesService } from '../src/modules/routines/routines.service.js';
+import { OutboxRelay } from '../src/outbox/outbox-relay.service.js';
 
 const password = 'test-current-password';
 const newPassword = 'test-replacement-password';
@@ -27,6 +28,8 @@ const appPassword = 'integration-only-app-password';
 const marker = 'X-Geniebox-Request';
 const prefix = '/api/v1';
 let app: INestApplication;
+let worker: INestApplicationContext;
+let ownerUrl: string;
 let mailOrigin: string;
 const containers: StartedTestContainer[] = [];
 
@@ -80,7 +83,8 @@ beforeAll(async () => {
       }),
   ]);
 
-  const owner = createDb(db.getConnectionUri());
+  ownerUrl = db.getConnectionUri();
+  const owner = createDb(ownerUrl);
   try {
     await bootstrapRoles(owner, appPassword);
     const migrator = new Migrator({ db: owner, provider: migrationProvider });
@@ -111,9 +115,12 @@ beforeAll(async () => {
   const { createApp } = await import('../src/create-app.js');
   app = await createApp();
   await app.listen(0, '127.0.0.1');
+  const { createWorker } = await import('../src/create-worker.js');
+  worker = await createWorker();
 }, 120_000);
 
 afterAll(async () => {
+  await worker?.close();
   await app?.close();
   await new Promise<void>((resolve) => modelServer.close(() => resolve()));
   await Promise.all(containers.map((container) => container.stop()));
@@ -918,4 +925,72 @@ it('provisions isolated agents once, tracks instruction versions and gives the m
   expect(received).toContain('Saved catalog evidence');
   expect(received).toContain('"demo"'.replaceAll('"', '\\"'));
   expect(received).not.toContain('Foreign catalog evidence');
+}, 20_000);
+
+it('delivers a pending chat after delivery resumes without polling the chat API', async () => {
+  const actor = request.agent(app.getHttpServer());
+  const email = 'worker-restart@geniebox.test';
+  await actor
+    .post(`${prefix}/auth/email-code`)
+    .set(marker, '1')
+    .set('Accept-Language', 'en')
+    .send({ email })
+    .expect(204);
+  const code = await codeFromMail(email, 'Geniebox sign-in code');
+  await actor.post(`${prefix}/auth/email-code/verify`).set(marker, '1').send({ email, code }).expect(200);
+  const tenantId = z.uuid().parse((await actor.get(`${prefix}/me`).expect(200)).body.tenantId);
+
+  const db = createDb(ownerUrl);
+  const relay = worker.get(OutboxRelay);
+  const turn = { id: randomUUID(), message: 'Deliver this turn when the relay resumes' };
+  await relay.onModuleDestroy();
+
+  try {
+    await actor.post(`${prefix}/chat`).set(marker, '1').send(turn).expect(202);
+    const event = await db
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('tenant_id', '=', tenantId)
+      .where('type', '=', 'chat.requested')
+      .executeTakeFirstOrThrow();
+    expect(event.published_at).toBeNull();
+    expect(event.payload).toMatchObject({ turnId: turn.id });
+    const journal = await db
+      .selectFrom('action_journal')
+      .selectAll()
+      .where('target_id', '=', turn.id)
+      .executeTakeFirstOrThrow();
+    expect(journal).toMatchObject({ action: 'chat.turn_submitted', trace_id: event.trace_id });
+    expect(JSON.stringify(journal)).not.toContain(turn.message);
+    await expect(
+      db.updateTable('action_journal').set({ result: 'tampered' }).where('id', '=', journal.id).execute(),
+    ).rejects.toMatchObject({ code: '42501' });
+    expect(JSON.stringify(modelRequests)).not.toContain(turn.message);
+
+    relay.onModuleInit();
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const row = await db
+        .selectFrom('chat_turns')
+        .select('status')
+        .where('id', '=', turn.id)
+        .executeTakeFirstOrThrow();
+      if (row.status === 'completed') break;
+      await sleep(100);
+    }
+    const status = await db
+      .selectFrom('chat_turns')
+      .select('status')
+      .where('id', '=', turn.id)
+      .executeTakeFirstOrThrow();
+    expect(status.status).toBe('completed');
+    expect(JSON.stringify(modelRequests)).toContain(turn.message);
+    const delivered = await db
+      .selectFrom('outbox_events')
+      .select('published_at')
+      .where('id', '=', event.id)
+      .executeTakeFirstOrThrow();
+    expect(delivered.published_at).toBeInstanceOf(Date);
+  } finally {
+    await db.destroy();
+  }
 }, 20_000);

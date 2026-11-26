@@ -15,6 +15,7 @@ import {
 
 import { homeActor, type WorkspaceActor } from '../../common/auth/request-actor.js';
 import { TenantDb } from '../../database/tenant-db.js';
+import { JournalService } from '../../journal/journal.service.js';
 import { AccountsRepository } from '../accounts/accounts.repository.js';
 import { TasksRepository } from '../tasks/tasks.repository.js';
 
@@ -26,6 +27,7 @@ export class ReportDecisionsService {
     private readonly tasks: TasksRepository,
     private readonly events: EventEmitter2,
     private readonly context: ClsService,
+    private readonly journal: JournalService,
   ) {}
 
   async decide(actor: WorkspaceActor, id: string, input: ReportDecisionInput) {
@@ -96,6 +98,15 @@ export class ReportDecisionsService {
         })
         .returning('created_at')
         .executeTakeFirstOrThrow();
+      await this.journal.append(tx, {
+        tenantId: actor.tenantId,
+        traceId,
+        action: 'report.decided',
+        targetId: id,
+        actor: { kind: 'user', id: actor.userId, role: 'owner' },
+        result: input.outcome,
+        details: { taskId },
+      });
       return {
         decision: reportDecisionSchema.parse({
           ...input,
