@@ -18,7 +18,6 @@ export const footerNavigation = [
 export const placeholderSections = [
   ...workspaceSections.map(({ id }) => id),
   ...footerNavigation.map(({ id }) => id),
-  'chat',
   'search',
   'hypotheses',
   'releases',

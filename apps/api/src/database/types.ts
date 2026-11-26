@@ -9,11 +9,62 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Numeric = ColumnType<string, number | string, number | string>;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Agents {
+  enabled: Generated<boolean>;
+  id: string;
+  instructions: string;
+  name: string;
+  tenant_id: string;
+  user_id: string;
+}
+
+export interface AgentTasks {
+  agent_id: string;
+  agent_name: string;
+  position: number;
+  result: string | null;
+  status: Generated<string>;
+  tenant_id: string;
+  turn_id: string;
+  user_id: string;
+}
+
+export interface ChatTurns {
+  answer: string | null;
+  created_at: Generated<Timestamp>;
+  id: string;
+  message: string;
+  planned: Generated<boolean>;
+  status: Generated<string>;
+  tenant_id: string;
+  trace_id: string;
+  user_id: string;
+}
 
 export interface EmailIdentities {
   email_key: string;
   tenant_id: string;
+  user_id: string;
+}
+
+export interface LlmCalls {
+  cost_usd: Numeric | null;
+  created_at: Generated<Timestamp>;
+  id: string;
+  latency_ms: number | null;
+  model: string;
+  prompt_version: string;
+  result: Generated<string>;
+  role: string;
+  tenant_id: string;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  trace_id: string;
+  turn_id: string;
   user_id: string;
 }
 
@@ -36,7 +87,11 @@ export interface UserProfiles {
 }
 
 export interface DB {
+  agent_tasks: AgentTasks;
+  agents: Agents;
+  chat_turns: ChatTurns;
   email_identities: EmailIdentities;
+  llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;
   user_profiles: UserProfiles;
 }

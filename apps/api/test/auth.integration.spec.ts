@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
+import { setTimeout as sleep } from 'node:timers/promises';
+
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Migrator } from 'kysely/migration';
 import request from 'supertest';
@@ -5,6 +9,8 @@ import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { z } from 'zod';
 
 import type { INestApplication } from '@nestjs/common';
+
+import { chatHistorySchema } from '@workspace/types';
 
 import { createDb } from '../src/database/create-db.js';
 import { migrationProvider } from '../src/database/migrations/index.js';
@@ -18,6 +24,27 @@ const prefix = '/api/v1';
 let app: INestApplication;
 let mailOrigin: string;
 const containers: StartedTestContainer[] = [];
+
+const modelRequests: unknown[] = [];
+const modelServer = createServer(async (req, res) => {
+  let body = '';
+  for await (const chunk of req) body += chunk;
+  const input = z
+    .object({
+      messages: z.array(z.object({ role: z.string(), content: z.string() })),
+      response_format: z.unknown().optional(),
+    })
+    .parse(JSON.parse(body));
+  modelRequests.push(input);
+  const content = input.response_format
+    ? '{"indexes":[0]}'
+    : input.messages[0]?.content.includes('specialist contributing')
+      ? 'Specialist assessment'
+      : 'Manager reply';
+  res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+  res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+  res.end('data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":3}}\n\ndata: [DONE]\n\n');
+});
 
 beforeAll(async () => {
   const [db, redis, mail] = await Promise.all([
@@ -62,6 +89,11 @@ beforeAll(async () => {
   process.env.AUTH_MAIL_FROM = 'test@geniebox.test';
   mailOrigin = `http://${mail.getHost()}:${mail.getMappedPort(8025)}`;
 
+  await new Promise<void>((resolve) => modelServer.listen(0, '127.0.0.1', resolve));
+  const address = modelServer.address();
+  if (!address || typeof address === 'string') throw new Error('Model stub port unavailable');
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${address.port}/v1`;
+  process.env.LLM_MODEL = 'integration-model';
   const { createApp } = await import('../src/create-app.js');
   app = await createApp();
   await app.listen(0, '127.0.0.1');
@@ -69,6 +101,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
+  await new Promise<void>((resolve) => modelServer.close(() => resolve()));
   await Promise.all(containers.map((container) => container.stop()));
 });
 
@@ -207,3 +240,57 @@ it('revokes an unverified password when the mailbox owner signs in by code', asy
   await pending.get(`${prefix}/me`).expect(401);
   await pending.post(`${prefix}/auth/login`).set(marker, '1').send({ email, password }).expect(401);
 });
+
+it('isolates agents and turns, executes delegation and skips paused agents', async () => {
+  await request(app.getHttpServer()).get(`${prefix}/chat`).expect(401);
+  const alice = request.agent(app.getHttpServer());
+  const bob = request.agent(app.getHttpServer());
+  await Promise.all(
+    [alice, bob].map((account, index) =>
+      account
+        .post(`${prefix}/auth/register`)
+        .set(marker, '1')
+        .send({ email: `agent-test-${index}@geniebox.test`, password, name: 'Test Owner', locale: 'en' })
+        .expect(200),
+    ),
+  );
+  const agent = await alice
+    .post(`${prefix}/agents`)
+    .set(marker, '1')
+    .send({ name: 'Metrics specialist', instructions: 'Review checkout conversion', enabled: true })
+    .expect(201);
+  const id = z.uuid().parse(agent.body.id);
+  await bob.get(`${prefix}/agents`).expect(200, []);
+  await bob.patch(`${prefix}/agents/${id}`).set(marker, '1').send({ enabled: false }).expect(404);
+
+  async function completed(turnId: string) {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const history = await alice.get(`${prefix}/chat`).expect(200);
+      const turn = chatHistorySchema.parse(history.body).turns.find(({ id }) => id === turnId);
+      if (turn && turn.status !== 'pending') return turn;
+      await sleep(100);
+    }
+    throw new Error('The chat worker did not finish');
+  }
+
+  const turn = { id: randomUUID(), message: 'Check checkout conversion for client@example.com' };
+  await alice.post(`${prefix}/chat`).set(marker, '1').send(turn).expect(202);
+  await alice.post(`${prefix}/chat`).set(marker, '1').send(turn).expect(202);
+  expect(await completed(turn.id)).toMatchObject({
+    answer: 'Manager reply',
+    status: 'completed',
+    tasks: [{ agentId: id, status: 'completed', result: 'Specialist assessment' }],
+  });
+  expect(modelRequests).toHaveLength(3);
+  expect(JSON.stringify(modelRequests)).toContain('[email]');
+  expect(JSON.stringify(modelRequests)).not.toContain('client@example.com');
+  const foreign = await bob.get(`${prefix}/chat`).expect(200);
+  expect(chatHistorySchema.parse(foreign.body).turns).toEqual([]);
+
+  await alice.patch(`${prefix}/agents/${id}`).set(marker, '1').send({ enabled: false }).expect(200);
+  const followUp = { id: randomUUID(), message: 'Кратко повтори ответ' };
+  await alice.post(`${prefix}/chat`).set(marker, '1').send(followUp).expect(202);
+  expect(await completed(followUp.id)).toMatchObject({ status: 'completed', tasks: [] });
+  expect(modelRequests).toHaveLength(4);
+  expect(JSON.stringify(modelRequests.at(-1))).toContain('Manager reply');
+}, 30_000);

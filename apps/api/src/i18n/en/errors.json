@@ -3,6 +3,7 @@
   "UNAUTHORIZED": "Authentication is required.",
   "FORBIDDEN": "Access denied.",
   "NOT_FOUND": "Resource not found.",
+  "CONFLICT": "The request conflicts with the current state.",
   "RATE_LIMITED": "Too many requests.",
   "SERVICE_UNAVAILABLE": "Service unavailable.",
   "INTERNAL_ERROR": "An internal error occurred.",

@@ -223,6 +223,30 @@
     "search": "Find a city or zone",
     "empty": "Nothing found"
   },
+  "managerChat": {
+    "tasks": "Agent tasks",
+    "taskStatus": {
+      "pending": "Queued",
+      "running": "In progress",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "title": "Manager",
+    "open": "Open chat",
+    "empty": "Ask the manager about a hypothesis, store metrics, or release results.",
+    "you": "You",
+    "queued": "Request queued",
+    "working": "The manager is preparing a reply…",
+    "generating": "The manager is replying…",
+    "failed": "The reply could not be completed. Try sending your message again.",
+    "limited": "The daily request limit has been reached. Try again tomorrow.",
+    "unavailable": "No chat model is connected yet.",
+    "sendError": "Could not send the message. Try again.",
+    "busy": "Wait for the previous reply to finish.",
+    "loadError": "Could not load chat history.",
+    "retry": "Retry",
+    "older": "Show earlier messages"
+  },
   "composer": {
     "placeholderHome": "Ask about metrics, hypotheses, or release results",
     "placeholderManager": "Write to the manager…",

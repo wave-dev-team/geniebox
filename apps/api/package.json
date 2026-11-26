@@ -17,9 +17,11 @@
     "db:types": "kysely-codegen --url 'env(DB_MIGRATION_URL)' --exclude-pattern='public.kysely_*' --out-file src/database/types.ts"
   },
   "dependencies": {
+    "@nestjs/bullmq": "12.0.0",
     "@nestjs/common": "11.2.12",
     "@nestjs/config": "4.0.4",
     "@nestjs/core": "11.2.12",
+    "@nestjs/event-emitter": "12.0.1",
     "@nestjs/jwt": "11.0.2",
     "@nestjs/passport": "11.0.5",
     "@nestjs/platform-express": "11.2.12",
@@ -28,6 +30,7 @@
     "@nestjs/throttler": "6.8.0",
     "@workspace/types": "workspace:*",
     "argon2": "0.45.2",
+    "bullmq": "6.3.16",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "helmet": "8.3.0",

@@ -12,6 +12,7 @@ const errorCodes = new Map<number, string>([
   [401, 'UNAUTHORIZED'],
   [403, 'FORBIDDEN'],
   [404, 'NOT_FOUND'],
+  [409, 'CONFLICT'],
   [429, 'RATE_LIMITED'],
   [503, 'SERVICE_UNAVAILABLE'],
 ]);

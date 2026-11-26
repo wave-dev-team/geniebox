@@ -83,14 +83,34 @@ pnpm build
 - Проверку гипотез и настройку критериев успеха, затем измерение эффекта после релиза.
 - Экспорт задачи с тегом «сгенерирована ИИ-помощником» и уведомления продакт-менеджеру.
 
-Доступны регистрация, вход по паролю или коду из письма, подтверждение адреса, восстановление пароля, управление профилем и сеансами, светлая, тёмная и системная темы. Главная показывает форму помощника и примеры запросов. Отправка ведёт на заглушку диалога. Доменные разделы, Telegram и уведомления показывают заглушки.
+Доступны регистрация, вход по паролю или коду из письма, подтверждение адреса, восстановление пароля, управление профилем и сеансами, светлая, тёмная и системная темы. С главной можно отправить сообщение управляющему или открыть историю диалога. Ответ появляется по мере генерации. PostgreSQL хранит историю и результаты поручений, Redis обслуживает очередь генерации. Доменные разделы, Telegram и уведомления пока показывают заглушки.
 
 Access JWT живёт 10 минут и хранится в HttpOnly cookie. Refresh действует до 30 дней, ротируется в Redis и отзывается при завершении сеанса. PostgreSQL хранит профили под принудительным RLS. Глобальный индекс входа хранит HMAC адреса и идентификаторы тенанта и пользователя. Миграция профилей необратима из-за риска потери учётных записей.
+
+## Чат и модель
+
+API поддерживает потоковый OpenAI-совместимый Chat Completions. Ограничение в `LLM_DAILY_CALL_LIMIT` применяется к каждому тенанту и роли за сутки по UTC. `LLM_CALLS_PER_MINUTE` задаёт общий лимит вызовов модели. Параметры `LLM_INPUT_USD_PER_MTOK` и `LLM_OUTPUT_USD_PER_MTOK` используются для учёта стоимости по данным провайдера.
+
+Для разработки можно запустить [llama.cpp](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) с [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF) и задать переменные окружения API. Пример ниже рассчитан на API, запущенный на хосте. В Docker укажите URL, доступный из контейнера API.
+
+```bash
+llama-server -m /path/to/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+  --alias qwen2.5-1.5b-instruct --host 127.0.0.1 --port 58181 --ctx-size 8192
+```
+
+```dotenv
+LLM_BASE_URL=http://127.0.0.1:58181/v1
+LLM_MODEL=qwen2.5-1.5b-instruct
+```
+
+Если провайдер требует ключ, задайте `LLM_API_KEY` в окружении API. При пустом `LLM_BASE_URL` история остаётся доступна, генерация отключена. В модель передаются текущий запрос, ограниченная история и, при делегировании, инструкции и ответы выбранных агентов. Адреса почты, имя из профиля и похожие на телефон или платёжный номер строки маскируются. В свободном тексте могут остаться другие персональные данные. Для рабочих данных используйте модель внутри закрытого контура.
+
+API агентов поддерживает реестр, редактирование инструкций и включение или паузу. Новые записи по умолчанию на паузе. Когда доступны активные специалисты, управляющий может назначить до двух внутренних аналитических поручений и использовать результаты в ответе. Выбранный провайдер для делегирования должен поддерживать структурированный вывод JSON Schema. Результаты поручений видны в диалоге.
 
 ## Сторонние компоненты
 
 - Web — React, Next.js, Tailwind CSS, shadcn/ui CLI и пресет, Base UI, class-variance-authority, cn, Lucide, tw-animate-css, TanStack Query, React Hook Form, Hook Form Resolvers, next-intl, next-themes, Sonner, cmdk и input-otp.
-- API — NestJS, Express, Swagger, Terminus, Passport, passport-jwt, Throttler, Helmet, Kysely, pg, PostgreSQL, nestjs-cls, nestjs-i18n, nestjs-pino, pino-http, Zod, class-validator, class-transformer, reflect-metadata, RxJS, @nestjs/jwt, Redis, ioredis, Argon2, Nodemailer и Mailpit для локальной почты.
+- API — NestJS, Express, Swagger, Terminus, Passport, passport-jwt, Throttler, Helmet, Kysely, pg, PostgreSQL, nestjs-cls, nestjs-i18n, nestjs-pino, pino-http, Zod, class-validator, class-transformer, reflect-metadata, RxJS, @nestjs/jwt, Redis, ioredis, Argon2, Nodemailer, Mailpit для локальной почты, BullMQ, @nestjs/bullmq и @nestjs/event-emitter. Локальная модель для проверки чата — Qwen2.5-1.5B-Instruct через llama.cpp.
 - Сборка и проверки — pnpm, Turborepo, TypeScript, ESLint, typescript-eslint, simple-import-sort, Prettier, Husky, lint-staged, concurrently, Jest, ts-jest, Supertest, Testcontainers, kysely-codegen, Renovate, GitHub Actions, Docker Compose и Caddy.
 
 Точные версии npm-пакетов перечислены в манифестах и `pnpm-lock.yaml`.

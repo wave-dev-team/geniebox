@@ -98,7 +98,7 @@ it('keeps generated types synchronized with the migrated schema', async () => {
   });
 }, 20_000);
 
-it('blocks backwards migration when it would erase sign-in identities', async () => {
+it('blocks backwards migration when it would erase conversation history', async () => {
   expect((await migrator.migrateDown()).error).toBeInstanceOf(IrreversibleMigrationError);
   const state = await sql<{
     table_name: string | null;

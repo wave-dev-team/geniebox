@@ -48,6 +48,15 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SMTP_URL: ${SMTP_URL:?required}
       AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:?required}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-90000}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-768}
+      LLM_DAILY_CALL_LIMIT: ${LLM_DAILY_CALL_LIMIT:-100}
+      LLM_CALLS_PER_MINUTE: ${LLM_CALLS_PER_MINUTE:-30}
+      LLM_INPUT_USD_PER_MTOK: ${LLM_INPUT_USD_PER_MTOK:-0}
+      LLM_OUTPUT_USD_PER_MTOK: ${LLM_OUTPUT_USD_PER_MTOK:-0}
     depends_on:
       migrate:
         condition: service_completed_successfully
