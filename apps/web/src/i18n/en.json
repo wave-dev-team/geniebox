@@ -462,5 +462,27 @@
     "pause": "Pause",
     "resume": "Resume",
     "empty": "No schedules yet."
+  },
+  "agentCatalog": {
+    "title": "Agents",
+    "metrics": "Compares metrics and reads recent saved workspace reports.",
+    "hypotheses": "Defines hypotheses, success criteria, and a validation plan.",
+    "research": "Synthesizes provided interviews and competitor observations.",
+    "active": "Active",
+    "paused": "Paused",
+    "activate": "Enable",
+    "pause": "Pause",
+    "version": "Version {revision}",
+    "edit": "Configure",
+    "cancel": "Cancel",
+    "history": "History",
+    "name": "Name",
+    "instructions": "Instructions",
+    "save": "Save",
+    "invalid": "Check the name and instructions.",
+    "restore": "Restore",
+    "restored": "Instructions restored",
+    "retry": "Retry",
+    "more": "Show more"
   }
 }

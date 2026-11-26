@@ -107,6 +107,7 @@ beforeAll(async () => {
   if (!address || typeof address === 'string') throw new Error('Model stub port unavailable');
   process.env.LLM_BASE_URL = `http://127.0.0.1:${address.port}/v1`;
   process.env.LLM_MODEL = 'integration-model';
+  process.env.LLM_INCLUDE_WORKSPACE_REPORTS = 'true';
   const { createApp } = await import('../src/create-app.js');
   app = await createApp();
   await app.listen(0, '127.0.0.1');
@@ -273,7 +274,16 @@ it('isolates agents and turns, executes delegation and skips paused agents', asy
     .send({ name: 'Metrics specialist', instructions: 'Review checkout conversion', enabled: true })
     .expect(201);
   const id = z.uuid().parse(agent.body.id);
-  await bob.get(`${prefix}/agents`).expect(200, []);
+  await bob
+    .get(`${prefix}/agents`)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toHaveLength(3);
+      expect(body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ catalogKey: 'metrics', enabled: false })]),
+      );
+      expect(body).not.toEqual(expect.arrayContaining([expect.objectContaining({ id })]));
+    });
   await bob.patch(`${prefix}/agents/${id}`).set(marker, '1').send({ enabled: false }).expect(404);
 
   async function completed(turnId: string) {
@@ -789,4 +799,123 @@ it('runs only due, enabled schedules and creates at most one task per automatic 
       expect(body).toHaveLength(1);
       expect(Date.parse(body[0].nextRunAt)).toBeGreaterThan(Date.now());
     });
+}, 20_000);
+
+it('provisions isolated agents once, tracks instruction versions and gives the metrics agent saved reports', async () => {
+  const owner = request.agent(app.getHttpServer());
+  const other = request.agent(app.getHttpServer());
+  for (const [index, client] of [owner, other].entries()) {
+    const email = `catalog-${index}@geniebox.test`;
+    await client
+      .post(`${prefix}/auth/email-code`)
+      .set(marker, '1')
+      .set('Accept-Language', 'en')
+      .send({ email })
+      .expect(204);
+    const code = await codeFromMail(email, 'Geniebox sign-in code');
+    await client.post(`${prefix}/auth/email-code/verify`).set(marker, '1').send({ email, code }).expect(200);
+  }
+  const path = `${prefix}/agents`;
+  const [first, concurrent] = await Promise.all([owner.get(path).expect(200), owner.get(path).expect(200)]);
+  expect(first.body).toEqual(concurrent.body);
+  expect(first.body).toHaveLength(3);
+  const agent = z
+    .object({
+      id: z.uuid(),
+      instructions: z.string(),
+      catalogKey: z.string(),
+      enabled: z.boolean(),
+      revision: z.number(),
+    })
+    .array()
+    .parse(first.body)
+    .find(({ catalogKey }) => catalogKey === 'metrics');
+  if (!agent) throw new Error('Missing metrics agent');
+  expect(agent).toMatchObject({ enabled: false, revision: 1 });
+  const item = `${path}/${agent.id}`;
+  await other.get(`${item}/versions`).expect(404);
+  await owner
+    .patch(item)
+    .set(marker, '1')
+    .send({ instructions: 'Revised measurement instructions', expectedRevision: 1 })
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ revision: 2 });
+    });
+  await owner
+    .patch(item)
+    .set(marker, '1')
+    .send({ instructions: 'Stale editing', expectedRevision: 1 })
+    .expect(409);
+  await owner
+    .post(`${item}/restore`)
+    .set(marker, '1')
+    .send({ revision: 1, expectedRevision: 2 })
+    .expect(201)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ revision: 3, instructions: agent.instructions });
+    });
+  await owner
+    .patch(item)
+    .set(marker, '1')
+    .send({ enabled: true })
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ revision: 3, enabled: true });
+    });
+  await owner
+    .get(`${item}/versions`)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body.items.map(({ revision }: { revision: number }) => revision)).toEqual([3, 2, 1]);
+    });
+
+  for (const [client, title] of [
+    [owner, 'Saved catalog evidence'],
+    [other, 'Foreign catalog evidence'],
+  ] as const) {
+    await client
+      .put(`${prefix}/connections/yandex-metrica`)
+      .set(marker, '1')
+      .send({ mode: 'demo' })
+      .expect(204);
+    await client
+      .post(`${prefix}/reports`)
+      .set(marker, '1')
+      .send({
+        title,
+        metric: 'visits',
+        baseline: { from: '2026-07-01', to: '2026-07-03' },
+        comparison: { from: '2026-07-08', to: '2026-07-10' },
+      })
+      .expect(201);
+  }
+
+  const taskId = randomUUID();
+  await owner
+    .post(`${prefix}/tasks`)
+    .set(marker, '1')
+    .send({
+      id: taskId,
+      title: 'Assess saved catalog report',
+      description: '',
+      agentId: agent.id,
+      dueOn: null,
+    })
+    .expect(201);
+  let done = false;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const { body } = await owner.get(`${prefix}/tasks/${taskId}`).expect(200);
+    if (body.status !== 'planned' && body.status !== 'running') {
+      expect(body.status).toBe('done');
+      done = true;
+      break;
+    }
+    await sleep(100);
+  }
+  expect(done).toBe(true);
+  const received = JSON.stringify(modelRequests.at(-1));
+  expect(received).toContain('Saved catalog evidence');
+  expect(received).toContain('"demo"'.replaceAll('"', '\\"'));
+  expect(received).not.toContain('Foreign catalog evidence');
 }, 20_000);

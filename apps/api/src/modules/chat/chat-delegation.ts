@@ -11,7 +11,6 @@ import { AgentsService } from '../agents/agents.service.js';
 import { buildMessages, createRedactor } from '../runtime/model-context.js';
 import { ModelError } from '../runtime/model-provider.js';
 import { canRetryModel, DailyLimitError, RuntimeService } from '../runtime/runtime.service.js';
-import { specialistPrompt } from '../runtime/specialist-prompt.js';
 import { type ChatJob, ChatRepository } from './chat.repository.js';
 import { plannerPrompt } from './manager-prompt.js';
 
@@ -126,16 +125,15 @@ export class ChatDelegation {
       return null;
     }
     await this.setStatus(job, task.agentId, 'running');
-    const redact = createRedactor(context.name);
-    const messages = buildMessages(
-      context.current.message,
-      context.previous,
-      context.name,
-      `${specialistPrompt}\nAssigned instructions:\n${redact(agent.instructions)}`,
-    );
     let answer: string;
     try {
-      answer = await this.completion.complete(job, { role: 'agent.chat', version: '1', messages });
+      const prompt = await this.agents.prompt(agent, context.name);
+      const messages = buildMessages(context.current.message, context.previous, context.name, prompt);
+      answer = await this.completion.complete(job, {
+        role: 'agent.chat',
+        version: `2.agent${agent.revision}`,
+        messages,
+      });
     } catch (error) {
       if (canRetryModel(error) && !finalAttempt) throw error;
       if (!(error instanceof ModelError || error instanceof DailyLimitError)) throw error;

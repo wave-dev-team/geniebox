@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   BadRequestException,
   Body,
@@ -10,11 +12,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import { createAgentSchema, updateAgentSchema } from '@workspace/types';
+import { createAgentSchema, restoreAgentSchema, updateAgentSchema } from '@workspace/types';
 
 import type { AuthenticatedRequest } from '../auth/auth.controller.js';
 import { AgentsService } from './agents.service.js';
@@ -48,7 +51,41 @@ export class AgentsController {
     const input = updateAgentSchema.safeParse(body);
     if (!input.success) throw new BadRequestException();
     const agent = await this.agents.update(request.user, id, input.data);
-    if (!agent) throw new NotFoundException();
+    if (agent === 'missing') throw new NotFoundException();
+    if (agent === 'conflict') throw new ConflictException();
+    return agent;
+  }
+
+  @Get(':id/versions')
+  @Header('Cache-Control', 'no-store')
+  async history(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('before') value: unknown,
+  ) {
+    const cursor = z.coerce.number().int().positive().optional().safeParse(value);
+    if (!cursor.success) throw new BadRequestException();
+    const history = await this.agents.history(request.user, id, cursor.data);
+    if (!history) throw new NotFoundException();
+    return history;
+  }
+
+  @Post(':id/restore')
+  async restore(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const input = restoreAgentSchema.safeParse(body);
+    if (!input.success) throw new BadRequestException();
+    const agent = await this.agents.restore(
+      request.user,
+      id,
+      input.data.revision,
+      input.data.expectedRevision,
+    );
+    if (agent === 'missing') throw new NotFoundException();
+    if (agent === 'conflict') throw new ConflictException();
     return agent;
   }
 }

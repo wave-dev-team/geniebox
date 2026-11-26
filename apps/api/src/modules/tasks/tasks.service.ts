@@ -10,9 +10,8 @@ import { ClsService } from 'nestjs-cls';
 import type { CreateWorkTask, TaskAction, TaskStatus, UpdateWorkTask, WorkTask } from '@workspace/types';
 
 import { AgentsService } from '../agents/agents.service.js';
-import { buildMessages, createRedactor } from '../runtime/model-context.js';
+import { buildMessages } from '../runtime/model-context.js';
 import { canRetryModel, modelAttempts, RuntimeService } from '../runtime/runtime.service.js';
-import { specialistPrompt } from '../runtime/specialist-prompt.js';
 import {
   type TaskFilter,
   type TaskJob,
@@ -131,13 +130,12 @@ export class TasksService {
     // The task may have been cancelled between the state read and this claim.
     if (!(await this.repository.runContext(job))) return;
 
-    const redact = createRedactor(context.name);
-    const prompt = `${specialistPrompt}\nAssigned instructions:\n${redact(agent.instructions)}`;
     const input = [context.task.title, context.task.description].filter(Boolean).join('\n\n');
     try {
+      const prompt = await this.agents.prompt(agent, context.name);
       const result = await this.completion.complete(job, {
         role: 'agent.task',
-        version: '1',
+        version: `2.agent${agent.revision}`,
         messages: buildMessages(input, [], context.name, prompt),
       });
       await this.setState(job, 'done', result);

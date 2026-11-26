@@ -1,5 +1,6 @@
 export {
   accountsApi,
+  agentsApi,
   ApiError,
   authApi,
   chatApi,

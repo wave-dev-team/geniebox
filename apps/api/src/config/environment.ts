@@ -24,6 +24,7 @@ export const appEnvironment = z
       (value) => (value === '' ? undefined : value),
       z.url({ protocol: /^https?$/ }).optional(),
     ),
+    LLM_INCLUDE_WORKSPACE_REPORTS: z.enum(['true', 'false']).default('false'),
     LLM_MODEL: z.string().default(''),
     LLM_API_KEY: z.string().optional(),
     LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(180000).default(90000),

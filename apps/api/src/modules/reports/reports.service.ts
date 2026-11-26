@@ -62,6 +62,50 @@ export class ReportsService {
     return report;
   }
 
+  async recentEvidence() {
+    const rows = await this.db.transaction((tx) =>
+      tx
+        .selectFrom('metrics_reports')
+        .select('payload')
+        .orderBy('created_at', 'desc')
+        .orderBy('id', 'desc')
+        .limit(3)
+        .execute(),
+    );
+    return rows.map(({ payload }) => {
+      const {
+        id,
+        title,
+        label,
+        baseline,
+        comparison,
+        before,
+        after,
+        change,
+        criterion,
+        criterionMet,
+        source,
+        sourceUrl,
+        sampled,
+      } = metricsReportSchema.parse(payload);
+      return {
+        id,
+        title,
+        label,
+        baseline,
+        comparison,
+        before,
+        after,
+        change,
+        criterion,
+        criterionMet,
+        source,
+        sourceUrl,
+        sampled,
+      };
+    });
+  }
+
   async list(actor: WorkspaceActor, before?: string) {
     const rows = await this.db.transaction((tx) => {
       let query = tx

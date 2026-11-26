@@ -26,10 +26,12 @@ export type Numeric = ColumnType<string, number | string, number | string>;
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface Agents {
+  catalog_key: string | null;
   enabled: Generated<boolean>;
   id: string;
   instructions: string;
   name: string;
+  revision: Generated<number>;
   tenant_id: string;
   user_id: string;
 }
@@ -45,6 +47,16 @@ export interface AgentTasks {
   tenant_id: string;
   turn_id: string;
   updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
+export interface AgentVersions {
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  instructions: string;
+  name: string;
+  revision: number;
+  tenant_id: string;
   user_id: string;
 }
 
@@ -182,6 +194,7 @@ export interface WorkTasks {
 
 export interface DB {
   agent_tasks: AgentTasks;
+  agent_versions: AgentVersions;
   agents: Agents;
   chat_turns: ChatTurns;
   connections: Connections;
