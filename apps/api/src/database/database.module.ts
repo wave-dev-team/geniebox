@@ -4,6 +4,7 @@ import { ClsService } from 'nestjs-cls';
 
 import { createDb } from './create-db.js';
 import { IdentityDirectory } from './identity-directory.js';
+import { RoutineDirectory } from './routine-directory.js';
 import { type RequestContext, TenantDb } from './tenant-db.js';
 
 const DATABASE = Symbol('DATABASE');
@@ -21,12 +22,17 @@ const DATABASE = Symbol('DATABASE');
       useFactory: (db: ReturnType<typeof createDb>) => new IdentityDirectory(db),
     },
     {
+      provide: RoutineDirectory,
+      inject: [DATABASE],
+      useFactory: (db: ReturnType<typeof createDb>) => new RoutineDirectory(db),
+    },
+    {
       provide: TenantDb,
       inject: [DATABASE, ClsService],
       useFactory: (db: ReturnType<typeof createDb>, context: ClsService<RequestContext>): TenantDb =>
         new TenantDb(db, context),
     },
   ],
-  exports: [TenantDb, IdentityDirectory],
+  exports: [TenantDb, IdentityDirectory, RoutineDirectory],
 })
 export class DatabaseModule {}

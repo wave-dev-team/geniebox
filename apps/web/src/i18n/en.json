@@ -440,5 +440,27 @@
     "rationale": "Decision notes",
     "saveDecision": "Save decision",
     "decisionSaved": "Decision saved"
+  },
+  "routines": {
+    "title": "Task schedules",
+    "tasks": "Back to tasks",
+    "new": "Recurring task",
+    "scheduleHelp": "The first automatic run starts after the selected interval. The task appears in your list.",
+    "name": "Title",
+    "description": "Description",
+    "cadence": "Repeat",
+    "daily": "Every day",
+    "weekly": "Every week",
+    "save": "Create schedule",
+    "created": "Schedule created",
+    "invalid": "Check the schedule fields.",
+    "retry": "Retry",
+    "saved": "Your schedules",
+    "next": "Next run {when}",
+    "paused": "Paused",
+    "run": "Run now",
+    "pause": "Pause",
+    "resume": "Resume",
+    "empty": "No schedules yet."
   }
 }

@@ -23,6 +23,7 @@ import { ChatModule } from './modules/chat/chat.module.js';
 import { ConnectionsModule } from './modules/connections/connections.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { RoutinesModule } from './modules/routines/routines.module.js';
 import { StreamModule } from './modules/stream/stream.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 
@@ -67,6 +68,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     ChatModule,
     ConnectionsModule,
     ReportsModule,
+    RoutinesModule,
     TasksModule,
     StreamModule,
     HealthModule,

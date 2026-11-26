@@ -199,6 +199,7 @@ function TaskDetails({
 
 export function TasksBoard() {
   const t = useTranslations('tasks');
+  const tRoutines = useTranslations('routines');
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -225,7 +226,12 @@ export function TasksBoard() {
     <div className="mx-auto flex w-full max-w-260 flex-col gap-6 px-5 pt-14 pb-10 sm:px-8 md:py-12">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
+            <Link className="text-sm text-muted-foreground underline underline-offset-4" href="/routines">
+              {tRoutines('title')}
+            </Link>
+          </div>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={() => setCreating(true)}>

@@ -11,4 +11,5 @@ export * from './chat.js';
 export * from './connections.js';
 export * from './identity.js';
 export * from './metrics.js';
+export * from './routines.js';
 export * from './tasks.js';

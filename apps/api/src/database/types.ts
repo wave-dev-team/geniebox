@@ -117,6 +117,18 @@ export interface ReportDecisions {
   tenant_id: string;
 }
 
+export interface TaskRoutines {
+  cadence: string;
+  created_at: Generated<Timestamp>;
+  description: string;
+  enabled: Generated<boolean>;
+  id: string;
+  next_run_at: Timestamp;
+  tenant_id: string;
+  title: string;
+  user_id: string;
+}
+
 export interface UserProfiles {
   email: string;
   email_verified_at: Timestamp | null;
@@ -178,6 +190,7 @@ export interface DB {
   metric_definitions: MetricDefinitions;
   metrics_reports: MetricsReports;
   report_decisions: ReportDecisions;
+  task_routines: TaskRoutines;
   user_profiles: UserProfiles;
   work_tasks: WorkTasks;
   workspace_invitations: WorkspaceInvitations;

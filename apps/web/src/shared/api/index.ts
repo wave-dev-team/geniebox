@@ -7,6 +7,7 @@ export {
   metricsApi,
   profileApi,
   reportsApi,
+  routinesApi,
   tasksApi,
 } from '@workspace/api-client';
 

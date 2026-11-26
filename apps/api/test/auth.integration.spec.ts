@@ -10,13 +10,16 @@ import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { z } from 'zod';
 
 import type { INestApplication } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 
 import { chatHistorySchema, taskPageSchema, workTaskSchema } from '@workspace/types';
 
 import { createDb } from '../src/database/create-db.js';
 import { migrationProvider } from '../src/database/migrations/index.js';
 import { bootstrapRoles } from '../src/database/roles.js';
+import { type RequestContext, TenantDb } from '../src/database/tenant-db.js';
 import { MetricaProvider } from '../src/modules/connections/metrica.provider.js';
+import { RoutinesService } from '../src/modules/routines/routines.service.js';
 
 const password = 'test-current-password';
 const newPassword = 'test-replacement-password';
@@ -721,4 +724,69 @@ it('compares equal periods with a success threshold and preserves workspace repo
     .expect(200)
     .expect(({ body }) => expect(body.taskId).toBeNull());
   await owner.get(`${prefix}/tasks/counts`).expect(200, { active: 1, done: 0 });
+}, 20_000);
+
+it('runs only due, enabled schedules and creates at most one task per automatic occurrence', async () => {
+  const owner = request.agent(app.getHttpServer());
+  const other = request.agent(app.getHttpServer());
+  for (const [index, client] of [owner, other].entries()) {
+    const email = `routine-${index}@geniebox.test`;
+    await client
+      .post(`${prefix}/auth/email-code`)
+      .set(marker, '1')
+      .set('Accept-Language', 'en')
+      .send({ email })
+      .expect(204);
+    const code = await codeFromMail(email, 'Geniebox sign-in code');
+    await client.post(`${prefix}/auth/email-code/verify`).set(marker, '1').send({ email, code }).expect(200);
+  }
+  const tenantId = z.uuid().parse((await owner.get(`${prefix}/me`).expect(200)).body.tenantId);
+  const routines = `${prefix}/routines`;
+  const input = {
+    id: randomUUID(),
+    title: 'Review store indicators',
+    description: 'Check the weekly trend',
+    cadence: 'weekly',
+  };
+  await owner.post(routines).set(marker, '1').send(input).expect(201);
+  await owner.post(routines).set(marker, '1').send(input).expect(201);
+  await other.get(routines).expect(200, []);
+  await other.post(`${routines}/${input.id}/run`).set(marker, '1').send({ id: randomUUID() }).expect(404);
+
+  const taskId = randomUUID();
+  for (let retry = 0; retry < 2; retry++) {
+    await owner
+      .post(`${routines}/${input.id}/run`)
+      .set(marker, '1')
+      .send({ id: taskId })
+      .expect(201, { taskId });
+  }
+
+  const makeDue = () =>
+    app.get<ClsService<RequestContext>>(ClsService).runWith({ tenantId }, () =>
+      app.get(TenantDb).transaction((tx) =>
+        tx
+          .updateTable('task_routines')
+          .set({ next_run_at: new Date(Date.now() - 10_000) })
+          .where('id', '=', input.id)
+          .execute(),
+      ),
+    );
+  const scheduler = app.get(RoutinesService);
+  await owner.patch(`${routines}/${input.id}`).set(marker, '1').send({ enabled: false }).expect(200);
+  await makeDue();
+  await scheduler.tick();
+  await owner.get(`${prefix}/tasks/counts`).expect(200, { active: 1, done: 0 });
+
+  await owner.patch(`${routines}/${input.id}`).set(marker, '1').send({ enabled: true }).expect(200);
+  await makeDue();
+  await Promise.all([scheduler.tick(), scheduler.tick()]);
+  await owner.get(`${prefix}/tasks/counts`).expect(200, { active: 2, done: 0 });
+  await owner
+    .get(routines)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toHaveLength(1);
+      expect(Date.parse(body[0].nextRunAt)).toBeGreaterThan(Date.now());
+    });
 }, 20_000);
