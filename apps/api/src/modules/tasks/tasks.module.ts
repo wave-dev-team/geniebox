@@ -4,7 +4,7 @@ import { ConditionalModule } from '@nestjs/config';
 
 import { DatabaseModule } from '../../database/database.module.js';
 import { AgentsModule } from '../agents/agents.module.js';
-import { ChatModule } from '../chat/chat.module.js';
+import { RuntimeModule } from '../runtime/runtime.module.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksProcessor } from './tasks.processor.js';
 import { TasksRepository } from './tasks.repository.js';
@@ -20,7 +20,7 @@ class TaskQueueModule {}
   imports: [
     DatabaseModule,
     AgentsModule,
-    ChatModule,
+    RuntimeModule,
     ConditionalModule.registerWhen(TaskQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
   controllers: [TasksController],

@@ -8,11 +8,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Agent, AgentTask } from '@workspace/types';
 
 import { AgentsService } from '../agents/agents.service.js';
+import { buildMessages, createRedactor } from '../runtime/model-context.js';
+import { ModelError } from '../runtime/model-provider.js';
+import { canRetryModel, DailyLimitError, RuntimeService } from '../runtime/runtime.service.js';
+import { specialistPrompt } from '../runtime/specialist-prompt.js';
 import { type ChatJob, ChatRepository } from './chat.repository.js';
-import { canRetryModel, ChatCompletion, DailyLimitError } from './chat-completion.js';
-import { buildMessages, createRedactor } from './chat-context.js';
-import { ModelError } from './chat-model.js';
-import { plannerPrompt, specialistPrompt } from './manager-prompt.js';
+import { plannerPrompt } from './manager-prompt.js';
 
 const selectionSchema = z.strictObject({
   indexes: z.array(z.number().int().nonnegative()).max(2),
@@ -26,6 +27,7 @@ class AgentTaskEvent {
 
   constructor(
     readonly tenantId: string,
+    readonly userId: string,
     readonly turnId: string,
     readonly agentId: string,
     readonly traceId: string,
@@ -37,7 +39,7 @@ export class ChatDelegation {
   constructor(
     private readonly agents: AgentsService,
     private readonly repository: ChatRepository,
-    private readonly completion: ChatCompletion,
+    private readonly completion: RuntimeService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -159,7 +161,7 @@ export class ChatDelegation {
   private publish(job: ChatJob, agentId: string, action: string) {
     this.events.emit(
       `agent.task_${action}`,
-      new AgentTaskEvent(job.tenantId, job.turnId, agentId, job.traceId),
+      new AgentTaskEvent(job.tenantId, job.userId, job.turnId, agentId, job.traceId),
     );
   }
 }

@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
 import { JwtStrategy } from '../../common/auth/jwt.strategy.js';
+import { RedisModule } from '../../common/redis/redis.module.js';
+import { MailModule } from '../mail/mail.module.js';
 import { ProfileModule } from '../profile/profile.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
-import { AuthRedis } from './auth-redis.js';
 import { EmailCodesService } from './email-codes.service.js';
 import { LoginAttempts } from './login-attempts.js';
 import { PasswordHasher } from './password-hasher.js';
@@ -16,20 +17,14 @@ import { SessionsController } from './sessions.controller.js';
 @Module({
   imports: [
     ProfileModule,
+    MailModule,
+    RedisModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('JWT_SECRET') }),
     }),
   ],
   controllers: [AuthController, SessionsController],
-  providers: [
-    AuthService,
-    AuthRedis,
-    EmailCodesService,
-    LoginAttempts,
-    PasswordHasher,
-    SessionStore,
-    JwtStrategy,
-  ],
+  providers: [AuthService, EmailCodesService, LoginAttempts, PasswordHasher, SessionStore, JwtStrategy],
 })
 export class AuthModule {}

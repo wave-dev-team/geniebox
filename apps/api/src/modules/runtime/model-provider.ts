@@ -35,7 +35,7 @@ export class ModelError extends Error {
 }
 
 @Injectable()
-export class ChatModel {
+export class ModelProvider {
   private readonly baseUrl;
   private readonly apiKey;
   private readonly timeout;

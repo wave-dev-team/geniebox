@@ -6,9 +6,9 @@ import { Injectable } from '@nestjs/common';
 
 import type { Session } from '@workspace/types';
 
+import { AppRedis } from '../../common/redis/app-redis.js';
 import type { Identity } from '../profile/profile.repository.js';
 import { AuthError } from './auth-errors.js';
-import { AuthRedis } from './auth-redis.js';
 
 export const ACCESS_SECONDS = 10 * 60;
 export const REFRESH_SECONDS = 30 * 24 * 60 * 60;
@@ -55,12 +55,12 @@ return {0}
 
 @Injectable()
 export class SessionStore {
-  constructor(private readonly redis: AuthRedis) {}
+  constructor(private readonly redis: AppRedis) {}
 
   async create(identity: Identity, version: string, meta: { userAgent?: string; ip?: string }) {
     const actor = { ...identity, sessionId: randomUUID() };
     const token = secret();
-    const client = await this.redis.get();
+    const client = this.redis.client;
     const now = Date.now();
     const index = sessionIndex(actor);
     const results = await client
@@ -89,7 +89,7 @@ export class SessionStore {
     if (!parsed.success) throw new AuthError('SESSION_EXPIRED');
     const [tenantId, userId, sessionId, presented] = parsed.data;
     const actor = { tenantId, userId, sessionId };
-    const client = await this.redis.get();
+    const client = this.redis.client;
     const key = sessionKey(actor);
     const replacement = secret();
     const result = z
@@ -118,11 +118,11 @@ export class SessionStore {
   }
 
   async isActive(actor: Actor, version: string) {
-    return (await (await this.redis.get()).hget(sessionKey(actor), 'version')) === version;
+    return (await this.redis.client.hget(sessionKey(actor), 'version')) === version;
   }
 
   async list(actor: Actor): Promise<Session[]> {
-    const client = await this.redis.get();
+    const client = this.redis.client;
     const ids = await client.zrangebyscore(sessionIndex(actor), Date.now(), '+inf');
     const records = await Promise.all(
       ids.map(async (id) => {
@@ -146,12 +146,12 @@ export class SessionStore {
   }
 
   async revoke(actor: Actor) {
-    const client = await this.redis.get();
+    const client = this.redis.client;
     await client.multi().del(sessionKey(actor)).zrem(sessionIndex(actor), actor.sessionId).exec();
   }
 
   async revokeAll(identity: Identity) {
-    const client = await this.redis.get();
+    const client = this.redis.client;
     const index = sessionIndex(identity);
     const ids = await client.zrange(index, 0, -1);
     if (ids.length === 0) return;

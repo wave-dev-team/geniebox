@@ -1,14 +1,13 @@
 import { createHmac, randomInt } from 'node:crypto';
 
-import nodemailer from 'nodemailer';
-
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 
 import { localeSchema } from '@workspace/types';
 
-import { AuthRedis } from './auth-redis.js';
+import { AppRedis } from '../../common/redis/app-redis.js';
+import { MailService } from '../mail/mail.service.js';
 
 export type EmailPurpose = 'login' | 'reset' | 'verify';
 
@@ -39,17 +38,14 @@ return redis.call('DEL', KEYS[1], KEYS[2])
 
 @Injectable()
 export class EmailCodesService {
-  private readonly transport: ReturnType<typeof nodemailer.createTransport>;
-  private readonly from: string;
   private readonly key: string;
 
   constructor(
-    private readonly redis: AuthRedis,
+    private readonly redis: AppRedis,
     private readonly i18n: I18nService,
+    private readonly mail: MailService,
     config: ConfigService,
   ) {
-    this.transport = nodemailer.createTransport(config.getOrThrow<string>('SMTP_URL'));
-    this.from = config.getOrThrow<string>('AUTH_MAIL_FROM');
     this.key = config.getOrThrow<string>('AUTH_IDENTITY_SECRET');
   }
 
@@ -60,19 +56,16 @@ export class EmailCodesService {
   async send(purpose: EmailPurpose, email: string, preferredLocale?: string) {
     const code = String(randomInt(1_000_000)).padStart(6, '0');
     const { key, digest } = this.keys(purpose, email, code);
-    const client = await this.redis.get();
+    const client = this.redis.client;
     const cooldown = `${key}:cooldown`;
     if ((await client.eval(issueScript, 2, key, cooldown, digest, resendSeconds, codeTtl)) !== 1) return;
 
     try {
       const lang = localeSchema.safeParse(preferredLocale ?? I18nContext.current()?.lang).data ?? 'ru';
-      await this.transport.sendMail({
-        from: this.from,
+      await this.mail.send({
         to: email,
         subject: this.i18n.translate(`auth.${purpose}.subject`, { lang }),
         text: this.i18n.translate(`auth.${purpose}.body`, { lang, args: { code } }),
-        disableFileAccess: true,
-        disableUrlAccess: true,
       });
     } catch {
       await client.eval(discardScript, 2, key, cooldown, digest);
@@ -82,7 +75,7 @@ export class EmailCodesService {
 
   async consume(purpose: EmailPurpose, email: string, code: string) {
     const { key, digest } = this.keys(purpose, email, code);
-    return (await (await this.redis.get()).eval(consumeScript, 1, key, digest)) === 1;
+    return (await this.redis.client.eval(consumeScript, 1, key, digest)) === 1;
   }
 
   private hash(value: string) {

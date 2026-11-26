@@ -19,6 +19,7 @@ import { appEnvironment } from './config/environment.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { StreamModule } from './modules/stream/stream.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 
 @Module({
@@ -59,6 +60,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     AuthModule,
     ChatModule,
     TasksModule,
+    StreamModule,
     HealthModule,
   ],
   providers: [

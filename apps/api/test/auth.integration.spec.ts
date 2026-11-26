@@ -416,3 +416,76 @@ it('manages personal tasks, runs assigned tasks and lists chat assignments in th
   await action(cancellable.id, 'start').expect(409);
   await bob.get(`${url}?tab=done`).expect(200, { tasks: [], nextCursor: null });
 }, 30_000);
+
+it('streams chat and task changes only to the authenticated owner', async () => {
+  const url = `${await app.getUrl()}${prefix}/stream`;
+  await request(app.getHttpServer()).get(`${prefix}/stream`).expect(401);
+  const alice = request.agent(app.getHttpServer());
+  const bob = request.agent(app.getHttpServer());
+  const registered = await Promise.all(
+    [alice, bob].map((account, index) =>
+      account
+        .post(`${prefix}/auth/register`)
+        .set(marker, '1')
+        .send({ email: `stream-test-${index}@geniebox.test`, password, name: 'Stream Owner' })
+        .expect(200),
+    ),
+  );
+  const cookies = z.array(z.string()).parse(registered[0]?.headers['set-cookie']);
+  const cookie = cookies.find((value) => value.startsWith('geniebox_access='));
+  if (!cookie) throw new Error('Missing session cookie');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(url, {
+      headers: { cookie: cookie.split(';')[0] ?? '' },
+      signal: controller.signal,
+    });
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    if (!response.body) throw new Error('Missing event stream');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let events = '';
+    const readUntil = async (type: string) => {
+      while (!events.includes(`event: ${type}\n`)) {
+        const next = await reader.read();
+        if (next.done) throw new Error(`Stream closed before ${type}`);
+        events += decoder.decode(next.value, { stream: true });
+      }
+    };
+    await readUntil('ready');
+
+    const waitForReply = async (account: typeof alice, id: string) => {
+      while (!controller.signal.aborted) {
+        const { body } = await account.get(`${prefix}/chat`).expect(200);
+        const turn = chatHistorySchema.parse(body).turns.find((turn) => turn.id === id);
+        if (turn && turn.status !== 'pending') {
+          expect(turn.status).toBe('completed');
+          return;
+        }
+        await sleep(100);
+      }
+      throw new Error('Chat turn did not finish');
+    };
+
+    const message = { id: randomUUID(), message: 'Stream isolation check' };
+    await bob.post(`${prefix}/chat`).set(marker, '1').send(message).expect(202);
+    await waitForReply(bob, message.id);
+
+    await alice
+      .post(`${prefix}/tasks`)
+      .set(marker, '1')
+      .send({ id: randomUUID(), title: 'Stream test', description: '', dueOn: null, agentId: null })
+      .expect(201);
+    await readUntil('tasks');
+    expect(events).not.toContain('event: chat\n');
+
+    const ownMessage = { id: randomUUID(), message: 'Own chat update' };
+    await alice.post(`${prefix}/chat`).set(marker, '1').send(ownMessage).expect(202);
+    await readUntil('chat');
+    await waitForReply(alice, ownMessage.id);
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+  }
+}, 12_000);

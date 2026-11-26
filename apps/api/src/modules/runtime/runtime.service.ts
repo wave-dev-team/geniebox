@@ -1,15 +1,12 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import type { Queue } from 'bullmq';
+import { Injectable } from '@nestjs/common';
 
-import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Optional } from '@nestjs/common';
+import { AppRedis } from '../../common/redis/app-redis.js';
+import { type ModelCallSource, ModelCallsRepository } from './model-calls.repository.js';
+import { ModelError, type ModelMessage, ModelProvider } from './model-provider.js';
 
-import { type ChatJob, ChatRepository, type ModelCallSource } from './chat.repository.js';
-import { ChatModel, ModelError, type ModelMessage } from './chat-model.js';
-
-export const chatQueue = 'chat-generate';
-export const chatAttempts = 3;
+export const modelAttempts = 3;
 
 export class DailyLimitError extends Error {}
 
@@ -28,12 +25,16 @@ const acquireSlot = `
 `;
 
 @Injectable()
-export class ChatCompletion {
+export class RuntimeService {
   constructor(
-    @Optional() @InjectQueue(chatQueue) private readonly queue: Queue<ChatJob> | undefined,
-    private readonly repository: ChatRepository,
-    private readonly model: ChatModel,
+    private readonly redis: AppRedis,
+    private readonly repository: ModelCallsRepository,
+    private readonly model: ModelProvider,
   ) {}
+
+  get enabled() {
+    return this.model.enabled;
+  }
 
   async complete(
     job: ModelCallSource,
@@ -46,7 +47,7 @@ export class ChatCompletion {
       validate?: (answer: string) => boolean;
     },
   ) {
-    if (!this.queue) throw new Error('Chat queue is disabled');
+    if (!this.enabled) throw new Error('Runtime is disabled');
     const id = await this.repository.reserveCall(
       job,
       this.model.model,
@@ -56,21 +57,17 @@ export class ChatCompletion {
     );
     if (!id) throw new DailyLimitError();
 
-    const client = await this.queue.getBackend().client;
-    client.defineCommand('genieboxTakeModelSlot', { numberOfKeys: 1, lua: acquireSlot });
+    const client = this.redis.client;
     for (;;) {
       const delay = Number(
-        await client.runCommand('genieboxTakeModelSlot', [
-          'geniebox:llm:calls-per-minute',
-          this.model.callsPerMinute,
-        ]),
+        await client.eval(acquireSlot, 1, 'geniebox:llm:calls-per-minute', this.model.callsPerMinute),
       );
       if (delay <= 0) break;
       await sleep(delay);
     }
 
     const started = Date.now();
-    let result: Awaited<ReturnType<ChatModel['generate']>>;
+    let result: Awaited<ReturnType<ModelProvider['generate']>>;
     try {
       result = await this.model.generate(options.messages, options.onPartial, options.responseSchema);
     } catch (error) {

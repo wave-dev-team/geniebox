@@ -10,9 +10,9 @@ import { ClsService } from 'nestjs-cls';
 import type { CreateWorkTask, TaskAction, TaskStatus, UpdateWorkTask, WorkTask } from '@workspace/types';
 
 import { AgentsService } from '../agents/agents.service.js';
-import { canRetryModel, chatAttempts, ChatCompletion } from '../chat/chat-completion.js';
-import { buildMessages, createRedactor } from '../chat/chat-context.js';
-import { specialistPrompt } from '../chat/manager-prompt.js';
+import { buildMessages, createRedactor } from '../runtime/model-context.js';
+import { canRetryModel, modelAttempts, RuntimeService } from '../runtime/runtime.service.js';
+import { specialistPrompt } from '../runtime/specialist-prompt.js';
 import {
   type TaskFilter,
   type TaskJob,
@@ -39,6 +39,7 @@ class TaskEvent {
 
   constructor(
     readonly tenantId: string,
+    readonly userId: string,
     readonly taskId: string,
     readonly traceId: string,
     readonly status: TaskStatus,
@@ -52,7 +53,7 @@ export class TasksService {
   constructor(
     private readonly repository: TasksRepository,
     private readonly agents: AgentsService,
-    private readonly completion: ChatCompletion,
+    private readonly completion: RuntimeService,
     private readonly events: EventEmitter2,
     private readonly context: ClsService,
     @Optional() @InjectQueue(tasksQueue) private readonly queue: Queue<TaskJob> | undefined,
@@ -84,7 +85,10 @@ export class TasksService {
     const { row, created } = await this.repository.create(owner, input, agent, this.traceId());
     if (!created && !sameTask(row, input)) return 'conflict';
     if (created)
-      this.events.emit('task.created', new TaskEvent(owner.tenantId, row.id, row.trace_id, 'planned'));
+      this.events.emit(
+        'task.created',
+        new TaskEvent(owner.tenantId, owner.userId, row.id, row.trace_id, 'planned'),
+      );
     return toWorkTask(await this.syncQueue(owner, row));
   }
 
@@ -93,7 +97,7 @@ export class TasksService {
     if (!task) return (await this.repository.find(owner, id)) ? 'conflict' : 'missing';
     this.events.emit(
       'task.updated',
-      new TaskEvent(owner.tenantId, id, this.traceId(), task.status as TaskStatus),
+      new TaskEvent(owner.tenantId, owner.userId, id, this.traceId(), task.status as TaskStatus),
     );
     return toWorkTask(task);
   }
@@ -110,7 +114,7 @@ export class TasksService {
     if (!next) return 'conflict';
     this.events.emit(
       taskEvents[next.status as TaskStatus],
-      new TaskEvent(owner.tenantId, id, traceId, next.status as TaskStatus),
+      new TaskEvent(owner.tenantId, owner.userId, id, traceId, next.status as TaskStatus),
     );
     return toWorkTask(await this.syncQueue(owner, next));
   }
@@ -153,7 +157,7 @@ export class TasksService {
       if (!stored) {
         await this.queue.add('run', payload, {
           jobId,
-          attempts: chatAttempts,
+          attempts: modelAttempts,
           backoff: { type: 'exponential', delay: 1000 },
           removeOnComplete: { age: 3600, count: 1000 },
           removeOnFail: { age: 7 * 24 * 3600, count: 5000 },
@@ -170,7 +174,10 @@ export class TasksService {
 
   private async setState(job: TaskJob, status: 'running' | 'done' | 'failed', result?: string) {
     if (await this.repository.updateRun(job, status, result)) {
-      this.events.emit(taskEvents[status], new TaskEvent(job.tenantId, job.taskId, job.traceId, status));
+      this.events.emit(
+        taskEvents[status],
+        new TaskEvent(job.tenantId, job.userId, job.taskId, job.traceId, status),
+      );
     }
   }
 

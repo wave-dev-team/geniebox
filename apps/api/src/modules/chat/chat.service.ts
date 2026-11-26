@@ -9,18 +9,12 @@ import { ClsService } from 'nestjs-cls';
 
 import type { ChatHistory, ChatTurn, SendChatMessage } from '@workspace/types';
 
+import { buildMessages } from '../runtime/model-context.js';
+import { canRetryModel, DailyLimitError, modelAttempts, RuntimeService } from '../runtime/runtime.service.js';
 import { type ChatJob, type ChatOwner, ChatRepository, toChatTurn } from './chat.repository.js';
-import {
-  canRetryModel,
-  chatAttempts,
-  ChatCompletion,
-  chatQueue,
-  DailyLimitError,
-} from './chat-completion.js';
-import { buildMessages } from './chat-context.js';
 import { ChatDelegation } from './chat-delegation.js';
-import { ChatModel } from './chat-model.js';
-import { managerPromptVersion, managerRole } from './manager-prompt.js';
+import { chatQueue } from './chat-queue.js';
+import { managerPrompt, managerPromptVersion, managerRole } from './manager-prompt.js';
 
 class ChatTurnEvent {
   readonly eventId = randomUUID();
@@ -42,15 +36,14 @@ export class ChatService {
   constructor(
     @Optional() @InjectQueue(chatQueue) private readonly queue: Queue<ChatJob> | undefined,
     private readonly repository: ChatRepository,
-    private readonly model: ChatModel,
-    private readonly completion: ChatCompletion,
+    private readonly completion: RuntimeService,
     private readonly delegation: ChatDelegation,
     private readonly context: ClsService,
     private readonly events: EventEmitter2,
   ) {}
 
   get enabled() {
-    return this.model.enabled;
+    return this.completion.enabled;
   }
 
   async history(owner: ChatOwner, before?: string): Promise<ChatHistory> {
@@ -98,7 +91,7 @@ export class ChatService {
         context.current.message,
         context.previous,
         context.name,
-        undefined,
+        managerPrompt,
         7500,
       );
       if (notes.length) {
@@ -115,7 +108,12 @@ export class ChatService {
         messages,
         onPartial: async (answer) => {
           partial = true;
-          await this.repository.update(job, 'pending', answer);
+          if (await this.repository.update(job, 'pending', answer)) {
+            this.events.emit(
+              'chat.turn_partial',
+              new ChatTurnEvent(job.tenantId, job.userId, job.turnId, job.traceId, 'pending'),
+            );
+          }
         },
       });
       await this.finish(job, 'completed', answer);
@@ -138,7 +136,7 @@ export class ChatService {
       if (existing) return await existing.getState();
       await this.queue.add('generate', job, {
         jobId,
-        attempts: chatAttempts,
+        attempts: modelAttempts,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: { age: 3600, count: 1000 },
         removeOnFail: { age: 7 * 24 * 3600, count: 5000 },

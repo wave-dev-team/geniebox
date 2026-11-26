@@ -7,11 +7,13 @@ import type { ChatHistory, SendChatMessage } from '@workspace/types';
 
 import { useMe } from '@/entities/session';
 import { ApiError, chatApi } from '@/shared/api';
+import { useWorkStream } from '@/shared/api/use-work-stream';
 
 export function useManagerChat() {
   const { data: me } = useMe();
   const queryKey = ['manager-chat', me?.tenantId, me?.id] as const;
   const client = useQueryClient();
+  const streaming = useWorkStream('chat', me?.tenantId, me?.id);
   const currentRequest = useRef<SendChatMessage>(null);
   const submitting = useRef(false);
 
@@ -33,7 +35,7 @@ export function useManagerChat() {
     enabled: Boolean(me),
     staleTime: 0,
     refetchInterval: ({ state }) =>
-      state.data?.turns.some((turn) => turn.status === 'pending') ? 850 : false,
+      state.data?.turns.some((turn) => turn.status === 'pending') ? (streaming ? 8000 : 850) : false,
   });
   const mutation = useMutation({
     mutationFn: chatApi.send,

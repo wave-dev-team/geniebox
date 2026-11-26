@@ -1,11 +1,10 @@
-import type { ModelMessage } from './chat-model.js';
-import { managerPrompt } from './manager-prompt.js';
+import type { ModelMessage } from './model-provider.js';
 
 export function buildMessages(
   current: string,
   previous: { message: string; answer: string | null }[],
-  name?: string,
-  system = managerPrompt,
+  name: string | undefined,
+  system: string,
   contextLimit = 10_000,
 ): ModelMessage[] {
   const redact = createRedactor(name);

@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 
 import type { RequestContext } from '../../database/tenant-db.js';
-import { chatAttempts } from '../chat/chat-completion.js';
+import { modelAttempts } from '../runtime/runtime.service.js';
 import type { TaskJob } from './tasks.repository.js';
 import { tasksQueue, TasksService } from './tasks.service.js';
 
@@ -23,7 +23,7 @@ export class TasksProcessor extends WorkerHost {
   async process(job: Job<TaskJob>) {
     await this.context.runWith({ tenantId: job.data.tenantId }, async () => {
       try {
-        await this.tasks.run(job.data, job.attemptsMade + 1 >= chatAttempts);
+        await this.tasks.run(job.data, job.attemptsMade + 1 >= modelAttempts);
       } catch (error) {
         if (error instanceof UnrecoverableError) throw error;
         throw new Error('Task generation failed');
