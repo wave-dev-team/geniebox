@@ -119,15 +119,15 @@ const inboxSchema = z.object({
 });
 const mailSchema = z.object({ Text: z.string() });
 
-async function codeFromMail(email: string, subject: string) {
+async function codeFromMail(email: string, subject: string, pattern = /\b\d{6}\b/) {
   const inbox = inboxSchema.parse(await (await fetch(`${mailOrigin}/api/v1/messages`)).json());
   const message = inbox.messages.find(
     ({ Subject, To }) => Subject === subject && To.some(({ Address }) => Address === email),
   );
   if (!message) throw new Error('Expected an email from Geniebox');
   const mail = mailSchema.parse(await (await fetch(`${mailOrigin}/api/v1/message/${message.ID}`)).json());
-  const code = /\b\d{6}\b/.exec(mail.Text)?.[0];
-  if (!code) throw new Error('Expected a six-digit code');
+  const code = pattern.exec(mail.Text)?.[0];
+  if (!code) throw new Error('Expected a code in the email');
   return code;
 }
 
@@ -489,3 +489,87 @@ it('streams chat and task changes only to the authenticated owner', async () => 
     controller.abort();
   }
 }, 12_000);
+
+it('allows verified invitees to join a workspace while keeping their identity and private tasks', async () => {
+  const [owner, invitee, outsider] = Array.from({ length: 3 }, () => request.agent(app.getHttpServer()));
+  if (!owner || !invitee || !outsider) throw new Error('Missing test clients');
+  const emails = ['store-owner@geniebox.test', 'store-member@geniebox.test', 'store-outsider@geniebox.test'];
+  for (const [index, client] of [owner, invitee, outsider].entries()) {
+    const email = emails[index] ?? '';
+    await client
+      .post(`${prefix}/auth/register`)
+      .set(marker, '1')
+      .send({ email, password, name: email, locale: 'en' })
+      .expect(200);
+    const code = await codeFromMail(email, 'Verify your Geniebox email address');
+    await client
+      .post(`${prefix}/auth/email/verification/confirm`)
+      .set(marker, '1')
+      .send({ code })
+      .expect(204);
+  }
+  const accountsUrl = `${prefix}/accounts`;
+  const store = z.uuid().parse((await owner.get(accountsUrl).expect(200)).body.activeId);
+  const home = z.uuid().parse((await invitee.get(accountsUrl).expect(200)).body.activeId);
+  expect(home).not.toBe(store);
+
+  await owner.patch(`${accountsUrl}/current`).set(marker, '1').send({ name: 'Checkout Lab' }).expect(204);
+  await invitee.post(`${accountsUrl}/${store}/select`).set(marker, '1').expect(404);
+  await outsider.get(`${prefix}/tasks`).set('X-Geniebox-Workspace', store).expect(403);
+
+  await owner
+    .post(`${accountsUrl}/current/invitations`)
+    .set(marker, '1')
+    .send({ email: emails[1] })
+    .expect(204);
+  const code = await codeFromMail(
+    emails[1] ?? '',
+    'Geniebox workspace invitation',
+    /(?<![\w-])[\w-]{43}(?![\w-])/,
+  );
+  await outsider.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(404);
+  await invitee.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(204);
+  await invitee.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(404);
+  await invitee
+    .get(accountsUrl)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ activeId: store });
+      expect(body.workspaces).toEqual(
+        expect.arrayContaining([{ id: store, role: 'member', name: 'Checkout Lab' }]),
+      );
+    });
+  await invitee
+    .get(`${prefix}/me`)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ email: emails[1], tenantId: store, emailVerified: true });
+    });
+  await invitee
+    .get(`${prefix}/me/sessions`)
+    .expect(200)
+    .expect(({ body }) => expect(body).toHaveLength(1));
+  await invitee
+    .patch(`${accountsUrl}/current`)
+    .set(marker, '1')
+    .send({ name: 'Unauthorized rename' })
+    .expect(403);
+  await owner
+    .get(`${accountsUrl}/current/members`)
+    .expect(200)
+    .expect(({ body }) => expect(body).toHaveLength(2));
+
+  const task = {
+    id: randomUUID(),
+    title: 'Private member task',
+    dueOn: null,
+    agentId: null,
+    description: '',
+  };
+  await invitee.post(`${prefix}/tasks`).set(marker, '1').send(task).expect(201);
+  await owner.get(`${prefix}/tasks/${task.id}`).expect(404);
+  await invitee.get(`${prefix}/tasks/${task.id}`).set('X-Geniebox-Workspace', home).expect(404);
+  await invitee.post(`${accountsUrl}/${home}/select`).set(marker, '1').expect(204);
+  await invitee.get(`${prefix}/tasks/${task.id}`).expect(404);
+  await invitee.get(`${prefix}/tasks/${task.id}`).set('X-Geniebox-Workspace', store).expect(200);
+}, 20_000);

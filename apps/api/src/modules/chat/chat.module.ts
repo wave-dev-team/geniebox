@@ -4,6 +4,7 @@ import { ConditionalModule } from '@nestjs/config';
 
 import { DatabaseModule } from '../../database/database.module.js';
 import { AgentsModule } from '../agents/agents.module.js';
+import { ProfileModule } from '../profile/profile.module.js';
 import { RuntimeModule } from '../runtime/runtime.module.js';
 import { ChatController } from './chat.controller.js';
 import { ChatProcessor } from './chat.processor.js';
@@ -23,6 +24,7 @@ class ChatQueueModule {}
     DatabaseModule,
     AgentsModule,
     RuntimeModule,
+    ProfileModule,
     ConditionalModule.registerWhen(ChatQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
   controllers: [ChatController],

@@ -89,14 +89,25 @@ export class ProfileRepository {
     );
   }
 
-  update(userId: string, input: ProfileUpdate) {
-    return this.db.transaction((tx) =>
-      tx
-        .updateTable('user_profiles')
-        .set({ name: input.name, locale: input.locale, timezone: input.timeZone })
-        .where('id', '=', userId)
-        .returningAll()
-        .executeTakeFirstOrThrow(),
+  async name({ tenantId, userId }: Identity) {
+    const row = await this.context.runWith({ tenantId }, () =>
+      this.db.transaction((tx) =>
+        tx.selectFrom('user_profiles').select('name').where('id', '=', userId).executeTakeFirstOrThrow(),
+      ),
+    );
+    return row.name;
+  }
+
+  update({ tenantId, userId }: Identity, input: ProfileUpdate) {
+    return this.context.runWith({ tenantId }, () =>
+      this.db.transaction((tx) =>
+        tx
+          .updateTable('user_profiles')
+          .set({ name: input.name, locale: input.locale, timezone: input.timeZone })
+          .where('id', '=', userId)
+          .returningAll()
+          .executeTakeFirstOrThrow(),
+      ),
     );
   }
 

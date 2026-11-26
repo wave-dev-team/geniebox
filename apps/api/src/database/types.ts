@@ -90,6 +90,28 @@ export interface UserProfiles {
   timezone: string | null;
 }
 
+export interface WorkspaceInvitations {
+  accepted_at: Timestamp | null;
+  email: string;
+  expires_at: Timestamp;
+  tenant_id: string;
+  token_hash: string;
+}
+
+export interface WorkspaceMembers {
+  created_at: Generated<Timestamp>;
+  home_tenant_id: string;
+  role: string;
+  tenant_id: string;
+  user_id: string;
+}
+
+export interface Workspaces {
+  created_at: Generated<Timestamp>;
+  id: string;
+  name: Generated<string>;
+}
+
 export interface WorkTasks {
   agent_id: string | null;
   agent_name: string | null;
@@ -116,4 +138,7 @@ export interface DB {
   metric_definitions: MetricDefinitions;
   user_profiles: UserProfiles;
   work_tasks: WorkTasks;
+  workspace_invitations: WorkspaceInvitations;
+  workspace_members: WorkspaceMembers;
+  workspaces: Workspaces;
 }

@@ -5,6 +5,7 @@ export const healthResponseSchema = z.object({ status: z.enum(healthStatuses) })
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
+export * from './accounts.js';
 export * from './agents.js';
 export * from './chat.js';
 export * from './identity.js';

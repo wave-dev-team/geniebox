@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { JwtStrategy } from '../../common/auth/jwt.strategy.js';
 import { RedisModule } from '../../common/redis/redis.module.js';
+import { AccountsDataModule } from '../accounts/accounts-data.module.js';
 import { MailModule } from '../mail/mail.module.js';
 import { ProfileModule } from '../profile/profile.module.js';
 import { AuthController } from './auth.controller.js';
@@ -18,6 +19,7 @@ import { SessionsController } from './sessions.controller.js';
   imports: [
     ProfileModule,
     MailModule,
+    AccountsDataModule,
     RedisModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

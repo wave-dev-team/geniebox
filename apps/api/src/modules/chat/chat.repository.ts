@@ -6,6 +6,7 @@ import type { Agent, AgentTask, ChatTurn, SendChatMessage } from '@workspace/typ
 
 import { TenantDb } from '../../database/tenant-db.js';
 import type { ChatTurns, DB } from '../../database/types.js';
+import { ProfileRepository } from '../profile/profile.repository.js';
 
 export interface ChatOwner {
   tenantId: string;
@@ -39,7 +40,10 @@ function ownedTurns(tx: Transaction<DB>, owner: ChatOwner) {
 
 @Injectable()
 export class ChatRepository {
-  constructor(private readonly db: TenantDb) {}
+  constructor(
+    private readonly db: TenantDb,
+    private readonly profiles: ProfileRepository,
+  ) {}
 
   async history(owner: ChatOwner, before?: string) {
     return this.db.transaction(async (tx) => {
@@ -112,7 +116,7 @@ export class ChatRepository {
   }
 
   async context(job: ChatJob) {
-    return this.db.transaction(async (tx) => {
+    const context = await this.db.transaction(async (tx) => {
       const current = await ownedTurns(tx, job)
         .selectAll()
         .where('id', '=', job.turnId)
@@ -126,14 +130,20 @@ export class ChatRepository {
         .orderBy('id', 'desc')
         .limit(12)
         .execute();
-      const profile = await tx
-        .selectFrom('user_profiles')
-        .select('name')
+      const member = await tx
+        .selectFrom('workspace_members')
+        .select('home_tenant_id')
         .where('tenant_id', '=', job.tenantId)
-        .where('id', '=', job.userId)
-        .executeTakeFirst();
-      return { current, previous, name: profile?.name };
+        .where('user_id', '=', job.userId)
+        .executeTakeFirstOrThrow();
+      return { current, previous, member };
     });
+    return (
+      context && {
+        ...context,
+        name: await this.profiles.name({ tenantId: context.member.home_tenant_id, userId: job.userId }),
+      }
+    );
   }
 
   async tasks(job: ChatJob): Promise<AgentTask[]> {

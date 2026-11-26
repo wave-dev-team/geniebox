@@ -11,9 +11,16 @@ export class ApiError extends Error {
   }
 }
 
+let workspaceId: string | undefined;
+
+export function pinWorkspace(id?: string) {
+  workspaceId = id;
+}
+
 export async function request(path: string, options?: RequestInit) {
   const headers = new Headers(options?.headers);
   headers.set('X-Geniebox-Request', '1');
+  if (workspaceId) headers.set('X-Geniebox-Workspace', workspaceId);
   if (options?.body) headers.set('Content-Type', 'application/json');
 
   const response = await fetch(`/api${path}`, {

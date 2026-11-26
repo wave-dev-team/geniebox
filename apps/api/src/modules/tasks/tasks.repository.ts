@@ -16,6 +16,7 @@ import type {
 
 import { TenantDb } from '../../database/tenant-db.js';
 import type { DB } from '../../database/types.js';
+import { ProfileRepository } from '../profile/profile.repository.js';
 
 export interface TaskOwner {
   tenantId: string;
@@ -119,7 +120,10 @@ export function toWorkTask(row: TaskRow): WorkTask {
 
 @Injectable()
 export class TasksRepository {
-  constructor(private readonly db: TenantDb) {}
+  constructor(
+    private readonly db: TenantDb,
+    private readonly profiles: ProfileRepository,
+  ) {}
 
   list(owner: TaskOwner, filter: TaskFilter) {
     return this.db.transaction(async (tx) => {
@@ -227,8 +231,8 @@ export class TasksRepository {
     });
   }
 
-  runContext(job: TaskJob) {
-    return this.db.transaction(async (tx) => {
+  async runContext(job: TaskJob) {
+    const context = await this.db.transaction(async (tx) => {
       const task = await ownTasks(tx, job)
         .select(['title', 'description', 'agent_id'])
         .where('id', '=', job.taskId)
@@ -236,14 +240,20 @@ export class TasksRepository {
         .where('status', 'in', ['planned', 'running'])
         .executeTakeFirst();
       if (!task) return undefined;
-      const profile = await tx
-        .selectFrom('user_profiles')
-        .select('name')
+      const member = await tx
+        .selectFrom('workspace_members')
+        .select('home_tenant_id')
         .where('tenant_id', '=', job.tenantId)
-        .where('id', '=', job.userId)
-        .executeTakeFirst();
-      return { task, name: profile?.name };
+        .where('user_id', '=', job.userId)
+        .executeTakeFirstOrThrow();
+      return { task, member };
     });
+    return (
+      context && {
+        ...context,
+        name: await this.profiles.name({ tenantId: context.member.home_tenant_id, userId: job.userId }),
+      }
+    );
   }
 
   updateRun(job: TaskJob, status: 'running' | 'done' | 'failed', result?: string) {

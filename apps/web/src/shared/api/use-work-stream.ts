@@ -10,7 +10,7 @@ export function useWorkStream(topic: 'chat' | 'tasks', tenantId?: string, userId
   useEffect(() => {
     if (!tenantId || !userId) return;
     const key = [topic === 'chat' ? 'manager-chat' : 'tasks', tenantId, userId];
-    const stream = new EventSource('/api/v1/stream');
+    const stream = new EventSource(`/api/v1/stream?workspace=${encodeURIComponent(tenantId)}`);
     let refresh: ReturnType<typeof setTimeout> | undefined;
     const invalidate = () => {
       refresh ??= setTimeout(() => {

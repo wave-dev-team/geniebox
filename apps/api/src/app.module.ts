@@ -16,6 +16,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { JwtGuard } from './common/auth/jwt.guard.js';
 import { SameOriginGuard } from './common/auth/same-origin.guard.js';
 import { appEnvironment } from './config/environment.js';
+import { AccountsModule } from './modules/accounts/accounts.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -58,6 +59,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     EventEmitterModule.forRoot(),
     AuthModule,
+    AccountsModule,
     ChatModule,
     TasksModule,
     StreamModule,

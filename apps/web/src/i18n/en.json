@@ -356,6 +356,22 @@
   },
   "workspace": {
     "switch": "Switch workspace",
-    "list": "Workspaces"
+    "list": "Workspaces",
+    "settings": "Workspace settings",
+    "owner": "Owner",
+    "member": "Member",
+    "name": "Name",
+    "save": "Save",
+    "saved": "Workspace name saved",
+    "members": "Members",
+    "invite": "Invite a member",
+    "send": "Send",
+    "sent": "Invitation sent",
+    "join": "Join a workspace",
+    "joinAction": "Join",
+    "code": "Invitation code",
+    "codeHelp": "Enter the code from your email",
+    "verifyFirst": "Verify your email address first",
+    "retry": "Retry"
   }
 }

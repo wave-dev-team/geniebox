@@ -7,6 +7,7 @@ import { Throttle } from '@nestjs/throttler';
 
 import { clearAuthCookies, readRefreshCookie, setAuthCookies } from '../../common/auth/auth-cookie.js';
 import { Public } from '../../common/auth/public.js';
+import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
 import {
   AuthResultDto,
   ChangePasswordDto,
@@ -19,9 +20,9 @@ import {
 } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
 import { AuthError } from './auth-errors.js';
-import { type Actor, SessionStore } from './session.store.js';
+import { SessionStore } from './session.store.js';
 
-export type AuthenticatedRequest = Request & { user: Actor };
+export type { AuthenticatedRequest } from '../../common/auth/request-actor.js';
 
 const tightRate = { default: { limit: 15, ttl: 60_000 } };
 const meta = (req: Request) => ({ userAgent: req.get('User-Agent'), ip: req.ip });
@@ -125,14 +126,14 @@ export class AuthController {
   @Post('logout')
   @HttpCode(204)
   async logout(@Req() request: AuthenticatedRequest, @Res({ passthrough: true }) response: Response) {
-    await this.sessions.revoke(request.user);
+    await this.sessions.revoke(homeActor(request.user));
     clearAuthCookies(response, this.secure);
   }
 
   @Post('logout-all')
   @HttpCode(204)
   async logoutAll(@Req() request: AuthenticatedRequest, @Res({ passthrough: true }) response: Response) {
-    await this.sessions.revokeAll(request.user);
+    await this.sessions.revokeAll(homeActor(request.user));
     clearAuthCookies(response, this.secure);
   }
 
@@ -140,14 +141,14 @@ export class AuthController {
   @Throttle(tightRate)
   @HttpCode(204)
   requestVerification(@Req() request: AuthenticatedRequest) {
-    return this.auth.requestVerification(request.user);
+    return this.auth.requestVerification(homeActor(request.user));
   }
 
   @Post('email/verification/confirm')
   @Throttle(tightRate)
   @HttpCode(204)
   verifyEmail(@Body() dto: CodeDto, @Req() request: AuthenticatedRequest) {
-    return this.auth.verifyEmail(request.user, dto.code);
+    return this.auth.verifyEmail(homeActor(request.user), dto.code);
   }
 
   @Post('password/change')
@@ -159,7 +160,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const replacement = await this.auth.changePassword(
-      request.user,
+      homeActor(request.user),
       dto.currentPassword,
       dto.newPassword,
       meta(request),

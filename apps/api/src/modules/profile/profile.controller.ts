@@ -12,7 +12,7 @@ import { ApiBody, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 
 import { type Profile, updateProfileSchema } from '@workspace/types';
 
-import type { AuthenticatedRequest } from '../auth/auth.controller.js';
+import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
 import { ProfileRepository, toProfile } from './profile.repository.js';
 
 @ApiTags('profile')
@@ -24,9 +24,9 @@ export class ProfileController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ schema: { type: 'object' } })
   async get(@Req() request: AuthenticatedRequest): Promise<Profile> {
-    const profile = await this.profiles.find(request.user);
+    const profile = await this.profiles.find(homeActor(request.user));
     if (!profile) throw new UnauthorizedException();
-    return toProfile(profile);
+    return { ...toProfile(profile), tenantId: request.user.tenantId };
   }
 
   @Patch()
@@ -49,6 +49,7 @@ export class ProfileController {
         message: update.success ? [] : update.error.issues.map(({ path, code }) => ({ path, code })),
       });
     }
-    return toProfile(await this.profiles.update(request.user.userId, update.data));
+    const profile = await this.profiles.update(homeActor(request.user), update.data);
+    return { ...toProfile(profile), tenantId: request.user.tenantId };
   }
 }

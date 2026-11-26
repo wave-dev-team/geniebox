@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 
-import type { AuthenticatedRequest } from './auth.controller.js';
+import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
 import { SessionDto } from './auth.dto.js';
 import { SessionStore } from './session.store.js';
 
@@ -13,12 +13,12 @@ export class SessionsController {
   @Get()
   @ApiOkResponse({ type: [SessionDto] })
   list(@Req() request: AuthenticatedRequest) {
-    return this.sessions.list(request.user);
+    return this.sessions.list(homeActor(request.user));
   }
 
   @Delete(':id')
   @HttpCode(204)
   revoke(@Req() request: AuthenticatedRequest, @Param('id', ParseUUIDPipe) sessionId: string) {
-    return this.sessions.revoke({ ...request.user, sessionId });
+    return this.sessions.revoke({ ...homeActor(request.user), sessionId });
   }
 }
