@@ -10,20 +10,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/component
 export function AgentRail() {
   const t = useTranslations('rail');
   const buttons = [
-    { key: 'managerHint', icon: WandSparkles },
-    { key: 'newChat', icon: SquarePen },
+    { key: 'managerHint', icon: WandSparkles, href: '/' },
+    { key: 'newChat', icon: SquarePen, href: '/chat' },
   ] as const;
   return (
     <aside
       aria-label={t('label')}
       className="hidden w-12 shrink-0 flex-col items-center gap-1 bg-sidebar py-3 text-sidebar-foreground md:flex"
     >
-      {buttons.map(({ key, icon: Icon }) => (
+      {buttons.map(({ key, icon: Icon, href }) => (
         <Tooltip key={key}>
           <TooltipTrigger
             render={
               <Link
-                href="/chat"
+                href={href}
                 aria-label={t(key)}
                 className="flex size-8 items-center justify-center rounded-md hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
               />

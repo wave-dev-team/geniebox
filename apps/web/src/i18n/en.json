@@ -10,25 +10,9 @@
     "confirmPrompt": "To confirm, type <b>{word}</b>"
   },
   "nav": {
-    "home": "Home",
-    "summary": "Summary",
-    "tasks": "Tasks",
-    "decisions": "Decisions",
-    "results": "Results",
-    "connections": "Connections",
-    "marketplace": "Marketplace",
-    "settings": "Settings",
-    "help": "Help",
-    "search": "Search",
     "sections": "Sections",
     "hideSidebar": "Hide sidebar",
     "showSidebar": "Show sidebar"
-  },
-  "project": {
-    "switch": "Switch project",
-    "projects": "Projects",
-    "setupLine": "Setup · step {current} of {total}",
-    "add": "Add project"
   },
   "agents": {
     "title": "Agents",
@@ -81,7 +65,7 @@
       "servers": "What should we prioritize in the backlog?"
     },
     "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}",
-    "noTeam": "Add agents from the marketplace"
+    "openAgents": "View agents"
   },
   "auth": {
     "tagline": "Your product management assistant",
@@ -272,18 +256,28 @@
     "connectionError": "Could not load data. Check your connection."
   },
   "sections": {
+    "manager": "Manager",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "knowledge": "Knowledge base",
+    "connections": "Connections",
+    "reports": "Reports",
     "hypotheses": "Hypotheses",
     "releases": "Releases",
     "sources": "Sources",
     "backlog": "Backlog",
     "metrics": "Metrics",
     "chat": "Chat",
-    "settings": "Settings",
+    "settings": "Workspace settings",
     "help": "Help",
     "search": "Search",
     "marketplace": "Marketplace",
     "billing": "Billing",
     "notifications": "Notifications",
     "telegram": "Telegram"
+  },
+  "workspace": {
+    "switch": "Switch workspace",
+    "list": "Workspaces"
   }
 }

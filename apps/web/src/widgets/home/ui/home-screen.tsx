@@ -41,8 +41,8 @@ export function HomeScreen() {
           </Button>
         ))}
       </div>
-      <Link href="/marketplace" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-        {t('home.noTeam')}
+      <Link href="/agents" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+        {t('home.openAgents')}
       </Link>
     </div>
   );

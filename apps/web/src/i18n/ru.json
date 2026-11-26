@@ -10,25 +10,9 @@
     "confirmPrompt": "Чтобы подтвердить, введите <b>{word}</b>"
   },
   "nav": {
-    "home": "Главная",
-    "summary": "Сводка",
-    "tasks": "Задачи",
-    "decisions": "Решения",
-    "results": "Результаты",
-    "connections": "Подключения",
-    "marketplace": "Маркетплейс",
-    "settings": "Настройки",
-    "help": "Помощь",
-    "search": "Поиск",
     "sections": "Разделы",
     "hideSidebar": "Скрыть меню",
     "showSidebar": "Показать меню"
-  },
-  "project": {
-    "switch": "Сменить проект",
-    "projects": "Проекты",
-    "setupLine": "Настройка · шаг {current} из {total}",
-    "add": "Добавить проект"
   },
   "agents": {
     "title": "Агенты",
@@ -81,7 +65,7 @@
       "servers": "Что приоритизировать в бэклоге?"
     },
     "waiting": "{count, plural, one {# решение ждёт вас} few {# решения ждут вас} other {# решений ждут вас}}",
-    "noTeam": "Добавить агентов в маркетплейсе"
+    "openAgents": "Посмотреть агентов"
   },
   "auth": {
     "tagline": "Помощник продакт-менеджера",
@@ -272,18 +256,28 @@
     "connectionError": "Не удалось загрузить данные. Проверьте соединение."
   },
   "sections": {
+    "manager": "Управляющий",
+    "tasks": "Задачи",
+    "agents": "Агенты",
+    "knowledge": "База знаний",
+    "connections": "Подключения",
+    "reports": "Отчёты",
     "hypotheses": "Гипотезы",
     "releases": "Релизы",
     "sources": "Источники",
     "backlog": "Бэклог",
     "metrics": "Метрики",
     "chat": "Диалог",
-    "settings": "Настройки",
+    "settings": "Настройки пространства",
     "help": "Помощь",
     "search": "Поиск",
     "marketplace": "Маркетплейс",
     "billing": "Оплата",
     "notifications": "Уведомления",
     "telegram": "Telegram"
+  },
+  "workspace": {
+    "switch": "Выбрать рабочее пространство",
+    "list": "Рабочие пространства"
   }
 }
