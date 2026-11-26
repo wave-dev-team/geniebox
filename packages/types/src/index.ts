@@ -1,0 +1,6 @@
+import { z } from 'zod';
+
+export const healthStatuses = ['ok', 'error', 'shutting_down', 'degraded'] as const;
+export const healthResponseSchema = z.object({ status: z.enum(healthStatuses) });
+
+export type HealthResponse = z.infer<typeof healthResponseSchema>;
