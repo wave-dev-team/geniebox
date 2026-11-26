@@ -9,6 +9,18 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -87,6 +99,14 @@ export interface MetricDefinitions {
   tenant_id: string;
 }
 
+export interface MetricsReports {
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  id: string;
+  payload: Json;
+  tenant_id: string;
+}
+
 export interface UserProfiles {
   email: string;
   email_verified_at: Timestamp | null;
@@ -146,6 +166,7 @@ export interface DB {
   email_identities: EmailIdentities;
   llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;
+  metrics_reports: MetricsReports;
   user_profiles: UserProfiles;
   work_tasks: WorkTasks;
   workspace_invitations: WorkspaceInvitations;

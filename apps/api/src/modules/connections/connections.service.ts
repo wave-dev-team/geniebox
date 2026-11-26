@@ -77,28 +77,44 @@ export class ConnectionsService {
     );
   }
 
-  async totals(tenantId: string, period: MetricaPeriod) {
+  async compare(tenantId: string, baseline: MetricaPeriod, comparison: MetricaPeriod) {
     const row = await this.db.transaction((tx) =>
       tx.selectFrom('connections').selectAll().where('provider', '=', provider).executeTakeFirst(),
     );
     if (!row) return undefined;
     if (row.mode === 'demo') {
-      const days = Math.round((Date.parse(period.to) - Date.parse(period.from)) / 86_400_000) + 1;
-      const offset = Math.floor(Date.parse(period.from) / 86_400_000) % 49;
-      const visits = days * (204 + offset);
       return {
         mode: 'demo' as const,
-        visits,
-        users: Math.round(visits * 0.83),
-        pageviews: visits * 3,
+        before: this.demo(baseline),
+        after: this.demo(comparison),
         sampled: false,
         url: null,
       };
     }
-    if (!row.credential || !row.counter_id || row.tenant_id !== tenantId)
+    if (!row.credential || !row.counter_id || row.tenant_id !== tenantId) {
       throw new ServiceUnavailableException();
+    }
     const token = this.decrypt(tenantId, row.counter_id, row.credential);
-    return { mode: 'live' as const, ...(await this.metrica.totals(row.counter_id, token, period)) };
+    const before = await this.metrica.totals(row.counter_id, token, baseline);
+    const after = await this.metrica.totals(row.counter_id, token, comparison);
+    return {
+      mode: 'live' as const,
+      before,
+      after,
+      sampled: before.sampled || after.sampled,
+      url: after.url,
+    };
+  }
+
+  private demo(period: MetricaPeriod) {
+    const day = 86_400_000;
+    const first = Date.parse(period.from) / day;
+    const last = Date.parse(period.to) / day;
+    let visits = 0;
+    for (let date = first; date <= last; date++) {
+      visits += 204 + (((date % 49) + 49) % 49);
+    }
+    return { visits, users: Math.round(visits * 0.83), pageviews: visits * 3 };
   }
 
   private async authorize(actor: WorkspaceActor) {

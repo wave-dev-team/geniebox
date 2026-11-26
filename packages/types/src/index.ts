@@ -10,4 +10,5 @@ export * from './agents.js';
 export * from './chat.js';
 export * from './connections.js';
 export * from './identity.js';
+export * from './metrics.js';
 export * from './tasks.js';

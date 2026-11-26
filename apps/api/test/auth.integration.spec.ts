@@ -635,3 +635,57 @@ it('keeps workspace connections isolated and retains the previous source when ve
     provider.mockRestore();
   }
 }, 20_000);
+
+it('compares equal periods with a success threshold and preserves workspace report history', async () => {
+  const owner = request.agent(app.getHttpServer());
+  const outsider = request.agent(app.getHttpServer());
+  for (const [index, client] of [owner, outsider].entries()) {
+    await client
+      .post(`${prefix}/auth/register`)
+      .set(marker, '1')
+      .send({
+        email: `report-${index}@geniebox.test`,
+        password,
+        name: 'Report Test',
+      })
+      .expect(200);
+  }
+  const reports = `${prefix}/reports`;
+  const source = `${prefix}/connections/yandex-metrica`;
+  const metric = `${prefix}/metrics`;
+  const input = {
+    title: 'Checkout follow-up',
+    metric: 'visits',
+    baseline: { from: '2026-07-01', to: '2026-07-03' },
+    comparison: { from: '2026-07-08', to: '2026-07-10' },
+    criterion: { direction: 'atLeast', target: 2 },
+  };
+  await owner.post(reports).set(marker, '1').send(input).expect(409);
+  await owner.put(source).set(marker, '1').send({ mode: 'demo' }).expect(204);
+  await owner.put(metric).set(marker, '1').send({ key: 'visits', label: 'Shop visits' }).expect(204);
+  await owner
+    .post(reports)
+    .set(marker, '1')
+    .send({ ...input, comparison: input.baseline })
+    .expect(400);
+  const created = await owner.post(reports).set(marker, '1').send(input).expect(201);
+  const report = z
+    .object({
+      metric: z.string(),
+      label: z.string(),
+      source: z.string(),
+      before: z.number(),
+      after: z.number(),
+      change: z.number(),
+      criterionMet: z.boolean(),
+    })
+    .parse(created.body);
+  expect(report).toMatchObject({ label: 'Shop visits', source: 'demo', metric: 'visits' });
+  expect(report.change).toBeCloseTo(((report.after - report.before) / report.before) * 100);
+  expect(report.criterionMet).toBe(report.change >= 2);
+  await outsider.get(reports).expect(200, { reports: [], next: null });
+
+  await owner.put(metric).set(marker, '1').send({ key: 'visits', label: 'New visits label' }).expect(204);
+  await owner.delete(source).set(marker, '1').expect(204);
+  await owner.get(reports).expect(200, { reports: [created.body], next: null });
+}, 20_000);

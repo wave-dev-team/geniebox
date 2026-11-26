@@ -4,7 +4,9 @@ export {
   authApi,
   chatApi,
   connectionsApi,
+  metricsApi,
   profileApi,
+  reportsApi,
   tasksApi,
 } from '@workspace/api-client';
 
