@@ -84,7 +84,7 @@ else
     sudo systemctl reload caddy
   fi
   if [[ -n "$previous" ]]; then
-    compose "$previous" up --detach --wait --wait-timeout 180
+    compose "$previous" up --detach --no-deps --wait --wait-timeout 180 api web
     printf 'Restored previous application images\n' >&2
   else
     compose "$release" stop api web
