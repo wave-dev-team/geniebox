@@ -373,5 +373,24 @@
     "codeHelp": "Enter the code from your email",
     "verifyFirst": "Verify your email address first",
     "retry": "Retry"
+  },
+  "connectionSetup": {
+    "title": "Connections",
+    "metrica": "Yandex Metrica",
+    "status": "Status",
+    "live": "Connected",
+    "demo": "Demo data",
+    "disconnected": "Disconnected",
+    "demoDescription": "Synthetic statistics for demonstrating the workflow.",
+    "counter": "Counter ID",
+    "token": "OAuth token",
+    "close": "Close",
+    "configure": "Configure access",
+    "liveUnavailable": "Token-based connections are unavailable on this server.",
+    "useDemo": "Use demo data",
+    "remove": "Disconnect",
+    "connect": "Verify and connect",
+    "saved": "Connection saved",
+    "retry": "Retry"
   }
 }

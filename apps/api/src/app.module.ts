@@ -19,6 +19,7 @@ import { appEnvironment } from './config/environment.js';
 import { AccountsModule } from './modules/accounts/accounts.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
+import { ConnectionsModule } from './modules/connections/connections.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { StreamModule } from './modules/stream/stream.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
@@ -61,6 +62,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     AuthModule,
     AccountsModule,
     ChatModule,
+    ConnectionsModule,
     TasksModule,
     StreamModule,
     HealthModule,

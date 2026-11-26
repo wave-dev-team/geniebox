@@ -4,6 +4,7 @@ import { request } from './request.js';
 
 export { accountsApi } from './accounts.js';
 export { chatApi } from './chat.js';
+export { connectionsApi } from './connections.js';
 export { authApi, profileApi } from './identity.js';
 export { ApiError } from './request.js';
 

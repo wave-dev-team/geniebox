@@ -48,6 +48,15 @@ export interface ChatTurns {
   user_id: string;
 }
 
+export interface Connections {
+  counter_id: string | null;
+  credential: string | null;
+  mode: string;
+  provider: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface EmailIdentities {
   email_key: string;
   tenant_id: string;
@@ -133,6 +142,7 @@ export interface DB {
   agent_tasks: AgentTasks;
   agents: Agents;
   chat_turns: ChatTurns;
+  connections: Connections;
   email_identities: EmailIdentities;
   llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;

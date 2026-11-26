@@ -11,6 +11,13 @@ export const appEnvironment = z
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
     SMTP_URL: z.url({ protocol: /^smtps?$/ }),
     AUTH_MAIL_FROM: z.email(),
+    CONNECTIONS_ENCRYPTION_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z
+        .string()
+        .regex(/^[0-9a-f]{64}$/i)
+        .optional(),
+    ),
     AUTH_COOKIE_SECURE: z.enum(['true', 'false']).optional(),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(1).default(0),
     LLM_BASE_URL: z.preprocess(

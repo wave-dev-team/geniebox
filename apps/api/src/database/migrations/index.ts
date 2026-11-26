@@ -6,6 +6,7 @@ import { managerChat } from './202611261800_manager-chat.js';
 import { agentRuntime } from './202611261810_agent-runtime.js';
 import { tasks } from './202611261830_tasks.js';
 import { accounts } from './202611262010_accounts.js';
+import { connections } from './202611262023_connections.js';
 
 export const migrationProvider: MigrationProvider = {
   async getMigrations() {
@@ -16,6 +17,7 @@ export const migrationProvider: MigrationProvider = {
       '202611261810_agent-runtime': agentRuntime,
       '202611261830_tasks': tasks,
       '202611262010_accounts': accounts,
+      '202611262023_connections': connections,
     };
   },
 };

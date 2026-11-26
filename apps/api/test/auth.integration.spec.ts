@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import { jest } from '@jest/globals';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Migrator } from 'kysely/migration';
 import request from 'supertest';
@@ -15,6 +16,7 @@ import { chatHistorySchema, taskPageSchema, workTaskSchema } from '@workspace/ty
 import { createDb } from '../src/database/create-db.js';
 import { migrationProvider } from '../src/database/migrations/index.js';
 import { bootstrapRoles } from '../src/database/roles.js';
+import { MetricaProvider } from '../src/modules/connections/metrica.provider.js';
 
 const password = 'test-current-password';
 const newPassword = 'test-replacement-password';
@@ -94,6 +96,7 @@ beforeAll(async () => {
   process.env.REDIS_URL = `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`;
   process.env.SMTP_URL = `smtp://${mail.getHost()}:${mail.getMappedPort(1025)}`;
   process.env.AUTH_MAIL_FROM = 'test@geniebox.test';
+  process.env.CONNECTIONS_ENCRYPTION_KEY = 'c4'.repeat(32);
   mailOrigin = `http://${mail.getHost()}:${mail.getMappedPort(8025)}`;
 
   await new Promise<void>((resolve) => modelServer.listen(0, '127.0.0.1', resolve));
@@ -572,4 +575,63 @@ it('allows verified invitees to join a workspace while keeping their identity an
   await invitee.post(`${accountsUrl}/${home}/select`).set(marker, '1').expect(204);
   await invitee.get(`${prefix}/tasks/${task.id}`).expect(404);
   await invitee.get(`${prefix}/tasks/${task.id}`).set('X-Geniebox-Workspace', store).expect(200);
+}, 20_000);
+
+it('keeps workspace connections isolated and retains the previous source when verification fails', async () => {
+  const owner = request.agent(app.getHttpServer());
+  const other = request.agent(app.getHttpServer());
+  for (const [index, client] of [owner, other].entries()) {
+    await client
+      .post(`${prefix}/auth/register`)
+      .set(marker, '1')
+      .send({
+        email: `connection-${index}@geniebox.test`,
+        password,
+        name: 'Connection Test',
+      })
+      .expect(200);
+  }
+  const path = `${prefix}/connections`;
+  const metrica = `${path}/yandex-metrica`;
+  await owner.put(metrica).set(marker, '1').send({ mode: 'demo' }).expect(204);
+  await owner
+    .get(path)
+    .expect(200)
+    .expect(({ body }) => expect(body.metrica.mode).toBe('demo'));
+  await other.get(path).expect(200, { liveAvailable: true, metrica: null });
+
+  const provider = jest.spyOn(app.get(MetricaProvider), 'totals');
+  const input = { mode: 'live', counterId: '44147844', token: 'integration-token-only' };
+  try {
+    provider.mockRejectedValueOnce(new Error('Provider unavailable'));
+    await owner.put(metrica).set(marker, '1').send(input).expect(500);
+    await owner
+      .get(path)
+      .expect(200)
+      .expect(({ body }) => expect(body.metrica.mode).toBe('demo'));
+    provider.mockResolvedValueOnce({
+      visits: 50,
+      users: 40,
+      pageviews: 150,
+      sampled: false,
+      url: 'https://metrika.yandex.ru/dashboard?id=44147844',
+    });
+    await owner.put(metrica).set(marker, '1').send(input).expect(204);
+    await owner
+      .get(path)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.metrica).toMatchObject({ mode: 'live', counterId: input.counterId });
+        expect(JSON.stringify(body)).not.toContain(input.token);
+      });
+    await other.delete(metrica).set(marker, '1').expect(204);
+    await owner
+      .get(path)
+      .expect(200)
+      .expect(({ body }) => expect(body.metrica.mode).toBe('live'));
+    await owner.delete(metrica).set(marker, '1').expect(204);
+    await owner.get(path).expect(200, { liveAvailable: true, metrica: null });
+  } finally {
+    provider.mockRestore();
+  }
 }, 20_000);
