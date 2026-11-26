@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Settings } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -27,7 +27,7 @@ import {
 } from '@workspace/ui/components/sidebar';
 
 import { AccountMenu } from '@/features/account-menu';
-import { mainNavigation } from '@/shared/config/nav';
+import { footerNavigation, mainNavigation } from '@/shared/config/nav';
 
 function WorkspaceLogo() {
   return (
@@ -115,22 +115,24 @@ export function AppSidebar() {
         </nav>
       </SidebarContent>
       <SidebarFooter className="gap-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={
-                <Link
-                  href="/settings"
-                  onClick={closeOnMobile}
-                  aria-current={pathname === '/settings' ? 'page' : undefined}
-                />
-              }
-              isActive={pathname === '/settings'}
-            >
-              <Settings />
-              <span>{t('sections.settings')}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+        <SidebarMenu className="gap-0.5">
+          {footerNavigation.map(({ id, href, icon: Icon }) => (
+            <SidebarMenuItem key={id}>
+              <SidebarMenuButton
+                render={
+                  <Link
+                    href={href}
+                    onClick={closeOnMobile}
+                    aria-current={pathname === href ? 'page' : undefined}
+                  />
+                }
+                isActive={pathname === href}
+              >
+                <Icon />
+                <span>{t(`sections.${id}`)}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
         </SidebarMenu>
         <SidebarMenu>
           <SidebarMenuItem>

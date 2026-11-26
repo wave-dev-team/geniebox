@@ -1,4 +1,4 @@
-import { BookOpen, Bot, FileText, ListTodo, Plug, WandSparkles } from 'lucide-react';
+import { BookOpen, Bot, CircleHelp, FileText, House, ListTodo, Plug, Settings } from 'lucide-react';
 
 const workspaceSections = [
   { id: 'tasks', href: '/tasks', icon: ListTodo },
@@ -8,18 +8,19 @@ const workspaceSections = [
   { id: 'reports', href: '/reports', icon: FileText },
 ] as const;
 
-export const mainNavigation = [
-  { id: 'manager', href: '/', icon: WandSparkles },
-  ...workspaceSections,
+export const mainNavigation = [{ id: 'home', href: '/', icon: House }, ...workspaceSections] as const;
+
+export const footerNavigation = [
+  { id: 'settings', href: '/settings', icon: Settings },
+  { id: 'help', href: '/help', icon: CircleHelp },
 ] as const;
 
 export const placeholderSections = [
   ...workspaceSections.map(({ id }) => id),
+  ...footerNavigation.map(({ id }) => id),
   'chat',
-  'settings',
   'search',
   'billing',
-  'help',
   'hypotheses',
   'releases',
   'sources',

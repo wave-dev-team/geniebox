@@ -256,7 +256,7 @@
     "connectionError": "Could not load data. Check your connection."
   },
   "sections": {
-    "manager": "Manager",
+    "home": "Home",
     "tasks": "Tasks",
     "agents": "Agents",
     "knowledge": "Knowledge base",
@@ -268,7 +268,7 @@
     "backlog": "Backlog",
     "metrics": "Metrics",
     "chat": "Chat",
-    "settings": "Workspace settings",
+    "settings": "Settings",
     "help": "Help",
     "search": "Search",
     "marketplace": "Marketplace",
