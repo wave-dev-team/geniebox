@@ -4,7 +4,7 @@ export function safeNextPath(value: string | null | undefined): string | undefin
   if (!value?.startsWith('/') || /[\\\u0000-\u0020]|^\/\//.test(value)) return undefined;
   const base = 'https://geniebox.invalid';
   const target = new URL(value, base);
-  const allowed = ['/profile', '/chat', ...placeholderSections.map((section) => `/${section}`)];
+  const allowed = ['/profile', '/chat', '/tasks', ...placeholderSections.map((section) => `/${section}`)];
   return target.origin === base &&
     (target.pathname === '/' ||
       allowed.some((path) => target.pathname === path || target.pathname.startsWith(path + '/')))
@@ -19,6 +19,7 @@ type ProfileTab = 'general' | 'notifications' | 'telegram' | 'security';
 export const routes = {
   root: () => '/',
   chat: () => '/chat',
+  tasks: (id?: string) => (id ? `/tasks?task=${encodeURIComponent(id)}` : '/tasks'),
   login: (next?: string) => withNext('/login', next),
   signup: (next?: string) => withNext('/signup', next),
   resetPassword: (next?: string) => withNext('/reset-password', next),

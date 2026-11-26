@@ -11,10 +11,11 @@ beforeAll(async () => {
   process.env.REDIS_URL = 'redis://127.0.0.1:6379';
   process.env.SMTP_URL = 'smtp://127.0.0.1:1025';
   process.env.AUTH_MAIL_FROM = 'test@geniebox.test';
+  process.env.LLM_BASE_URL = '';
   const { createApp } = await import('../src/create-app.js');
   app = await createApp();
   await app.listen(0, '127.0.0.1');
-});
+}, 15_000);
 
 afterAll(async () => {
   await app?.close();

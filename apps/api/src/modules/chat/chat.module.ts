@@ -46,6 +46,7 @@ class ChatQueueModule {}
     ConditionalModule.registerWhen(ChatQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
   controllers: [ChatController],
+  exports: [ChatCompletion],
   providers: [ChatRepository, ChatModel, ChatCompletion, ChatDelegation, ChatService, ChatProcessor],
 })
 export class ChatModule {}

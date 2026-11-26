@@ -5,7 +5,7 @@ import type { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Optional } from '@nestjs/common';
 
-import { type ChatJob, ChatRepository } from './chat.repository.js';
+import { type ChatJob, ChatRepository, type ModelCallSource } from './chat.repository.js';
 import { ChatModel, ModelError, type ModelMessage } from './chat-model.js';
 
 export const chatQueue = 'chat-generate';
@@ -36,7 +36,7 @@ export class ChatCompletion {
   ) {}
 
   async complete(
-    job: ChatJob,
+    job: ModelCallSource,
     options: {
       role: string;
       version: string;

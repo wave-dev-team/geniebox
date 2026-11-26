@@ -19,6 +19,8 @@ export interface ChatJob extends ChatOwner {
   traceId: string;
 }
 
+export type ModelCallSource = ChatOwner & { traceId: string } & ({ turnId: string } | { taskId: string });
+
 const pageSize = 30;
 
 export function toChatTurn(row: Selectable<ChatTurns>, tasks: AgentTask[] = []): ChatTurn {
@@ -138,7 +140,7 @@ export class ChatRepository {
     });
   }
 
-  async reserveCall(job: ChatJob, model: string, role: string, promptVersion: string, limit: number) {
+  async reserveCall(job: ModelCallSource, model: string, role: string, promptVersion: string, limit: number) {
     return this.db.transaction(async (tx) => {
       await sql`select pg_advisory_xact_lock(hashtextextended(${`llm:${job.tenantId}:${role}`}, 0))`.execute(
         tx,
@@ -157,7 +159,8 @@ export class ChatRepository {
         .values({
           tenant_id: job.tenantId,
           id,
-          turn_id: job.turnId,
+          turn_id: 'turnId' in job ? job.turnId : null,
+          work_task_id: 'taskId' in job ? job.taskId : null,
           user_id: job.userId,
           trace_id: job.traceId,
           model,
@@ -170,7 +173,7 @@ export class ChatRepository {
   }
 
   async recordCall(
-    job: ChatJob,
+    job: ModelCallSource,
     id: string,
     result: 'ok' | 'error' | 'timeout' | 'invalid',
     latencyMs: number,
@@ -245,7 +248,7 @@ export class ChatRepository {
     return this.db.transaction((tx) =>
       tx
         .updateTable('agent_tasks')
-        .set({ status, result })
+        .set({ status, result, updated_at: sql`clock_timestamp()` })
         .where('tenant_id', '=', job.tenantId)
         .where('user_id', '=', job.userId)
         .where('turn_id', '=', job.turnId)
@@ -285,6 +288,7 @@ export class ChatRepository {
 
 function toAgentTask(row: Selectable<DB['agent_tasks']>): AgentTask {
   return {
+    id: row.id,
     agentId: row.agent_id,
     agentName: row.agent_name,
     result: row.result,

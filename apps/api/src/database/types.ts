@@ -25,11 +25,14 @@ export interface Agents {
 export interface AgentTasks {
   agent_id: string;
   agent_name: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
   position: number;
   result: string | null;
   status: Generated<string>;
   tenant_id: string;
   turn_id: string;
+  updated_at: Generated<Timestamp>;
   user_id: string;
 }
 
@@ -64,8 +67,9 @@ export interface LlmCalls {
   tokens_in: number | null;
   tokens_out: number | null;
   trace_id: string;
-  turn_id: string;
+  turn_id: string | null;
   user_id: string;
+  work_task_id: string | null;
 }
 
 export interface MetricDefinitions {
@@ -86,6 +90,23 @@ export interface UserProfiles {
   timezone: string | null;
 }
 
+export interface WorkTasks {
+  agent_id: string | null;
+  agent_name: string | null;
+  created_at: Generated<Timestamp>;
+  description: Generated<string>;
+  due_on: Timestamp | null;
+  id: string;
+  result: string | null;
+  run_id: string | null;
+  status: Generated<string>;
+  tenant_id: string;
+  title: string;
+  trace_id: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface DB {
   agent_tasks: AgentTasks;
   agents: Agents;
@@ -94,4 +115,5 @@ export interface DB {
   llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;
   user_profiles: UserProfiles;
+  work_tasks: WorkTasks;
 }

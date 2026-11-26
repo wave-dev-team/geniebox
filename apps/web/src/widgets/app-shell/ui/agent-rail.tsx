@@ -1,6 +1,6 @@
 'use client';
 
-import { SquarePen, WandSparkles } from 'lucide-react';
+import { MessagesSquare, WandSparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
@@ -11,7 +11,7 @@ export function AgentRail() {
   const t = useTranslations('rail');
   const buttons = [
     { key: 'managerHint', icon: WandSparkles, href: '/' },
-    { key: 'newChat', icon: SquarePen, href: '/chat' },
+    { key: 'openChat', icon: MessagesSquare, href: '/chat' },
   ] as const;
   return (
     <aside

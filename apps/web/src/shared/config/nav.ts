@@ -16,7 +16,7 @@ export const footerNavigation = [
 ] as const;
 
 export const placeholderSections = [
-  ...workspaceSections.map(({ id }) => id),
+  ...workspaceSections.map(({ id }) => id).filter((id) => id !== 'tasks'),
   ...footerNavigation.map(({ id }) => id),
   'search',
   'hypotheses',

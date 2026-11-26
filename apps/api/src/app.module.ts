@@ -19,6 +19,7 @@ import { appEnvironment } from './config/environment.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { TasksModule } from './modules/tasks/tasks.module.js';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { HealthModule } from './modules/health/health.module.js';
     EventEmitterModule.forRoot(),
     AuthModule,
     ChatModule,
+    TasksModule,
     HealthModule,
   ],
   providers: [

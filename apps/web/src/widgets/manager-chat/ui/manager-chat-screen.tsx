@@ -1,6 +1,7 @@
 'use client';
 
 import { Bot } from 'lucide-react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useLayoutEffect, useRef } from 'react';
 
@@ -9,6 +10,7 @@ import { Spinner } from '@workspace/ui/components/spinner';
 
 import { useManagerChat } from '@/features/manager-chat/model/use-manager-chat';
 import { Composer } from '@/features/manager-chat/ui/composer';
+import { routes } from '@/shared/config/routes';
 
 export function ManagerChatScreen() {
   const t = useTranslations('managerChat');
@@ -94,6 +96,12 @@ export function ManagerChatScreen() {
                           </span>
                         </div>
                       )}
+                      <Link
+                        href={routes.tasks(task.id)}
+                        className="mt-1 inline-block text-xs text-muted-foreground underline-offset-4 hover:underline"
+                      >
+                        {t('openTask')}
+                      </Link>
                     </li>
                   ))}
                 </ul>

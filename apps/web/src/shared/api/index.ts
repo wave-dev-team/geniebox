@@ -1,4 +1,4 @@
-export { ApiError, authApi, chatApi, profileApi } from '@workspace/api-client';
+export { ApiError, authApi, chatApi, profileApi, tasksApi } from '@workspace/api-client';
 
 export const queryKeys = {
   me: () => ['profile'] as const,

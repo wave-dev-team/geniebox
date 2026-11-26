@@ -38,8 +38,8 @@
   "rail": {
     "label": "Manager panel",
     "manager": "Manager",
-    "managerHint": "Manager · ⌘J",
-    "newChat": "New conversation",
+    "managerHint": "Manager",
+    "openChat": "Open chat",
     "chatWith": "Conversation: {name}"
   },
   "account": {
@@ -223,7 +223,63 @@
     "search": "Find a city or zone",
     "empty": "Nothing found"
   },
+  "tasks": {
+    "title": "Tasks",
+    "subtitle": "Personal tasks and agent assignments.",
+    "create": "Create task",
+    "createDescription": "Create a task for yourself or assign it to an active agent.",
+    "edit": "Edit",
+    "editDescription": "Change the task title, description or due date.",
+    "save": "Save",
+    "close": "Close",
+    "fieldTitle": "Title",
+    "fieldDescription": "Description",
+    "fieldDue": "Due date",
+    "fieldAgent": "Assignee",
+    "self": "Me",
+    "filter": "Filter by assignee",
+    "all": "All assignees",
+    "tabs": {
+      "active": "Active",
+      "done": "Finished"
+    },
+    "groups": {
+      "running": "In progress",
+      "attention": "Needs attention",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "later": "Later",
+      "unscheduled": "No due date",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "status": {
+      "planned": "Planned",
+      "running": "In progress",
+      "done": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "emptyActive": "No active tasks yet.",
+    "emptyDone": "No finished tasks yet.",
+    "deadline": "due {date}",
+    "loadError": "Could not load tasks.",
+    "detailError": "Could not open the task.",
+    "saveError": "Could not save the task.",
+    "actionError": "Could not update the task status.",
+    "details": "Task details",
+    "fromChat": "Assigned by the manager in chat",
+    "result": "Result",
+    "failed": "The assignee could not finish this task.",
+    "openChat": "Open chat",
+    "start": "Start task",
+    "complete": "Complete task",
+    "cancel": "Cancel task",
+    "retry": "Retry",
+    "more": "Load more"
+  },
   "managerChat": {
+    "openTask": "Open task",
     "tasks": "Agent tasks",
     "taskStatus": {
       "pending": "Queued",

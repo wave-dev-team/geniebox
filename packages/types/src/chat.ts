@@ -12,6 +12,7 @@ export const sendChatMessageSchema = z.strictObject({
 });
 
 export const agentTaskSchema = z.object({
+  id: z.uuid(),
   agentId: z.uuid(),
   agentName: z.string(),
   status: z.enum(['pending', 'running', 'completed', 'failed']),
