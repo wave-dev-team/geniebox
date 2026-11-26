@@ -3,12 +3,40 @@
  * Please do not edit it manually.
  */
 
+import type { ColumnType } from "kysely";
+
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface EmailIdentities {
+  email_key: string;
+  tenant_id: string;
+  user_id: string;
+}
+
 export interface MetricDefinitions {
   key: string;
   label: string;
   tenant_id: string;
 }
 
+export interface UserProfiles {
+  email: string;
+  email_verified_at: Timestamp | null;
+  id: string;
+  locale: Generated<string>;
+  name: string;
+  password_changed_at: Generated<Timestamp>;
+  password_hash: string | null;
+  tenant_id: string;
+  timezone: string | null;
+}
+
 export interface DB {
+  email_identities: EmailIdentities;
   metric_definitions: MetricDefinitions;
+  user_profiles: UserProfiles;
 }

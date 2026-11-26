@@ -14,6 +14,18 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
   migrate:
     image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
     command: ['sh', '-ec', 'node dist/database/cli.js bootstrap && node dist/database/cli.js migrate']
@@ -29,11 +41,18 @@ services:
     image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
     environment:
       API_HOST: 0.0.0.0
+      TRUST_PROXY_HOPS: 1
       DATABASE_URL: ${DATABASE_URL:?required}
       JWT_SECRET: ${JWT_SECRET:?required}
+      AUTH_IDENTITY_SECRET: ${AUTH_IDENTITY_SECRET:?required}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SMTP_URL: ${SMTP_URL:?required}
+      AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:?required}
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -67,3 +86,4 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:

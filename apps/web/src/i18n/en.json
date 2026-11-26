@@ -1,0 +1,281 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirmWord": "confirm",
+    "errorTitle": "Couldn't load data",
+    "errorNetwork": "Can't reach the server. Check your connection and try again.",
+    "confirmPrompt": "To confirm, type <b>{word}</b>"
+  },
+  "nav": {
+    "sections": "Sections",
+    "hideSidebar": "Hide sidebar",
+    "showSidebar": "Show sidebar"
+  },
+  "agents": {
+    "title": "Agents",
+    "add": "Add agent",
+    "pauseTeam": "Pause the team",
+    "resumeTeam": "Resume the team",
+    "status": {
+      "active": "working",
+      "probation": "on probation",
+      "paused": "paused"
+    },
+    "openLabel": "{name}, {status}",
+    "unread": "{count, plural, one {# new} other {# new}}",
+    "pauseConfirm": {
+      "title": "Pause the team?",
+      "text": "Agents will stop taking actions. Tasks and decisions are kept; work continues when you resume.",
+      "ok": "Pause"
+    },
+    "pausedToast": "The team is paused",
+    "resumedToast": "The team is working again",
+    "menuLabel": "Actions for {name}"
+  },
+  "rail": {
+    "label": "Manager panel",
+    "manager": "Manager",
+    "managerHint": "Manager · ⌘J",
+    "newChat": "New conversation",
+    "chatWith": "Conversation: {name}"
+  },
+  "account": {
+    "menu": "Account menu",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language",
+    "signOut": "Sign out",
+    "notificationsOn": "Notifications on",
+    "notificationsOff": "Notifications off"
+  },
+  "home": {
+    "title": "How can I help the project today?",
+    "suggestions": {
+      "churn": "Why did conversion fall?",
+      "winBack": "Which hypotheses should we test?",
+      "day": "What impact did the release have?",
+      "servers": "What should we prioritize in the backlog?"
+    },
+    "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}",
+    "openAgents": "View agents"
+  },
+  "auth": {
+    "tagline": "Your product management assistant",
+    "email": "Email",
+    "emailPlaceholder": "name@company.com",
+    "password": "Password",
+    "name": "Name",
+    "namePlaceholder": "How should we call you",
+    "forgot": "Forgot password?",
+    "signIn": "Sign in",
+    "or": "or",
+    "codeMode": "Email me a sign-in code",
+    "passwordMode": "Sign in with password",
+    "noAccount": "No account?",
+    "createProject": "Create a project",
+    "haveAccount": "Already have an account?",
+    "signInLink": "Sign in",
+    "login": {
+      "title": "Sign in"
+    },
+    "code": {
+      "title": "Sign in with a code",
+      "sendCode": "Send code",
+      "sentTo": "We sent a code to {email}. It is valid for 10 minutes.",
+      "codeLabel": "Code from the email",
+      "confirm": "Sign in",
+      "resend": "Send again",
+      "resendIn": "Send again in {seconds}s",
+      "changeEmail": "Use another email"
+    },
+    "signup": {
+      "title": "Create a project",
+      "subtitle": "Create an account to open your workspace",
+      "submit": "Create account",
+      "passwordHint": "At least {min} characters"
+    },
+    "verify": {
+      "title": "Confirm your email",
+      "subtitle": "We sent a code to {email}",
+      "submit": "Confirm",
+      "resent": "Code sent again",
+      "later": "Confirm later"
+    },
+    "reset": {
+      "title": "Restore access",
+      "subtitle": "We will email a code to set a new password",
+      "sendCode": "Send code",
+      "codeLabel": "Code from the email",
+      "newPassword": "New password",
+      "submit": "Save and sign in",
+      "back": "Back to sign in",
+      "done": "Password changed"
+    },
+    "invite": {
+      "hint": "You were invited to a project. Sign in or create an account with the email the invitation was sent to."
+    },
+    "validation": {
+      "email": "Enter a valid email",
+      "passwordMin": "Password must be at least {min} characters",
+      "required": "Required",
+      "code": "Enter the 6 digits from the email"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Administrator",
+    "tech": "Technical specialist",
+    "viewer": "Viewer",
+    "ownerShort": "full access, including money",
+    "adminShort": "everything except ownership transfer",
+    "techShort": "connections, keys and agent permissions",
+    "viewerShort": "view only",
+    "ownerLong": "everything: decisions, money, agents and access",
+    "adminLong": "same as the owner except ownership transfer and deletion",
+    "techLong": "connections, keys and agent permissions, no money or decisions",
+    "viewerLong": "sees the summary, tasks and results, changes nothing"
+  },
+  "profile": {
+    "title": "My profile",
+    "subtitle": "Personal settings — apply to all your projects and are visible only to you",
+    "tabs": {
+      "general": "Profile",
+      "notifications": "Notifications",
+      "telegram": "Telegram",
+      "security": "Sign-in and security"
+    },
+    "account": "Account",
+    "personal": "Personal details",
+    "name": "Name",
+    "email": "Email",
+    "emailHint": "for sign-in",
+    "emailUnverified": "not confirmed",
+    "verify": "Confirm",
+    "language": "Interface language",
+    "timezone": "Time zone",
+    "timezoneHint": "time in the interface and notifications — members in other cities have their own",
+    "timezoneProject": "Same as the project",
+    "theme": "Theme",
+    "save": "Save",
+    "saved": "Profile saved",
+    "rolesLine": "{role} · {projects}",
+    "notificationsSoon": "Notification settings arrive with the notification center",
+    "security": {
+      "signIn": "Sign-in",
+      "password": "Password",
+      "passwordChanged": "changed {when}",
+      "passwordNotSet": "not set — sign in with an email code",
+      "change": "Change",
+      "set": "Set",
+      "sessions": "Sessions",
+      "sessionsHint": "Where you are signed in",
+      "thisDevice": "This device",
+      "current": "current",
+      "end": "Sign out",
+      "endAll": "Sign out everywhere",
+      "unknownDevice": "Unknown device",
+      "ended": "Session ended",
+      "endAllConfirm": {
+        "title": "Sign out on all devices?",
+        "text": "Every session, including this one, ends. You can sign in again with a password or an email code.",
+        "ok": "Sign out everywhere"
+      },
+      "passwordDialog": {
+        "title": "Password",
+        "changeTitle": "Change password",
+        "setTitle": "Set password",
+        "current": "Current password",
+        "new": "New password",
+        "submit": "Save",
+        "done": "Password saved, other sessions ended"
+      }
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "BAD_REQUEST": "Invalid request.",
+    "UNAUTHORIZED": "Authentication is required.",
+    "FORBIDDEN": "Access denied.",
+    "NOT_FOUND": "Resource not found.",
+    "RATE_LIMITED": "Too many requests.",
+    "SERVICE_UNAVAILABLE": "Service unavailable.",
+    "INTERNAL_ERROR": "An internal error occurred.",
+    "HTTP_ERROR": "The request failed.",
+    "EMAIL_IN_USE": "This email is already registered.",
+    "INVALID_CREDENTIALS": "Invalid email or password.",
+    "INVALID_EMAIL_CODE": "The code is invalid or has expired.",
+    "EMAIL_NOT_VERIFIED": "Please verify your email.",
+    "SESSION_EXPIRED": "Your session has expired.",
+    "REFRESH_CONCURRENT": "The session is being refreshed. Try again.",
+    "CROSS_ORIGIN_REQUEST": "The request must come from Geniebox.",
+    "PASSWORD_CHANGED": "The password was changed. Try again."
+  },
+  "timezone": {
+    "search": "Find a city or zone",
+    "empty": "Nothing found"
+  },
+  "composer": {
+    "placeholderHome": "Ask about metrics, hypotheses, or release results",
+    "placeholderManager": "Write to the manager…",
+    "placeholderAgent": "Write to {name}…",
+    "send": "Send",
+    "mention": "Give to a specific agent",
+    "mentionRemove": "Remove the agent",
+    "mode": "Mode",
+    "modes": {
+      "approve_all": {
+        "label": "Approve everything",
+        "note": "agents propose, you decide — as now"
+      },
+      "approve_important": {
+        "label": "Approve important",
+        "note": "routine actions without approval, important ones with you"
+      },
+      "recommend_only": {
+        "label": "Recommendations only",
+        "note": "do nothing, just answer and suggest"
+      }
+    },
+    "viewer": "You are a viewer — owners, admins and tech members can write to agents"
+  },
+  "app": {
+    "brand": "Geniebox",
+    "description": "Product manager assistant for online stores",
+    "placeholder": "This section will be available later.",
+    "retry": "Try again",
+    "connectionError": "Could not load data. Check your connection."
+  },
+  "sections": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "knowledge": "Knowledge base",
+    "connections": "Connections",
+    "reports": "Reports",
+    "hypotheses": "Hypotheses",
+    "releases": "Releases",
+    "sources": "Sources",
+    "backlog": "Backlog",
+    "metrics": "Metrics",
+    "chat": "Chat",
+    "settings": "Settings",
+    "help": "Help",
+    "search": "Search",
+    "marketplace": "Marketplace",
+    "notifications": "Notifications",
+    "telegram": "Telegram"
+  },
+  "workspace": {
+    "switch": "Switch workspace",
+    "list": "Workspaces"
+  }
+}
