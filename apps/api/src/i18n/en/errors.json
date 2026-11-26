@@ -1,0 +1,10 @@
+{
+  "BAD_REQUEST": "Invalid request.",
+  "UNAUTHORIZED": "Authentication is required.",
+  "FORBIDDEN": "Access denied.",
+  "NOT_FOUND": "Resource not found.",
+  "RATE_LIMITED": "Too many requests.",
+  "SERVICE_UNAVAILABLE": "Service unavailable.",
+  "INTERNAL_ERROR": "An internal error occurred.",
+  "HTTP_ERROR": "The request failed."
+}

@@ -1,0 +1,7 @@
+**/dist/
+**/.next/
+**/.turbo/
+**/next-env.d.ts
+apps/api/src/database/types.ts
+pnpm-lock.yaml
+out/

@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-geniebox}
+      POSTGRES_USER: ${POSTGRES_USER:-geniebox_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
+    command: ['sh', '-ec', 'node dist/database/cli.js bootstrap && node dist/database/cli.js migrate']
+    environment:
+      DB_MIGRATION_URL: ${DB_MIGRATION_URL:?required}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?required}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    restart: unless-stopped
+    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
+    environment:
+      API_HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:?required}
+      JWT_SECRET: ${JWT_SECRET:?required}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - '127.0.0.1:8000:8000'
+
+  web:
+    image: ghcr.io/wave-dev-team/geniebox-web:${RELEASE_SHA:?required}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - '127.0.0.1:3000:3000'
+
+volumes:
+  postgres-data:
