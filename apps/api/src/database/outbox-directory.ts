@@ -8,10 +8,10 @@ import type { DB } from './types.js';
 export class OutboxDirectory {
   constructor(private readonly db: Kysely<DB>) {}
 
-  async due() {
+  async due(includeModel: boolean) {
     // Cross-tenant discovery is limited to identifiers by the database function.
     const result = await sql<{ tenant_id: string; id: string }>`
-      select tenant_id, id from public.due_outbox_events()
+      select tenant_id, id from public.due_outbox_events(${includeModel})
     `.execute(this.db);
     return result.rows;
   }

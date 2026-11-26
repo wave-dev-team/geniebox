@@ -48,6 +48,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SMTP_URL: ${SMTP_URL:?required}
       AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:?required}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
       CONNECTIONS_ENCRYPTION_KEY: ${CONNECTIONS_ENCRYPTION_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}

@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { PassportModule } from '@nestjs/passport';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
-import { JwtGuard } from './common/auth/jwt.guard.js';
-import { SameOriginGuard } from './common/auth/same-origin.guard.js';
+import { JwtGuard } from './common/guards/jwt.guard.js';
+import { SameOriginGuard } from './common/guards/same-origin.guard.js';
+import { AppThrottlerModule } from './common/throttler/throttler.module.js';
 import { CoreModule } from './core.module.js';
 import { HttpCommonModule } from './http-common.module.js';
 import { AccountsModule } from './modules/accounts/accounts.module.js';
@@ -23,7 +24,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     CoreModule,
     HttpCommonModule,
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    AppThrottlerModule,
     AuthModule,
     AccountsModule,
     ActionsModule,

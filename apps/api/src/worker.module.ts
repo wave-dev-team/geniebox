@@ -3,6 +3,7 @@ import { ConditionalModule } from '@nestjs/config';
 
 import { CoreModule } from './core.module.js';
 import { ChatWorkerModule } from './modules/chat/chat.module.js';
+import { MailWorkerModule } from './modules/mail/mail-worker.module.js';
 import { StreamPublisherModule } from './modules/stream/stream.module.js';
 import { TasksWorkerModule } from './modules/tasks/tasks.module.js';
 import { OutboxWorkerModule } from './outbox/outbox-worker.module.js';
@@ -13,7 +14,8 @@ import { SchedulingModule } from './scheduling/scheduling.module.js';
     CoreModule,
     StreamPublisherModule,
     SchedulingModule,
-    ConditionalModule.registerWhen(OutboxWorkerModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
+    OutboxWorkerModule,
+    MailWorkerModule,
     ConditionalModule.registerWhen(ChatWorkerModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
     ConditionalModule.registerWhen(TasksWorkerModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],

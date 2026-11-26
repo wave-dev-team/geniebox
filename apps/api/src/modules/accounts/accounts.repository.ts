@@ -10,6 +10,8 @@ import { workspaceSchema } from '@workspace/types';
 import { type RequestContext, TenantDb } from '../../database/tenant-db.js';
 import type { DB } from '../../database/types.js';
 import { JournalService } from '../../journal/journal.service.js';
+import { OutboxService } from '../../outbox/outbox.service.js';
+import type { MailJob } from '../mail/mail.types.js';
 import type { Identity } from '../profile/profile.repository.js';
 
 @Injectable()
@@ -18,6 +20,7 @@ export class AccountsRepository {
     private readonly db: TenantDb,
     private readonly context: ClsService<RequestContext>,
     private readonly journal: JournalService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async list(identity: Identity) {
@@ -64,9 +67,9 @@ export class AccountsRepository {
     });
   }
 
-  saveInvitation(tenantId: string, email: string, tokenHash: string, expiresAt: Date) {
-    return this.inScope(tenantId, (tx) =>
-      tx
+  saveInvitation(tenantId: string, email: string, tokenHash: string, expiresAt: Date, mail: MailJob) {
+    return this.inScope(tenantId, async (tx) => {
+      await tx
         .insertInto('workspace_invitations')
         .values({
           tenant_id: tenantId,
@@ -74,18 +77,9 @@ export class AccountsRepository {
           token_hash: tokenHash,
           expires_at: expiresAt,
         })
-        .executeTakeFirst(),
-    );
-  }
-
-  discardInvitation(tenantId: string, tokenHash: string) {
-    return this.inScope(tenantId, (tx) =>
-      tx
-        .deleteFrom('workspace_invitations')
-        .where('token_hash', '=', tokenHash)
-        .where('accepted_at', 'is', null)
-        .executeTakeFirst(),
-    );
+        .execute();
+      await this.outbox.enqueue(tx, { type: 'mail.requested', payload: mail });
+    });
   }
 
   async join(identity: Identity, email: string, tokenHash: string) {

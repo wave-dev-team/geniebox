@@ -12,6 +12,7 @@ export const appEnvironment = z
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
     SMTP_URL: z.url({ protocol: /^smtps?$/ }),
     AUTH_MAIL_FROM: z.email(),
+    MAIL_TRANSPORT: z.enum(['smtp', 'log', 'memory']).default('smtp'),
     CONNECTIONS_ENCRYPTION_KEY: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z
@@ -38,6 +39,10 @@ export const appEnvironment = z
   .refine((env) => !env.LLM_BASE_URL || !!env.LLM_MODEL.trim(), {
     path: ['LLM_MODEL'],
     message: 'Required when LLM_BASE_URL is set',
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.MAIL_TRANSPORT === 'smtp', {
+    path: ['MAIL_TRANSPORT'],
+    message: 'Production mail requires the SMTP transport',
   });
 
 export type AppEnvironment = z.infer<typeof appEnvironment>;

@@ -366,7 +366,7 @@
     "members": "Members",
     "invite": "Invite a member",
     "send": "Send",
-    "sent": "Invitation sent",
+    "sent": "Invitation queued for delivery",
     "join": "Join a workspace",
     "joinAction": "Join",
     "code": "Invitation code",

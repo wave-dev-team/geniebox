@@ -1,10 +1,11 @@
 import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { type HealthResponse, healthStatuses } from '@workspace/types';
 
-import { Public } from '../../common/auth/public.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 class HealthResponseDto implements HealthResponse {
   @ApiProperty({ description: 'Liveness status of the API process.', enum: [...healthStatuses] })
@@ -12,6 +13,7 @@ class HealthResponseDto implements HealthResponse {
 }
 
 @Public()
+@SkipThrottle()
 @ApiTags('health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {

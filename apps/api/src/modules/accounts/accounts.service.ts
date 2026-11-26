@@ -1,17 +1,13 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { I18nService } from 'nestjs-i18n';
 
 import { localeSchema } from '@workspace/types';
 
 import { homeActor, type WorkspaceActor } from '../../common/auth/request-actor.js';
-import { MailService } from '../mail/mail.service.js';
+import { MailEnvelope } from '../mail/mail-envelope.js';
 import { ProfileRepository } from '../profile/profile.repository.js';
 import { AccountsRepository } from './accounts.repository.js';
 
@@ -23,7 +19,8 @@ export class AccountsService {
   constructor(
     private readonly accounts: AccountsRepository,
     private readonly profiles: ProfileRepository,
-    private readonly mail: MailService,
+    private readonly mail: MailEnvelope,
+    private readonly context: ClsService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -57,19 +54,14 @@ export class AccountsService {
     if (!profile?.email_verified_at) throw new ForbiddenException();
 
     const code = randomBytes(32).toString('base64url');
-    const digest = hash(code);
-    await this.accounts.saveInvitation(actor.tenantId, email, digest, new Date(Date.now() + inviteLifetime));
-    try {
-      const lang = localeSchema.parse(profile.locale);
-      await this.mail.send({
-        to: email,
-        subject: this.i18n.translate('accounts.invite.subject', { lang }),
-        text: this.i18n.translate('accounts.invite.body', { lang, args: { code } }),
-      });
-    } catch {
-      await this.accounts.discardInvitation(actor.tenantId, digest);
-      throw new ServiceUnavailableException();
-    }
+    const expiry = new Date(Date.now() + inviteLifetime);
+    const lang = localeSchema.parse(profile.locale);
+    const envelope = this.mail.seal(actor.tenantId, this.context.getId() ?? randomUUID(), expiry, {
+      to: email,
+      subject: this.i18n.translate('accounts.invite.subject', { lang }),
+      text: this.i18n.translate('accounts.invite.body', { lang, args: { code } }),
+    });
+    await this.accounts.saveInvitation(actor.tenantId, email, hash(code), expiry, envelope);
   }
 
   async join(actor: WorkspaceActor, code: string) {

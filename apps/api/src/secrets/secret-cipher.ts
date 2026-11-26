@@ -19,23 +19,31 @@ export class SecretCipher {
 
   seal(context: readonly string[], value: string) {
     if (!this.key) throw new ServiceUnavailableException();
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.key, iv);
-    cipher.setAAD(Buffer.from(JSON.stringify(context)));
-    const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
-    return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString('base64url');
+    return encryptSecret(this.key, context, value);
   }
 
   open(context: readonly string[], credential: string) {
     if (!this.key) throw new ServiceUnavailableException();
-    try {
-      const payload = Buffer.from(credential, 'base64url');
-      const decipher = createDecipheriv('aes-256-gcm', this.key, payload.subarray(0, 12));
-      decipher.setAAD(Buffer.from(JSON.stringify(context)));
-      decipher.setAuthTag(payload.subarray(12, 28));
-      return Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString('utf8');
-    } catch {
-      throw new ServiceUnavailableException();
-    }
+    return decryptSecret(this.key, context, credential);
+  }
+}
+
+export function encryptSecret(key: Buffer, context: readonly string[], value: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  cipher.setAAD(Buffer.from(JSON.stringify(context)));
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString('base64url');
+}
+
+export function decryptSecret(key: Buffer, context: readonly string[], credential: string) {
+  try {
+    const payload = Buffer.from(credential, 'base64url');
+    const decipher = createDecipheriv('aes-256-gcm', key, payload.subarray(0, 12));
+    decipher.setAAD(Buffer.from(JSON.stringify(context)));
+    decipher.setAuthTag(payload.subarray(12, 28));
+    return Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString('utf8');
+  } catch {
+    throw new ServiceUnavailableException();
   }
 }

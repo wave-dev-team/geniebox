@@ -134,10 +134,14 @@ const inboxSchema = z.object({
 const mailSchema = z.object({ Text: z.string() });
 
 async function codeFromMail(email: string, subject: string, pattern = /\b\d{6}\b/) {
-  const inbox = inboxSchema.parse(await (await fetch(`${mailOrigin}/api/v1/messages`)).json());
-  const message = inbox.messages.find(
-    ({ Subject, To }) => Subject === subject && To.some(({ Address }) => Address === email),
-  );
+  let message: z.infer<typeof inboxSchema>['messages'][number] | undefined;
+  for (let attempt = 0; attempt < 50 && !message; attempt++) {
+    const inbox = inboxSchema.parse(await (await fetch(`${mailOrigin}/api/v1/messages`)).json());
+    message = inbox.messages.find(
+      ({ Subject, To }) => Subject === subject && To.some(({ Address }) => Address === email),
+    );
+    if (!message) await sleep(100);
+  }
   if (!message) throw new Error('Expected an email from Geniebox');
   const mail = mailSchema.parse(await (await fetch(`${mailOrigin}/api/v1/message/${message.ID}`)).json());
   const code = pattern.exec(mail.Text)?.[0];
@@ -550,6 +554,20 @@ it('allows verified invitees to join a workspace while keeping their identity an
     'Geniebox workspace invitation',
     /(?<![\w-])[\w-]{43}(?![\w-])/,
   );
+  const ownerDb = createDb(ownerUrl);
+  try {
+    const pending = await ownerDb
+      .selectFrom('outbox_events')
+      .select('payload')
+      .where('tenant_id', '=', store)
+      .where('type', '=', 'mail.requested')
+      .executeTakeFirstOrThrow();
+    expect(pending.payload).toMatchObject({ ciphertext: expect.any(String) });
+    expect(JSON.stringify(pending.payload)).not.toContain(code);
+    expect(JSON.stringify(pending.payload)).not.toContain(emails[1]);
+  } finally {
+    await ownerDb.destroy();
+  }
   await outsider.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(404);
   await invitee.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(204);
   await invitee.post(`${accountsUrl}/join`).set(marker, '1').send({ code }).expect(404);
@@ -927,7 +945,7 @@ it('provisions isolated agents once, tracks instruction versions and gives the m
   expect(received).not.toContain('Foreign catalog evidence');
 }, 20_000);
 
-it('delivers a pending chat after delivery resumes without polling the chat API', async () => {
+it('delivers pending chat and mail after the relay resumes without polling the chat API', async () => {
   const actor = request.agent(app.getHttpServer());
   const email = 'worker-restart@geniebox.test';
   await actor
@@ -937,7 +955,12 @@ it('delivers a pending chat after delivery resumes without polling the chat API'
     .send({ email })
     .expect(204);
   const code = await codeFromMail(email, 'Geniebox sign-in code');
-  await actor.post(`${prefix}/auth/email-code/verify`).set(marker, '1').send({ email, code }).expect(200);
+  await actor
+    .post(`${prefix}/auth/email-code/verify`)
+    .set(marker, '1')
+    .set('Accept-Language', 'en')
+    .send({ email, code })
+    .expect(200);
   const tenantId = z.uuid().parse((await actor.get(`${prefix}/me`).expect(200)).body.tenantId);
 
   const db = createDb(ownerUrl);
@@ -946,6 +969,21 @@ it('delivers a pending chat after delivery resumes without polling the chat API'
   await relay.onModuleDestroy();
 
   try {
+    const invitee = 'outbox-invitee@geniebox.test';
+    await actor
+      .post(`${prefix}/accounts/current/invitations`)
+      .set(marker, '1')
+      .send({ email: invitee })
+      .expect(204);
+    const mailEvent = await db
+      .selectFrom('outbox_events')
+      .selectAll()
+      .where('tenant_id', '=', tenantId)
+      .where('type', '=', 'mail.requested')
+      .executeTakeFirstOrThrow();
+    expect(mailEvent.published_at).toBeNull();
+    expect(JSON.stringify(mailEvent.payload)).not.toContain(invitee);
+
     await actor.post(`${prefix}/chat`).set(marker, '1').send(turn).expect(202);
     const event = await db
       .selectFrom('outbox_events')
@@ -968,6 +1006,7 @@ it('delivers a pending chat after delivery resumes without polling the chat API'
     expect(JSON.stringify(modelRequests)).not.toContain(turn.message);
 
     relay.onModuleInit();
+    await codeFromMail(invitee, 'Geniebox workspace invitation', /(?<![\w-])[\w-]{43}(?![\w-])/);
     for (let attempt = 0; attempt < 80; attempt++) {
       const row = await db
         .selectFrom('chat_turns')

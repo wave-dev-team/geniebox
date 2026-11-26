@@ -1,24 +1,12 @@
-import nodemailer from 'nodemailer';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { type MailMessage, type MailTransport, mailTransportToken } from './mail.types.js';
 
 @Injectable()
 export class MailService {
-  private readonly transport: ReturnType<typeof nodemailer.createTransport>;
-  private readonly from: string;
+  constructor(@Inject(mailTransportToken) private readonly transport: MailTransport) {}
 
-  constructor(config: ConfigService) {
-    this.transport = nodemailer.createTransport(config.getOrThrow<string>('SMTP_URL'));
-    this.from = config.getOrThrow<string>('AUTH_MAIL_FROM');
-  }
-
-  async send(message: { to: string; subject: string; text: string }) {
-    await this.transport.sendMail({
-      ...message,
-      from: this.from,
-      disableFileAccess: true,
-      disableUrlAccess: true,
-    });
+  send(message: MailMessage, id?: string) {
+    return this.transport.send(message, id);
   }
 }

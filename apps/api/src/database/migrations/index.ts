@@ -12,6 +12,7 @@ import { decisions } from './202611262032_decisions.js';
 import { routines } from './202611262036_routines.js';
 import { agentCatalog } from './202611262047_agent_catalog.js';
 import { delivery } from './202611262105_delivery.js';
+import { mailDelivery } from './202611262119_mail_delivery.js';
 
 export const migrationProvider: MigrationProvider = {
   async getMigrations() {
@@ -28,6 +29,7 @@ export const migrationProvider: MigrationProvider = {
       '202611262036_routines': routines,
       '202611262047_agent_catalog': agentCatalog,
       '202611262105_delivery': delivery,
+      '202611262119_mail_delivery': mailDelivery,
     };
   },
 };

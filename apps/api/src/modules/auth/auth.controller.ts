@@ -6,8 +6,8 @@ import { ApiHeader, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
 import { clearAuthCookies, readRefreshCookie, setAuthCookies } from '../../common/auth/auth-cookie.js';
-import { Public } from '../../common/auth/public.js';
 import { type AuthenticatedRequest, homeActor } from '../../common/auth/request-actor.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import {
   AuthResultDto,
   ChangePasswordDto,

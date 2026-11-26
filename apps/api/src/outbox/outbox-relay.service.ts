@@ -2,11 +2,12 @@ import type { Queue } from 'bullmq';
 import { sql } from 'kysely';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 
 import { OutboxDirectory } from '../database/outbox-directory.js';
 import { type RequestContext, TenantDb } from '../database/tenant-db.js';
+import { type MailJob, mailQueue } from '../modules/mail/mail.types.js';
 import {
   type ChatJob,
   chatJobId,
@@ -28,8 +29,9 @@ export class OutboxRelay implements OnModuleInit, OnModuleDestroy {
     private readonly directory: OutboxDirectory,
     private readonly db: TenantDb,
     private readonly context: ClsService<RequestContext>,
-    @InjectQueue(chatQueue) private readonly chat: Queue<ChatJob>,
-    @InjectQueue(tasksQueue) private readonly tasks: Queue<TaskJob>,
+    @Optional() @InjectQueue(chatQueue) private readonly chat: Queue<ChatJob> | undefined,
+    @Optional() @InjectQueue(tasksQueue) private readonly tasks: Queue<TaskJob> | undefined,
+    @InjectQueue(mailQueue) private readonly mail: Queue<MailJob>,
   ) {}
 
   onModuleInit() {
@@ -50,7 +52,7 @@ export class OutboxRelay implements OnModuleInit, OnModuleDestroy {
   }
 
   async flush() {
-    for (const entry of await this.directory.due()) {
+    for (const entry of await this.directory.due(Boolean(this.chat && this.tasks))) {
       await this.context.runWith({ tenantId: entry.tenant_id }, () => this.deliver(entry.id));
     }
   }
@@ -84,12 +86,22 @@ export class OutboxRelay implements OnModuleInit, OnModuleDestroy {
         return;
       }
       try {
-        if (event.data.type === 'chat.requested') {
+        if (event.data.type === 'mail.requested') {
+          await this.mail.add('send', event.data.payload, {
+            jobId: event.data.payload.mailId,
+            attempts: 5,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: { age: 3600, count: 1000 },
+            removeOnFail: { age: 86_400, count: 1000 },
+          });
+        } else if (event.data.type === 'chat.requested') {
+          if (!this.chat) throw new Error('Chat queue unavailable');
           await this.chat.add('generate', event.data.payload, {
             ...modelJobOptions,
             jobId: chatJobId(event.data.payload),
           });
         } else {
+          if (!this.tasks) throw new Error('Task queue unavailable');
           await this.tasks.add('run', event.data.payload, {
             ...modelJobOptions,
             jobId: taskJobId(event.data.payload),
