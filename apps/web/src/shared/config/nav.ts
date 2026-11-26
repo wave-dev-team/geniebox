@@ -20,7 +20,6 @@ export const placeholderSections = [
   ...footerNavigation.map(({ id }) => id),
   'chat',
   'search',
-  'billing',
   'hypotheses',
   'releases',
   'sources',

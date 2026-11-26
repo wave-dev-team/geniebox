@@ -23,5 +23,4 @@ export const routes = {
   resetPassword: (next?: string) => withNext('/reset-password', next),
   verifyEmail: (next?: string) => withNext('/verify-email', next),
   profile: (tab: ProfileTab = 'general') => (tab === 'general' ? '/profile' : `/profile/${tab}`),
-  billing: () => '/billing',
 } as const;

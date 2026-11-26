@@ -46,7 +46,6 @@
     "menu": "Account menu",
     "profile": "Profile",
     "notifications": "Notifications",
-    "billing": "Plan and billing",
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",
@@ -272,7 +271,6 @@
     "help": "Help",
     "search": "Search",
     "marketplace": "Marketplace",
-    "billing": "Billing",
     "notifications": "Notifications",
     "telegram": "Telegram"
   },

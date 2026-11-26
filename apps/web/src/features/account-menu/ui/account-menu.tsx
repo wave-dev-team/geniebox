@@ -81,7 +81,6 @@ export function AccountMenu() {
           <DropdownMenuItem onClick={() => router.push(routes.profile('notifications'))}>
             {t('notifications')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push(routes.billing())}>{t('billing')}</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

@@ -46,7 +46,6 @@
     "menu": "Меню аккаунта",
     "profile": "Профиль",
     "notifications": "Уведомления",
-    "billing": "Тариф и оплата",
     "theme": "Тема",
     "themeLight": "Светлая",
     "themeDark": "Тёмная",
@@ -272,7 +271,6 @@
     "help": "Помощь",
     "search": "Поиск",
     "marketplace": "Маркетплейс",
-    "billing": "Оплата",
     "notifications": "Уведомления",
     "telegram": "Telegram"
   },
