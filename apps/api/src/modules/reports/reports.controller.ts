@@ -14,10 +14,10 @@ export class ReportsController {
 
   @Get()
   @Header('Cache-Control', 'no-store')
-  list(@Query('before') value: unknown) {
+  list(@Req() request: AuthenticatedRequest, @Query('before') value: unknown) {
     const cursor = z.uuid().optional().safeParse(value);
     if (!cursor.success) throw new BadRequestException();
-    return this.reports.list(cursor.data);
+    return this.reports.list(request.user, cursor.data);
   }
 
   @Post()

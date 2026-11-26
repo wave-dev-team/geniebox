@@ -4,7 +4,7 @@ import { sql } from 'kysely';
 
 import { ConflictException, Injectable } from '@nestjs/common';
 
-import { type MetricsReportInput, metricsReportSchema } from '@workspace/types';
+import { type MetricsReportInput, metricsReportSchema, reportDecisionSchema } from '@workspace/types';
 
 import type { WorkspaceActor } from '../../common/auth/request-actor.js';
 import { TenantDb } from '../../database/tenant-db.js';
@@ -62,21 +62,44 @@ export class ReportsService {
     return report;
   }
 
-  async list(before?: string) {
+  async list(actor: WorkspaceActor, before?: string) {
     const rows = await this.db.transaction((tx) => {
-      let query = tx.selectFrom('metrics_reports').select(['id', 'payload']);
+      let query = tx
+        .selectFrom('metrics_reports as r')
+        .leftJoin('report_decisions as d', (join) =>
+          join.onRef('r.tenant_id', '=', 'd.tenant_id').onRef('r.id', '=', 'd.report_id'),
+        )
+        .select([
+          'r.id',
+          'r.payload',
+          'd.outcome',
+          'd.rationale',
+          'd.created_at as decided_at',
+          'd.decided_by',
+          'd.task_id',
+        ]);
       if (before) {
-        query = query.where(sql<boolean>`(created_at, id) < (
+        query = query.where(sql<boolean>`(r.created_at, r.id) < (
           select created_at, id from metrics_reports where id = ${before}
         )`);
       }
       return query
-        .orderBy('created_at', 'desc')
-        .orderBy('id', 'desc')
+        .orderBy('r.created_at', 'desc')
+        .orderBy('r.id', 'desc')
         .limit(pageSize + 1)
         .execute();
     });
-    const reports = rows.slice(0, pageSize).map(({ payload }) => metricsReportSchema.parse(payload));
+    const reports = rows.slice(0, pageSize).map((row) => ({
+      ...metricsReportSchema.parse(row.payload),
+      decision: row.decided_at
+        ? reportDecisionSchema.parse({
+            outcome: row.outcome,
+            rationale: row.rationale,
+            decidedAt: row.decided_at.toISOString(),
+            taskId: row.decided_by === actor.userId ? row.task_id : null,
+          })
+        : null,
+    }));
     return { reports, next: rows.length > pageSize ? (reports.at(-1)?.id ?? null) : null };
   }
 }

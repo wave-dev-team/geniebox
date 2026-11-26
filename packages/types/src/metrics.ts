@@ -19,7 +19,12 @@ const criterionSchema = z.object({
 });
 
 const reportFields = {
-  title: z.string().trim().min(1).max(120),
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .refine((value) => !value.includes('\u0000')),
   metric: metricKeySchema,
   baseline: metricPeriodSchema,
   comparison: metricPeriodSchema,
@@ -51,8 +56,29 @@ export const metricsReportSchema = z.object({
   criterionMet: z.boolean().nullable(),
 });
 
+export const reportDecisionInputSchema = z.strictObject({
+  outcome: z.enum(['followUp', 'close']),
+  rationale: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine((value) => !value.includes('\u0000')),
+});
+
+export const reportDecisionSchema = reportDecisionInputSchema.extend({
+  decidedAt: z.iso.datetime(),
+  taskId: z.uuid().nullable(),
+});
+
+export type ReportDecisionInput = z.infer<typeof reportDecisionInputSchema>;
+
+export const reportWithDecisionSchema = metricsReportSchema.extend({
+  decision: reportDecisionSchema.nullable(),
+});
+export type ReportWithDecision = z.infer<typeof reportWithDecisionSchema>;
+
 export const metricsReportsSchema = z.object({
-  reports: metricsReportSchema.array(),
+  reports: reportWithDecisionSchema.array(),
   next: z.uuid().nullable(),
 });
 

@@ -687,5 +687,38 @@ it('compares equal periods with a success threshold and preserves workspace repo
 
   await owner.put(metric).set(marker, '1').send({ key: 'visits', label: 'New visits label' }).expect(204);
   await owner.delete(source).set(marker, '1').expect(204);
-  await owner.get(reports).expect(200, { reports: [created.body], next: null });
+  await owner.get(reports).expect(200, { reports: [{ ...created.body, decision: null }], next: null });
+
+  const path = `${reports}/${created.body.id}/decision`;
+  const decision = { outcome: 'followUp', rationale: 'Review the checkout with the product team' };
+  await outsider.post(path).set(marker, '1').send(decision).expect(404);
+  const response = await Promise.all(
+    [1, 2].map(() => owner.post(path).set(marker, '1').send(decision).expect(200)),
+  );
+  expect(response[0]?.body).toEqual(response[1]?.body);
+  const taskId = z.uuid().parse(response[0]?.body.taskId);
+  await owner.get(`${prefix}/tasks/counts`).expect(200, { active: 1, done: 0 });
+  await owner
+    .get(`${prefix}/tasks/${taskId}`)
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ id: taskId, title: input.title, description: decision.rationale });
+    });
+  await owner.post(path).set(marker, '1').send({ outcome: 'close', rationale: '' }).expect(409);
+  await owner
+    .get(reports)
+    .expect(200, { reports: [{ ...created.body, decision: response[0]?.body }], next: null });
+  await owner.put(source).set(marker, '1').send({ mode: 'demo' }).expect(204);
+  const retained = await owner
+    .post(reports)
+    .set(marker, '1')
+    .send({ ...input, title: 'Retain current design' })
+    .expect(201);
+  await owner
+    .post(`${reports}/${retained.body.id}/decision`)
+    .set(marker, '1')
+    .send({ outcome: 'close', rationale: 'No further changes are needed' })
+    .expect(200)
+    .expect(({ body }) => expect(body.taskId).toBeNull());
+  await owner.get(`${prefix}/tasks/counts`).expect(200, { active: 1, done: 0 });
 }, 20_000);

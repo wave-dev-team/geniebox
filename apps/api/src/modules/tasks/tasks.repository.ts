@@ -165,28 +165,36 @@ export class TasksRepository {
     return this.db.transaction((tx) => activity(tx, owner).where('id', '=', id).executeTakeFirst());
   }
 
-  async create(owner: TaskOwner, input: CreateWorkTask, agent: Agent | undefined, traceId: string) {
-    return this.db.transaction(async (tx) => {
-      const inserted = await tx
-        .insertInto('work_tasks')
-        .values({
-          tenant_id: owner.tenantId,
-          user_id: owner.userId,
-          id: input.id,
-          title: input.title,
-          description: input.description,
-          due_on: input.dueOn,
-          agent_id: agent?.id,
-          agent_name: agent?.name,
-          run_id: agent ? randomUUID() : null,
-          trace_id: traceId,
-        })
-        .onConflict((oc) => oc.columns(['tenant_id', 'user_id', 'id']).doNothing())
-        .returning('id')
-        .executeTakeFirst();
-      const row = await activity(tx, owner).where('id', '=', input.id).executeTakeFirstOrThrow();
-      return { row, created: Boolean(inserted) };
-    });
+  create(owner: TaskOwner, input: CreateWorkTask, agent: Agent | undefined, traceId: string) {
+    return this.db.transaction((tx) => this.createInTransaction(tx, owner, input, agent, traceId));
+  }
+
+  async createInTransaction(
+    tx: Transaction<DB>,
+    owner: TaskOwner,
+    input: CreateWorkTask,
+    agent: Agent | undefined,
+    traceId: string,
+  ) {
+    const inserted = await tx
+      .insertInto('work_tasks')
+      .values({
+        tenant_id: owner.tenantId,
+        user_id: owner.userId,
+        id: input.id,
+        title: input.title,
+        description: input.description,
+        due_on: input.dueOn,
+        agent_id: agent?.id,
+        agent_name: agent?.name,
+        run_id: agent ? randomUUID() : null,
+        trace_id: traceId,
+      })
+      .onConflict((oc) => oc.columns(['tenant_id', 'user_id', 'id']).doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    const row = await activity(tx, owner).where('id', '=', input.id).executeTakeFirstOrThrow();
+    return { row, created: Boolean(inserted) };
   }
 
   edit(owner: TaskOwner, id: string, input: UpdateWorkTask) {

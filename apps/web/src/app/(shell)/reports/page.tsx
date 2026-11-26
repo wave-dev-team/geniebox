@@ -5,17 +5,30 @@ import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
-import { type MetricsReport, metricsReportInputSchema } from '@workspace/types';
+import {
+  metricsReportInputSchema,
+  type ReportDecisionInput,
+  type ReportWithDecision,
+} from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 
 import { useMe } from '@/entities/session';
+import { useWorkspaces } from '@/entities/workspace';
 import { connectionsApi, metricsApi, reportsApi } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
-function ReportCard({ report }: { report: MetricsReport }) {
+function ReportCard({
+  report,
+  onDecision,
+  busy,
+}: {
+  report: ReportWithDecision;
+  onDecision?: (decision: ReportDecisionInput) => void;
+  busy: boolean;
+}) {
   const t = useTranslations('analytics');
   const format = useFormatter();
   const number = (value: number) => format.number(value, { maximumFractionDigits: 2 });
@@ -57,6 +70,50 @@ function ReportCard({ report }: { report: MetricsReport }) {
           <span className="text-sm">{t('synthetic')}</span>
         )}
       </SettingsRow>
+      {report.decision ? (
+        <SettingsRow label={t('decision')} hint={report.decision.rationale || undefined}>
+          <span className="text-sm">{t(report.decision.outcome)}</span>
+          {report.decision.taskId ? (
+            <Link
+              className="text-sm underline underline-offset-4"
+              href={`/tasks?task=${report.decision.taskId}`}
+            >
+              {t('openTask')}
+            </Link>
+          ) : null}
+        </SettingsRow>
+      ) : onDecision ? (
+        <form
+          className="flex flex-col gap-3 px-5 py-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const outcome = data.get('outcome');
+            const rationale = data.get('rationale');
+            if ((outcome === 'followUp' || outcome === 'close') && typeof rationale === 'string') {
+              onDecision({ outcome, rationale });
+            }
+          }}
+        >
+          <label className="text-sm font-medium" htmlFor={`decision-${report.id}`}>
+            {t('decision')}
+          </label>
+          <select
+            id={`decision-${report.id}`}
+            name="outcome"
+            required
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+          >
+            <option value="">{t('chooseDecision')}</option>
+            <option value="followUp">{t('followUp')}</option>
+            <option value="close">{t('close')}</option>
+          </select>
+          <Input aria-label={t('rationale')} placeholder={t('rationale')} name="rationale" maxLength={1000} />
+          <Button type="submit" disabled={busy} className="self-start" variant="outline">
+            {t('saveDecision')}
+          </Button>
+        </form>
+      ) : null}
     </SettingsCard>
   );
 }
@@ -64,6 +121,8 @@ function ReportCard({ report }: { report: MetricsReport }) {
 export default function ReportsPage() {
   const t = useTranslations('analytics');
   const { data: me } = useMe();
+  const { data: workspaces } = useWorkspaces();
+  const canDecide = workspaces?.workspaces.find(({ id }) => id === workspaces.activeId)?.role === 'owner';
   const scope = [me?.tenantId, me?.id] as const;
   const key = ['metrics-reports', ...scope] as const;
   const errorMessage = useErrorMessage();
@@ -92,6 +151,19 @@ export default function ReportsPage() {
       toast.success(t('reportSaved'));
     },
     onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const decide = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ReportDecisionInput }) => reportsApi.decide(id, input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: key });
+      void client.invalidateQueries({ queryKey: ['tasks', ...scope] });
+      toast.success(t('decisionSaved'));
+    },
+    onError: (error) => {
+      void client.invalidateQueries({ queryKey: key });
+      toast.error(errorMessage(error));
+    },
   });
 
   return (
@@ -225,7 +297,12 @@ export default function ReportsPage() {
           {reports.data.pages
             .flatMap((page) => page.reports)
             .map((report) => (
-              <ReportCard key={report.id} report={report} />
+              <ReportCard
+                key={report.id}
+                report={report}
+                busy={decide.isPending}
+                onDecision={canDecide ? (input) => decide.mutate({ id: report.id, input }) : undefined}
+              />
             ))}
           {reports.hasNextPage ? (
             <Button

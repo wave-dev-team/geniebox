@@ -26,6 +26,7 @@ class TaskQueueModule {}
     ConditionalModule.registerWhen(TaskQueueModule, (env) => Boolean(env.LLM_BASE_URL), { debug: false }),
   ],
   controllers: [TasksController],
+  exports: [TasksRepository],
   providers: [TasksRepository, TasksService, TasksProcessor],
 })
 export class TasksModule {}

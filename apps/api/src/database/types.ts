@@ -107,6 +107,16 @@ export interface MetricsReports {
   tenant_id: string;
 }
 
+export interface ReportDecisions {
+  created_at: Generated<Timestamp>;
+  decided_by: string;
+  outcome: string;
+  rationale: string;
+  report_id: string;
+  task_id: string | null;
+  tenant_id: string;
+}
+
 export interface UserProfiles {
   email: string;
   email_verified_at: Timestamp | null;
@@ -167,6 +177,7 @@ export interface DB {
   llm_calls: LlmCalls;
   metric_definitions: MetricDefinitions;
   metrics_reports: MetricsReports;
+  report_decisions: ReportDecisions;
   user_profiles: UserProfiles;
   work_tasks: WorkTasks;
   workspace_invitations: WorkspaceInvitations;

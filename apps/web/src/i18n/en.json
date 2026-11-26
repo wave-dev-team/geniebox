@@ -431,6 +431,14 @@
     "connections": "Open connections",
     "history": "Saved reports",
     "empty": "No reports yet.",
-    "more": "Show more"
+    "more": "Show more",
+    "decision": "Owner decision",
+    "followUp": "Create a follow-up task",
+    "close": "Leave as is",
+    "openTask": "Open task",
+    "chooseDecision": "Choose a decision",
+    "rationale": "Decision notes",
+    "saveDecision": "Save decision",
+    "decisionSaved": "Decision saved"
   }
 }

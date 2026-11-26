@@ -8,6 +8,7 @@ import { tasks } from './202611261830_tasks.js';
 import { accounts } from './202611262010_accounts.js';
 import { connections } from './202611262023_connections.js';
 import { reports } from './202611262027_reports.js';
+import { decisions } from './202611262032_decisions.js';
 
 export const migrationProvider: MigrationProvider = {
   async getMigrations() {
@@ -20,6 +21,7 @@ export const migrationProvider: MigrationProvider = {
       '202611262010_accounts': accounts,
       '202611262023_connections': connections,
       '202611262027_reports': reports,
+      '202611262032_decisions': decisions,
     };
   },
 };

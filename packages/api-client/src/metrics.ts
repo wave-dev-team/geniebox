@@ -4,6 +4,8 @@ import {
   metricsReportSchema,
   metricsReportsSchema,
   metricsSchema,
+  type ReportDecisionInput,
+  reportDecisionSchema,
 } from '@workspace/types';
 
 import { authenticated } from './authenticated.js';
@@ -16,6 +18,15 @@ export const metricsApi = {
 };
 
 export const reportsApi = {
+  decide: async (id: string, input: ReportDecisionInput) =>
+    reportDecisionSchema.parse(
+      await (
+        await authenticated(`/v1/reports/${encodeURIComponent(id)}/decision`, {
+          method: 'POST',
+          body: JSON.stringify(input),
+        })
+      ).json(),
+    ),
   list: async (before?: string, signal?: AbortSignal) => {
     const path = before ? `/v1/reports?before=${encodeURIComponent(before)}` : '/v1/reports';
     return metricsReportsSchema.parse(await (await authenticated(path, { signal })).json());

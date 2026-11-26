@@ -17,6 +17,7 @@ import { JwtGuard } from './common/auth/jwt.guard.js';
 import { SameOriginGuard } from './common/auth/same-origin.guard.js';
 import { appEnvironment } from './config/environment.js';
 import { AccountsModule } from './modules/accounts/accounts.module.js';
+import { ActionsModule } from './modules/actions/actions.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { ConnectionsModule } from './modules/connections/connections.module.js';
@@ -62,6 +63,7 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
     EventEmitterModule.forRoot(),
     AuthModule,
     AccountsModule,
+    ActionsModule,
     ChatModule,
     ConnectionsModule,
     ReportsModule,
