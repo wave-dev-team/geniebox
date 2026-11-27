@@ -25,6 +25,9 @@ export interface ProviderField {
   defaultValue?: string;
   pattern?: RegExp;
   maxLength?: number;
+  /** Env names that usually hold this field, e.g. `YOOKASSA_SECRET_KEY`. Hints for import only. */
+  envKeys?: readonly string[];
+  aliases?: readonly string[];
 }
 
 /** Outcome of a check; `reason` is a stable code the UI translates. */
@@ -64,5 +67,10 @@ export interface ProviderDefinition {
   sshKey?: boolean;
   /** Secret field shown masked (••••a91f). */
   maskField?: string;
+  /** Prefix of the service's env variables, e.g. `YOOKASSA_`. A hint for import, never stored. */
+  envPrefix?: string;
+  aliases?: readonly string[];
+  /** Where a person gets the credential, shown in the import preview. */
+  docsUrl?: string;
   check(context: CheckContext): Promise<CheckResult>;
 }

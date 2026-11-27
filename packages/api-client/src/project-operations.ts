@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import {
   connectionProviderSchema,
+  importJobResponseSchema,
+  importJobSchema,
+  importResponseSchema,
+  type ImportResult,
+  type ImportSkeleton,
   type JournalFilters,
   onboardingAgentCatalogSchema,
   type PermissionMode,
@@ -54,6 +59,49 @@ export function projectOperations(accountId: string, projectId: string) {
       });
       return z.object({ connection: projectConnectionSchema }).parse(await response.json());
     },
+    analyzeImport: async (skeleton: ImportSkeleton) =>
+      importJobResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ skeleton }),
+          })
+        ).json(),
+      ),
+    clarifyImport: async (input: {
+      skeleton: ImportSkeleton;
+      answer: string;
+      question?: string;
+      previous?: ImportResult;
+    }) =>
+      importJobResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import/clarify', {
+            method: 'POST',
+            body: JSON.stringify(input),
+          })
+        ).json(),
+      ),
+    importStatus: async (jobId: string) =>
+      importJobSchema.parse(
+        await (await authenticated(path + '/connections/import/analyze/' + encodeURIComponent(jobId))).json(),
+      ),
+    importConnections: async (
+      groups: Array<{
+        providerKey: string;
+        accessLevel: 'read' | 'read_write';
+        fields: Record<string, string>;
+      }>,
+      mode: 'skip' | 'replace' = 'skip',
+    ) =>
+      importResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import', {
+            method: 'POST',
+            body: JSON.stringify({ groups, mode }),
+          })
+        ).json(),
+      ),
     disconnectAll: async () => {
       await authenticated(path + '/connections/disconnect-all', { method: 'POST' });
     },

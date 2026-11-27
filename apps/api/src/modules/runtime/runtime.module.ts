@@ -6,6 +6,8 @@ import type { Env } from '../../config/env.schema.js';
 import { QUEUE_JOB_OPTIONS, QUEUES } from '../../queues/queues.js';
 import { ActionsModule } from '../actions/actions.module.js';
 import { ConnectionsWorkerModule } from '../connections/connections.module.js';
+import { ConnectionsImportAnalyzer } from '../connections/import/connections-import.analyzer.js';
+import { ConnectionsImportProcessor } from '../connections/import/connections-import.processor.js';
 import { KnowledgeDataModule } from '../knowledge/knowledge.module.js';
 import { MetricsDataModule } from '../metrics/metrics.module.js';
 import { WorkDataModule } from '../work/work.module.js';
@@ -63,6 +65,10 @@ const llmProvider = {
         name: QUEUES.CATALOG_SCENARIOS,
         defaultJobOptions: QUEUE_JOB_OPTIONS[QUEUES.CATALOG_SCENARIOS],
       },
+      {
+        name: QUEUES.CONNECTIONS_IMPORT,
+        defaultJobOptions: QUEUE_JOB_OPTIONS[QUEUES.CONNECTIONS_IMPORT],
+      },
     ),
   ],
   providers: [
@@ -88,6 +94,8 @@ const llmProvider = {
     AgentTurnsProcessor,
     AgentTasksProcessor,
     CatalogScenariosProcessor,
+    ConnectionsImportAnalyzer,
+    ConnectionsImportProcessor,
   ],
   exports: [ToolExecutor, ToolRegistry],
 })

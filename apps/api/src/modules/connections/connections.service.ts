@@ -22,6 +22,7 @@ import { CONNECTION_ERRORS, ConnectionException } from './connections.errors.js'
 import { credentialAad } from './credential-aad.js';
 import type { CreateConnectionDto, UpdateConnectionDto } from './dto/connection.dto.js';
 import { CONNECTION_EVENTS, type ConnectionEvent } from './events/connection.events.js';
+import type { ImportGroupInput, ImportGroupResult } from './import/connection-import.types.js';
 import { mask, splitFields } from './providers/fields.js';
 import {
   type AccessLevel,
@@ -134,6 +135,87 @@ export class ConnectionsService {
     );
     const check = await this.checks.runAndWait(view.connection, actor.userId);
     return { view: (await this.reload(view.connection.id)) ?? view, check };
+  }
+
+  /**
+   * Import of several services at once: the same sealed write path as a single connection,
+   * checks only enqueued, partial success allowed. Values come from the browser, never the model.
+   */
+  async importMany(
+    groups: ImportGroupInput[],
+    mode: 'skip' | 'replace' = 'skip',
+  ): Promise<ImportGroupResult[]> {
+    const actor = this.projectContext.actor();
+    const results: ImportGroupResult[] = [];
+    for (const group of groups) {
+      try {
+        const saved = await this.accountDb.transaction(async (tx) => {
+          const provider = this.provider(group.providerKey);
+          const accessLevel = this.accessLevel(provider, group.accessLevel);
+          const input = this.prepare(provider, group.fields);
+          const existing = (await this.connections.listForProject(tx.db, actor.projectId)).find(
+            (row) => row.provider_key === provider.key,
+          );
+          if (existing && mode === 'skip') {
+            return { outcome: 'skipped' as const, view: { connection: existing } };
+          }
+          if (existing) {
+            await this.connections.retireActive(tx.db, existing.id, new Date(Date.now() + RETIRE_AFTER_MS));
+            const credential = await this.sealAndInsert(tx, existing, input, actor.userId);
+            const connection =
+              (await this.connections.update(tx.db, existing.id, {
+                config: input.config,
+                access_level: accessLevel,
+                status: 'pending',
+                status_reason: null,
+                status_detail: null,
+              })) ?? existing;
+            await this.record(tx, actor, existing.id, 'connections.import', {
+              provider: provider.key,
+              replaced: true,
+              fields: Object.keys(input.secret),
+            });
+            await this.event(tx, CONNECTION_EVENTS.ROTATED, connection, actor.userId);
+            return { outcome: 'replaced' as const, view: { connection, credential } };
+          }
+          const view = await this.insertConnection(tx, {
+            projectId: actor.projectId,
+            provider,
+            name: provider.key,
+            accessLevel,
+            input,
+            createdVia: 'user',
+            actor,
+          });
+          await this.record(tx, actor, view.connection.id, 'connections.import', {
+            provider: provider.key,
+            fields: Object.keys(input.secret),
+          });
+          return { outcome: 'created' as const, view };
+        });
+        await this.checks.enqueue(saved.view.connection, actor.userId).catch(() => undefined);
+        results.push({
+          providerKey: group.providerKey,
+          outcome: saved.outcome,
+          connectionId: saved.view.connection.id,
+          status: saved.outcome === 'skipped' ? saved.view.connection.status : 'pending',
+          masked: saved.view.credential?.masked ?? null,
+          error: null,
+        });
+      } catch (error) {
+        const code =
+          error instanceof ConnectionException ? error.code : CONNECTION_ERRORS.CONNECTION_FIELDS_INVALID;
+        results.push({
+          providerKey: group.providerKey,
+          outcome: 'failed',
+          connectionId: null,
+          status: null,
+          masked: null,
+          error: { code },
+        });
+      }
+    }
+    return results;
   }
 
   async update(id: string, dto: UpdateConnectionDto): Promise<ConnectionView> {

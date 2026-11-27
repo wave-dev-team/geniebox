@@ -36,6 +36,7 @@ export class FakeProvider implements LlmProvider {
           }
         : { text: 'Готово.', calls: [] };
 
+    if (request.role === 'connections.import') return this.importProposal(request, call);
     if (request.role === 'agent.task') return this.task(request, ask, tools, toolResults, call);
     // Catalog scenarios: a careful answer, and a judge that fails only on «[fail]».
     if (request.role === 'catalog.scenario') {
@@ -113,6 +114,58 @@ export class FakeProvider implements LlmProvider {
     };
   }
 
+  /** Deterministic stand-in for the import prompt: groups fragments by names in their keys. */
+  private importProposal(
+    request: LlmRequest,
+    call: (name: string, args: Record<string, unknown>) => { text: string; calls: LlmToolCall[] },
+  ): { text: string; calls: LlmToolCall[] } {
+    const user = [...request.messages].reverse().find((message) => message.role === 'user');
+    const content = user && 'content' in user ? user.content : '';
+    const line = content.split('\n').find((entry) => entry.startsWith('Skeleton: '));
+    let fragments: Array<{ id: string; key?: string; label?: string }> = [];
+    if (line) {
+      try {
+        fragments =
+          (JSON.parse(line.slice('Skeleton: '.length)) as { fragments?: typeof fragments }).fragments ?? [];
+      } catch {
+        fragments = [];
+      }
+    }
+    const groups = new Map<string, Array<{ field: string; fragment: string }>>();
+    const unmatched: string[] = [];
+    for (const fragment of fragments) {
+      const text = `${fragment.key ?? ''} ${fragment.label ?? ''}`.trim();
+      const rule = IMPORT_RULES.find((entry) => entry.pattern.test(text));
+      const field = rule?.field(text);
+      if (!rule || !field) {
+        unmatched.push(fragment.id);
+        continue;
+      }
+      const fields = groups.get(rule.provider) ?? [];
+      if (fields.some((entry) => entry.field === field)) {
+        unmatched.push(fragment.id);
+        continue;
+      }
+      fields.push({ field, fragment: fragment.id });
+      groups.set(rule.provider, fields);
+    }
+    const items = [...groups].map(([providerKey, fields]) => ({
+      providerKey,
+      fields,
+      confidence: 'low',
+    }));
+    const questions = unmatched.length
+      ? [
+          {
+            fragments: unmatched,
+            text: 'К какому сервису относятся эти значения?',
+            options: IMPORT_RULES.map((rule) => rule.provider),
+          },
+        ]
+      : [];
+    return call('propose_credentials', { items, questions, notes: [] });
+  }
+
   private task(
     request: LlmRequest,
     ask: string,
@@ -181,6 +234,50 @@ export class FakeProvider implements LlmProvider {
     if (content.includes('"status":"done"')) return 'Сделано.';
     return 'Посмотрел, что происходит в проекте. Срочного ничего нет.';
   }
+}
+
+const IMPORT_RULES: Array<{ provider: string; pattern: RegExp; field: (text: string) => string }> = [
+  {
+    provider: 'yookassa',
+    pattern: /yookassa|юкасс/i,
+    field: (text) => (/shop|магазин/i.test(text) ? 'shop_id' : 'secret_key'),
+  },
+  {
+    provider: 'yandex_metrika',
+    pattern: /metrika|метрик|сч[её]тчик|counter|oauth/i,
+    field: (text) => (/counter|сч[её]тчик/i.test(text) ? 'counter_id' : 'oauth_token'),
+  },
+  {
+    provider: 'telegram_bot',
+    pattern: /telegram|телеграм|bot_?token|tg_/i,
+    field: () => 'token',
+  },
+  {
+    provider: 'postgres',
+    pattern: /postgres|pghost|pgport|pguser|pgpassword|database_url|db_|база|бд/i,
+    field: postgresField,
+  },
+  { provider: 'gitlab', pattern: /gitlab/i, field: (text) => (/url/i.test(text) ? 'url' : 'token') },
+  { provider: 'grafana', pattern: /grafana/i, field: (text) => (/url/i.test(text) ? 'url' : 'token') },
+  {
+    provider: 'ssh_server',
+    pattern: /ssh/i,
+    field: (text) => (/port/i.test(text) ? 'port' : /user|логин/i.test(text) ? 'username' : 'host'),
+  },
+  {
+    provider: 'http_api',
+    pattern: /api_url|api_token|api_key|http_api/i,
+    field: (text) => (/url/i.test(text) ? 'url' : 'token'),
+  },
+];
+
+function postgresField(text: string): string {
+  if (/port/i.test(text)) return 'port';
+  if (/host|хост/i.test(text)) return 'host';
+  if (/database|dbname|база|бд/i.test(text)) return 'database';
+  if (/user|логин/i.test(text)) return 'username';
+  if (/pass|пароль/i.test(text)) return 'password';
+  return 'ssl';
 }
 
 interface TeamEntry {
