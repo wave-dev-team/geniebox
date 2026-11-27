@@ -18,14 +18,22 @@ const uuid = '[0-9a-fA-F-]{36}';
 const account = `accounts/${uuid}`;
 const project = `${account}/projects/${uuid}`;
 const resources = new RegExp(
-  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
+  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/manager|/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
 );
+const chatReadResources = new RegExp(
+  `^${project}/(?:tasks/${uuid}|decisions/${uuid}|metrics(?:/${uuid}/series)?)$`,
+);
+const contextReset = new RegExp(`^${account}/manager-context/(?:me/)?reset$`);
+const chatActions = new RegExp(`^${project}/message-actions/${uuid}/press$`);
 const accessCookie = 'geniebox-access';
 const refreshCookie = 'geniebox-refresh';
 
 async function proxy(req: NextRequest, context: RouteContext<'/api/v1/[...path]'>) {
   const path = (await context.params).path.join('/');
-  if (!(resources.test(path) || publicActions.has(path) || privateActions.has(path))) {
+  const chatResource =
+    (req.method === 'GET' && chatReadResources.test(path)) ||
+    (req.method === 'POST' && (chatActions.test(path) || contextReset.test(path)));
+  if (!(resources.test(path) || chatResource || publicActions.has(path) || privateActions.has(path))) {
     return new Response(null, { status: 404 });
   }
   if (

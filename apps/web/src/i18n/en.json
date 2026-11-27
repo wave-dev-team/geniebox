@@ -40,7 +40,8 @@
     "manager": "Manager",
     "managerHint": "Manager",
     "openChat": "Open chat",
-    "chatWith": "Conversation: {name}"
+    "chatWith": "Conversation: {name}",
+    "newChat": "New conversation with the manager"
   },
   "account": {
     "menu": "Account menu",
@@ -64,8 +65,7 @@
       "day": "What impact did the release have?",
       "servers": "What should we prioritize in the backlog?"
     },
-    "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}",
-    "openAgents": "View agents"
+    "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}"
   },
   "auth": {
     "tagline": "Sign in to Geniebox",
@@ -306,7 +306,37 @@
     "history": "Conversation history",
     "untitled": "Untitled conversation",
     "new": "New conversation",
-    "start": "There are no conversations in this project yet."
+    "start": "There are no conversations in this project yet.",
+    "manager": "Manager",
+    "managerRole": "Project lead manager",
+    "expand": "Open full conversation",
+    "close": "Close chat",
+    "noManager": "The project manager is currently unavailable.",
+    "actions": "Reply actions",
+    "actionExpired": "This action is no longer available",
+    "cardError": "Could not load card",
+    "cardChart": "Metric chart",
+    "cardChartEmpty": "There is no data for this period.",
+    "cardChartRange": "{min} to {max}",
+    "cardTaskStatus": {
+      "planned": "Planned",
+      "running": "In progress",
+      "waiting": "Awaiting a decision",
+      "failed": "Failed",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "projectUnavailable": "The project for this conversation is unavailable.",
+    "personalConversation": "Conversation with the manager",
+    "projectNotice": "Project notification",
+    "notices": {
+      "decision_accepted": "Decision approved",
+      "team_paused": "Agents paused",
+      "team_resumed": "Agents resumed",
+      "rules_changed": "Agent rules changed",
+      "budget_changed": "AI budget changed",
+      "connections_disconnected": "Project connections disconnected"
+    }
   },
   "composer": {
     "placeholderHome": "Ask about metrics, hypotheses, or release results",
@@ -857,5 +887,24 @@
     "openProject": "Open project",
     "unavailable": "Project unavailable",
     "backHome": "Back to home"
+  },
+  "managerContextSettings": {
+    "title": "Manager context",
+    "description": "Reset clears the active manager chat. Tasks, decisions, and current rules stay available.",
+    "confirmAction": "Reset context",
+    "personal": {
+      "title": "My context",
+      "hint": "Start with an empty chat across this account’s projects.",
+      "action": "Reset my context",
+      "confirm": "Earlier messages will disappear from your chat across this account’s projects. The manager will still use current rules and ongoing work.",
+      "success": "Your context has been reset"
+    },
+    "account": {
+      "title": "Account context",
+      "hint": "Clear every member’s active chat and reset the manager’s shared memory of earlier decisions.",
+      "action": "Reset account context",
+      "confirm": "Every member’s active chat in this account will be cleared. The manager will use new messages and decisions, current rules, and ongoing tasks.",
+      "success": "Account context has been reset"
+    }
   }
 }

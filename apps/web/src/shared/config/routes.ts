@@ -26,7 +26,12 @@ type ProfileTab = 'general' | 'notifications' | 'security';
 
 export const routes = {
   root: () => '/',
-  chat: () => '/chat',
+  chat: (project?: string, conversation?: string) => {
+    if (!project) return '/chat';
+    const params = new URLSearchParams({ project });
+    if (conversation) params.set('conversation', conversation);
+    return '/chat?' + params;
+  },
   onboarding: (slug?: string) => (slug ? '/onboarding/' + encodeURIComponent(slug) : '/onboarding'),
   invitation: (token?: string) =>
     token ? '/invitations/accept?token=' + encodeURIComponent(token) : '/invitations/accept',

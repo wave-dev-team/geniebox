@@ -1,4 +1,4 @@
-import type { Insertable, Selectable, Transaction, Updateable } from 'kysely';
+import { type Insertable, type Selectable, sql, type Transaction, type Updateable } from 'kysely';
 
 import { Injectable } from '@nestjs/common';
 
@@ -29,6 +29,46 @@ export class ConversationsRepository {
     return db.insertInto('conversations').values(values).returningAll().executeTakeFirstOrThrow();
   }
 
+  async managerForUser(
+    db: Transaction<DB>,
+    projectId: string,
+    userId: string,
+  ): Promise<ConversationRow | undefined> {
+    return db
+      .selectFrom('conversations')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .where('created_by', '=', userId)
+      .where('manager_thread', '=', true)
+      .executeTakeFirst();
+  }
+
+  async ensureManager(
+    db: Transaction<DB>,
+    accountId: string,
+    projectId: string,
+    userId: string,
+    agentId: string,
+  ) {
+    return db
+      .insertInto('conversations')
+      .values({
+        account_id: accountId,
+        project_id: projectId,
+        created_by: userId,
+        agent_id: agentId,
+        manager_thread: true,
+      })
+      .onConflict((conflict) =>
+        conflict
+          .columns(['project_id', 'created_by'])
+          .where(sql<boolean>`manager_thread`)
+          .doUpdateSet({ agent_id: agentId }),
+      )
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  }
+
   find(db: Transaction<DB>, projectId: string, id: string): Promise<ConversationRow | undefined> {
     return db
       .selectFrom('conversations')
@@ -47,8 +87,14 @@ export class ConversationsRepository {
     projectId: string,
     agentId: string | undefined,
     limit: number,
+    userId: string,
   ): Promise<ConversationRow[]> {
-    let query = db.selectFrom('conversations').selectAll().where('project_id', '=', projectId);
+    let query = db
+      .selectFrom('conversations')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .where('created_by', '=', userId)
+      .where('private_archive', '=', false);
     if (agentId) query = query.where('agent_id', '=', agentId);
     return query.orderBy('last_message_at', 'desc').limit(limit).execute();
   }
@@ -73,8 +119,34 @@ export class ConversationsRepository {
     return asMessage(row);
   }
 
-  async findMessage(db: Transaction<DB>, id: string): Promise<MessageRow | undefined> {
-    const row = await db.selectFrom('messages').selectAll().where('id', '=', id).executeTakeFirst();
+  async insertNotification(
+    db: Transaction<DB>,
+    input: Insertable<Messages>,
+  ): Promise<MessageRow | undefined> {
+    const row = await db
+      .insertInto('messages')
+      .values(input)
+      .onConflict((conflict) =>
+        conflict.columns(['conversation_id', 'notification_event_id', 'notification_kind']).doNothing(),
+      )
+      .returningAll()
+      .executeTakeFirst();
+    return row ? asMessage(row) : undefined;
+  }
+
+  async lock(db: Transaction<DB>, id: string): Promise<void> {
+    await db
+      .selectFrom('conversations')
+      .select('id')
+      .where('id', '=', id)
+      .forUpdate()
+      .executeTakeFirstOrThrow();
+  }
+
+  async findMessage(db: Transaction<DB>, id: string, after?: string | null): Promise<MessageRow | undefined> {
+    let query = db.selectFrom('messages').selectAll().where('id', '=', id);
+    if (after) query = query.where('created_at', '>', sql<Date>`${after}::timestamptz`);
+    const row = await query.executeTakeFirst();
     return row ? asMessage(row) : undefined;
   }
 
@@ -82,11 +154,37 @@ export class ConversationsRepository {
     db: Transaction<DB>,
     conversationId: string,
     limit: number,
-    before?: Date,
+    options: {
+      before?: Date;
+      beforeId?: string;
+      noticeKinds?: readonly string[];
+      after?: string | null;
+    } = {},
   ): Promise<MessageRow[]> {
+    const { before, beforeId, noticeKinds, after } = options;
     let query = db.selectFrom('messages').selectAll().where('conversation_id', '=', conversationId);
-    if (before) query = query.where('created_at', '<', before);
-    const rows = await query.orderBy('created_at', 'desc').limit(limit).execute();
+    if (beforeId) {
+      query = query.where(sql<boolean>`
+        (created_at, case when role = 'user' then 0 else 1 end, id) <
+          (select created_at, case when role = 'user' then 0 else 1 end, id
+            from messages where id = ${beforeId} and conversation_id = ${conversationId})
+      `);
+    } else if (before) {
+      query = query.where('created_at', '<', before);
+    }
+    if (after) query = query.where('created_at', '>', sql<Date>`${after}::timestamptz`);
+    if (noticeKinds?.length === 0) query = query.where('notification_kind', 'is', null);
+    else if (noticeKinds) {
+      query = query.where((eb) =>
+        eb.or([eb('notification_kind', 'is', null), eb('notification_kind', 'in', noticeKinds)]),
+      );
+    }
+    const rows = await query
+      .orderBy('created_at', 'desc')
+      .orderBy(sql`case when role = 'user' then 0 else 1 end`, 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .execute();
     return rows.reverse().map(asMessage);
   }
 
@@ -103,15 +201,15 @@ export class ConversationsRepository {
       .execute();
   }
 
-  async hasStreaming(db: Transaction<DB>, conversationId: string): Promise<boolean> {
-    const row = await db
+  async hasStreaming(db: Transaction<DB>, conversationId: string, after?: string | null): Promise<boolean> {
+    let query = db
       .selectFrom('messages')
       .select('id')
       .where('conversation_id', '=', conversationId)
       .where('status', '=', 'streaming')
-      .where('created_at', '>', new Date(Date.now() - 5 * 60_000))
-      .executeTakeFirst();
-    return row !== undefined;
+      .where('created_at', '>', new Date(Date.now() - 5 * 60_000));
+    if (after) query = query.where('created_at', '>', sql<Date>`${after}::timestamptz`);
+    return Boolean(await query.executeTakeFirst());
   }
 
   async updateMessage(

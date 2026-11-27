@@ -1,6 +1,9 @@
+import { sql } from 'kysely';
+
 import { Injectable } from '@nestjs/common';
 
 import { AccountDb } from '../../database/scoped-db.js';
+import { readManagerContext } from '../accounts/manager-context.js';
 import { agentTitle } from '../agents/catalog/titles.js';
 import { CatalogService } from '../catalog/catalog.service.js';
 import { textsFor } from '../catalog/catalog-content.js';
@@ -68,6 +71,32 @@ export class RuntimeContextLoader {
         rules: row.agent_rules,
       },
     };
+  }
+
+  async managerState(projectId: string, userId: string) {
+    return this.accountDb.transaction(async (tx) => {
+      const member = await readManagerContext(tx.db, tx.accountId, userId);
+      if (!member) return undefined;
+
+      let accepted = tx.db
+        .selectFrom('decisions')
+        .select(['id', 'title', 'status', 'decided_at', 'task_id'])
+        .where('project_id', '=', projectId)
+        .where('status', 'in', ['accepted', 'modified']);
+      if (member.accountSince) {
+        accepted = accepted.where('decided_at', '>', sql<Date>`${member.accountSince}::timestamptz`);
+      }
+      const decisions = await accepted.orderBy('decided_at', 'desc').limit(12).execute();
+      const tasks = await tx.db
+        .selectFrom('tasks')
+        .select(['id', 'title', 'status'])
+        .where('project_id', '=', projectId)
+        .where('status', 'in', ['planned', 'running', 'waiting'])
+        .orderBy('updated_at', 'desc')
+        .limit(12)
+        .execute();
+      return { role: member.role, historySince: member.historySince, decisions, tasks };
+    });
   }
 
   async agent(agentId: string): Promise<LoadedAgent | undefined> {

@@ -14,7 +14,7 @@ import { agentChatPrompt, managerPrompt, PROMPT_VERSIONS, withCatalog } from './
 import type { TurnJob } from './runtime.jobs.js';
 import { agentBudget, RuntimeContextLoader } from './runtime-context.js';
 import { RuntimeTexts } from './runtime-texts.js';
-import { maskPersonalData } from './untrusted.js';
+import { dataBlock, maskPersonalData, untrusted } from './untrusted.js';
 
 const FLUSH_MS = 120;
 /** How often the partial answer is written to the database while it streams. */
@@ -44,15 +44,26 @@ export class ConversationTurn {
     const loaded = await this.accountDb.transaction(async (tx) => {
       const reply = await this.conversations.findMessage(tx.db, job.replyMessageId);
       const question = await this.conversations.findMessage(tx.db, job.userMessageId);
-      const history = await this.conversations.listMessages(tx.db, job.conversationId, CONTEXT_MESSAGES + 2);
-      return { reply, question, history };
+      if (
+        !reply ||
+        reply.status !== 'streaming' ||
+        !question ||
+        !reply.agent_id ||
+        question.author_user_id !== job.userId ||
+        question.conversation_id !== reply.conversation_id
+      )
+        return;
+      const conversation = await this.conversations.find(tx.db, job.projectId, reply.conversation_id);
+      if (!conversation || conversation.created_by !== job.userId || conversation.private_archive) return;
+      return { reply, question, conversation };
     });
+    if (!loaded) return;
     const { reply, question } = loaded;
-    if (reply?.status !== 'streaming' || !question || !reply.agent_id) return;
+    job = { ...job, conversationId: loaded.conversation.id };
     const lang = await this.loader.locale(job.userId);
     const [project, agent] = await Promise.all([
       this.loader.project(job.projectId),
-      this.loader.agent(reply.agent_id),
+      this.loader.agent(reply.agent_id!),
     ]);
     if (!project || !agent || agent.deleted) {
       await this.finish(
@@ -70,18 +81,42 @@ export class ConversationTurn {
 
     const isManager = agent.runtime.kind === 'manager';
     const mode = question.mode;
+    const shared = await this.loader.managerState(project.id, job.userId);
+    if (!shared || shared.role === 'viewer') {
+      await this.finish(job, reply.id, '', 'failed');
+      return;
+    }
     const team = isManager ? await this.loader.team(project.id) : [];
     const system = isManager
       ? managerPrompt(project.brief, team, mode)
       : agentChatPrompt(project.brief, agent.brief, mode);
-    const history: LlmMessage[] = loaded.history
-      .filter((m) => m.id !== reply.id && m.status === 'done' && m.text.trim())
-      .slice(-CONTEXT_MESSAGES)
-      .map((m) =>
-        m.role === 'user'
-          ? { role: 'user', content: maskPersonalData(m.text) }
-          : { role: 'assistant', content: m.text },
-      );
+    const { historySince, ...projectState } = shared;
+    const after = loaded.conversation.manager_thread ? historySince : undefined;
+    const recent = await this.accountDb.transaction(async (tx) => {
+      if (after && !(await this.conversations.findMessage(tx.db, question.id, after))) return undefined;
+      return this.conversations.listMessages(tx.db, job.conversationId, CONTEXT_MESSAGES + 2, {
+        noticeKinds: [],
+        after,
+      });
+    });
+    if (!recent) {
+      await this.finish(job, reply.id, '', 'failed');
+      return;
+    }
+    const prior = recent.filter(
+      (message) =>
+        message.id !== question.id &&
+        message.id !== reply.id &&
+        message.created_at.getTime() <= question.created_at.getTime() &&
+        message.status === 'done' &&
+        message.role !== 'system' &&
+        message.text.trim(),
+    );
+    const history: LlmMessage[] = [...prior.slice(-(CONTEXT_MESSAGES - 1)), question].map((message) =>
+      message.role === 'user'
+        ? { role: 'user', content: maskPersonalData(message.text) }
+        : { role: 'assistant', content: message.text },
+    );
     const tools = isManager
       ? this.registry.available(
           agent.runtime,
@@ -140,6 +175,7 @@ export class ConversationTurn {
       );
       void this.stream.publish(project.id, {
         type: 'message.delta',
+        recipientUserId: job.userId,
         conversationId: job.conversationId,
         messageId: reply.id,
         delta,
@@ -169,7 +205,28 @@ export class ConversationTurn {
           userId: job.userId,
           mode,
         },
-        messages: [{ role: 'system', content: system }, ...history],
+        messages: [
+          { role: 'system', content: system },
+          ...(isManager
+            ? [
+                {
+                  role: 'user' as const,
+                  content: dataBlock(
+                    'shared_project_state',
+                    untrusted(
+                      maskPersonalData(
+                        JSON.stringify({
+                          ...projectState,
+                          agentsPaused: project.paused,
+                        }),
+                      ),
+                    ),
+                  ),
+                },
+              ]
+            : []),
+          ...history,
+        ],
         tools,
         onTextDelta: (delta) => {
           buffer += delta;
@@ -223,6 +280,7 @@ export class ConversationTurn {
     });
     await this.stream.publish(job.projectId, {
       type: 'message.updated',
+      recipientUserId: job.userId,
       conversationId: job.conversationId,
       messageId,
     });

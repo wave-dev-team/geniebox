@@ -38,7 +38,7 @@ export class ProjectTasks implements OnModuleInit {
   /** Resumes only if the pause this task was created for is still the current one. */
   async resume(projectId: string, until: Date): Promise<void> {
     await this.accountDb.transaction(async (tx) => {
-      const project = await this.projects.findById(tx.db, projectId);
+      const project = await this.projects.findById(tx.db, projectId, true);
       if (!project?.agents_paused || project.paused_until?.getTime() !== until.getTime()) {
         return;
       }

@@ -2,6 +2,7 @@ export const CONNECTION_EVENTS = {
   CREATED: 'connection.created',
   UPDATED: 'connection.updated',
   ROTATED: 'connection.rotated',
+  PROJECT_DISCONNECTED: 'connection.project_disconnected',
   DISCONNECTED: 'connection.disconnected',
   STATUS_CHANGED: 'connection.status_changed',
   LINK_CREATED: 'connection.link_created',

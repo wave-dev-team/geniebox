@@ -1,6 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+import { jest } from '@jest/globals';
 import { z } from 'zod';
 
 import type { TestingModule } from '@nestjs/testing';
@@ -15,6 +16,7 @@ import {
 } from '../../src/modules/runtime/broker/broker.types.js';
 import { ToolExecutor } from '../../src/modules/runtime/broker/tool-executor.js';
 import { ToolRegistry } from '../../src/modules/runtime/broker/tool-registry.js';
+import { LLM_PROVIDER, type LlmProvider, type LlmRequest } from '../../src/modules/runtime/llm/llm.types.js';
 import { RuntimeContextLoader } from '../../src/modules/runtime/runtime-context.js';
 import { WorkerModule } from '../../src/worker.module.js';
 import { asAccount, connectAs, eventually, flushRedis, infra, uniqueEmail } from '../support/helpers.js';
@@ -26,6 +28,7 @@ interface Message {
   agentId: string | null;
   text: string;
   status: string;
+  notificationKind?: string;
   cards: Array<{ type: string; id: string }>;
 }
 interface Task {
@@ -194,6 +197,66 @@ describe('agent runtime (HTTP, fake model)', () => {
       expect(calls.every((c) => c.result === 'ok')).toBe(true);
     } finally {
       await db.destroy();
+    }
+  });
+
+  it('isolates permanent manager chats and delivers role-scoped project notices', async () => {
+    const email = uniqueEmail('rt-manager-member');
+    const after = api.mail.sent.length;
+    await api
+      .post(`/v1/accounts/${accountId}/invitations`, { email, role: 'tech' }, owner.accessToken)
+      .expect(201);
+    const invitation = await api.mailMatch(email, /token=([A-Za-z0-9_-]+)/, after);
+    const member = await api.signInWithCode(email);
+    await api.post('/v1/invitations/accept', { token: invitation }, member.accessToken).expect(200);
+
+    const mine = (await api.get(`${base()}/conversations/manager`, owner.accessToken).expect(200)).body
+      .conversation as {
+      id: string;
+    };
+    const beforeMemberChat = await api.get(`${base()}/conversations/manager`, member.accessToken).expect(200);
+    expect(beforeMemberChat.body).toEqual({ conversation: null });
+    const starts = await Promise.all(
+      [1, 2].map(() => api.post(`${base()}/conversations`, {}, member.accessToken).expect(201)),
+    );
+    const theirs = starts[0]!.body as { id: string };
+    expect(starts[1]!.body).toMatchObject({ id: theirs.id });
+    expect(theirs.id).not.toBe(mine.id);
+    const listing = await api.get(`${base()}/conversations`, member.accessToken).expect(200);
+    expect(listing.body).toEqual([expect.objectContaining({ id: theirs.id })]);
+    await api.get(`${base()}/conversations/${mine.id}/messages`, member.accessToken).expect(404);
+    await api
+      .post(`${base()}/conversations/${mine.id}/messages`, { text: 'Private' }, member.accessToken)
+      .expect(404);
+    await api.get(`${base()}/conversations/${theirs.id}/messages`, owner.accessToken).expect(404);
+
+    const historyPath = `${base()}/conversations/${theirs.id}/messages`;
+    const read = async () => (await api.get(historyPath, member.accessToken).expect(200)).body as Message[];
+    await api.post(`${base()}/pause`, {}, owner.accessToken).expect(200);
+    try {
+      await eventually(async () => {
+        expect(await read()).toEqual([
+          expect.objectContaining({ role: 'system', notificationKind: 'team_paused' }),
+        ]);
+        expect(await messages(mine.id)).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ role: 'system', notificationKind: 'team_paused' }),
+          ]),
+        );
+      });
+      await api.patch(`${base()}/rules`, { aiBudgetMonthly: 1500 }, owner.accessToken).expect(200);
+      await eventually(async () => {
+        expect(await messages(mine.id)).toEqual(
+          expect.arrayContaining([expect.objectContaining({ notificationKind: 'budget_changed' })]),
+        );
+      });
+      expect((await read()).some((message) => message.notificationKind === 'budget_changed')).toBe(false);
+      const state = await asAccount(worker.get(ClsService<AppClsStore>), accountId, () =>
+        worker.get(RuntimeContextLoader).managerState(projectId, member.userId),
+      );
+      expect(state?.role).toBe('tech');
+    } finally {
+      await api.post(`${base()}/resume`, {}, owner.accessToken).expect(200);
     }
   });
 
@@ -505,6 +568,91 @@ describe('agent runtime (HTTP, fake model)', () => {
         .expect(200)
     ).body as { enabled: boolean; nextRunAt: string | null };
     expect(changed).toMatchObject({ enabled: false, nextRunAt: null });
+  });
+
+  it('resets the active chat and model context without deleting messages', async () => {
+    const email = uniqueEmail('rt-context');
+    const after = api.mail.sent.length;
+    await api
+      .post(`/v1/accounts/${accountId}/invitations`, { email, role: 'tech' }, owner.accessToken)
+      .expect(201);
+    const invite = await api.mailMatch(email, /token=([A-Za-z0-9_-]+)/, after);
+    const member = await api.signInWithCode(email);
+    await api.post('/v1/invitations/accept', { token: invite }, member.accessToken).expect(200);
+
+    const chatPath = async (user: TokenPair) => {
+      const { id } = (await api.post(`${base()}/conversations`, {}, user.accessToken).expect(201)).body as {
+        id: string;
+      };
+      return `${base()}/conversations/${id}/messages`;
+    };
+    const ownerPath = await chatPath(owner);
+    const memberPath = await chatPath(member);
+    const send = async (path: string, user: TokenPair, text: string) => {
+      const posted = (await api.post(path, { text }, user.accessToken).expect(201)).body as {
+        reply: Message;
+      };
+      await eventually(async () => {
+        const { body } = await api.get(path, user.accessToken).expect(200);
+        expect((body as Message[]).find(({ id }) => id === posted.reply.id)?.status).toBe('done');
+      });
+    };
+    const provider = jest.spyOn(worker.get<LlmProvider>(LLM_PROVIDER), 'complete');
+    const prompt = (text: string): LlmRequest['messages'] | undefined =>
+      provider.mock.calls.find(
+        ([request]) =>
+          request.role === 'manager.turn' &&
+          request.messages.some((message) => message.role === 'user' && message.content === text),
+      )?.[0].messages;
+    const contents = (text: string) => {
+      const messages = prompt(text);
+      expect(messages).toBeDefined();
+      return messages!.map(({ content }) => content).join('\n');
+    };
+    const reset = `/v1/accounts/${accountId}/manager-context`;
+
+    try {
+      await send(ownerPath, owner, 'owner context marker');
+      await send(memberPath, member, 'member context marker');
+      await api.post(`${reset}/reset`, {}, member.accessToken).expect(403);
+      await api.post(`${reset}/me/reset`, {}, member.accessToken).expect(204);
+      expect((await api.get(memberPath, member.accessToken).expect(200)).body).toEqual([]);
+      expect((await api.get(ownerPath, owner.accessToken).expect(200)).body).toEqual(
+        expect.arrayContaining([expect.objectContaining({ text: 'owner context marker' })]),
+      );
+
+      await send(memberPath, member, 'member after personal reset');
+      await send(ownerPath, owner, 'owner after member reset');
+      expect(contents('member after personal reset')).not.toContain('member context marker');
+      expect(contents('owner after member reset')).toContain('owner context marker');
+
+      await api.post(`${reset}/reset`, {}, owner.accessToken).expect(204);
+      expect((await api.get(memberPath, member.accessToken).expect(200)).body).toEqual([]);
+      expect((await api.get(ownerPath, owner.accessToken).expect(200)).body).toEqual([]);
+      await send(memberPath, member, 'member after account reset');
+      await send(ownerPath, owner, 'owner after account reset');
+      expect(contents('member after account reset')).not.toContain('member after personal reset');
+      expect(contents('owner after account reset')).not.toContain('owner context marker');
+      expect(contents('owner after account reset')).toContain('"decisions":[]');
+      const active = (await api.get(memberPath, member.accessToken).expect(200)).body as Message[];
+      expect(active.filter(({ role }) => role === 'user').map(({ text }) => text)).toEqual([
+        'member after account reset',
+      ]);
+      const db = superDb();
+      try {
+        const archived = await db
+          .selectFrom('messages')
+          .select('id')
+          .where('conversation_id', '=', memberPath.split('/').at(-2)!)
+          .where('text', '=', 'member context marker')
+          .executeTakeFirst();
+        expect(archived).toBeDefined();
+      } finally {
+        await db.destroy();
+      }
+    } finally {
+      provider.mockRestore();
+    }
   });
 
   it('streams project events over SSE', async () => {

@@ -8,12 +8,15 @@ import type { ChatMessage } from '@workspace/types';
 
 import { projectChat } from './index';
 
-const eventSchema = z.object({
-  type: z.enum(['message.created', 'message.updated', 'message.delta']),
-  conversationId: z.uuid(),
-  messageId: z.uuid(),
-  delta: z.string().optional(),
-});
+const eventSchema = z.union([
+  z.object({ type: z.literal('manager.context_reset') }),
+  z.object({
+    type: z.enum(['message.created', 'message.updated', 'message.delta']),
+    conversationId: z.uuid(),
+    messageId: z.uuid(),
+    delta: z.string().optional(),
+  }),
+]);
 
 async function readStream(response: Response, receive: (data: string) => void) {
   if (!response.body) throw new Error('Empty stream');
@@ -65,6 +68,11 @@ export function useWorkStream(account: string, project: string) {
           }
           const event = eventSchema.safeParse(parsed);
           if (!event.success) return;
+          if (event.data.type === 'manager.context_reset') {
+            setPartial({});
+            void client.resetQueries({ queryKey: scope });
+            return;
+          }
           const { type, conversationId, messageId, delta } = event.data;
           const key = [...scope, 'messages', conversationId];
           if (type === 'message.delta') {

@@ -6,7 +6,7 @@ import { fillPrompt } from '../../catalog/catalog-content.js';
  * is passed in the user/tool part through `dataBlock`, never in these templates.
  */
 export const PROMPT_VERSIONS = {
-  manager: 'manager.v3',
+  manager: 'manager.v4',
   agentChat: 'agent-chat.v2',
   agentTask: 'agent-task.v3',
 } as const;
@@ -82,7 +82,7 @@ function modeLine(mode: string | null): string {
 
 export function managerPrompt(project: ProjectBrief, team: TeamMember[], mode: string | null): string {
   return [
-    'You are the manager of an AI team that runs an online business for its owner. You talk to the owner and delegate work to the agents of the team.',
+    'You manage this project and speak separately with each authorized project member. Use only the current member’s conversation and shared project state. Never infer what another member said privately.',
     projectSection(project),
     'Team (use these ids with assign_task; only agents with status active or probation take tasks):',
     `<team>\n${JSON.stringify(team.map((m) => ({ id: m.id, name: m.name, template: m.template, status: m.status })))}\n</team>`,
@@ -92,8 +92,9 @@ export function managerPrompt(project: ProjectBrief, team: TeamMember[], mode: s
           .join('\n')
       : 'The team is empty: suggest adding agents in the marketplace.',
     modeLine(mode),
-    'When the owner asks for work, give it to the best-fitting agent with assign_task (one task per distinct job, a clear title and why). Then tell the owner in one or two sentences who is doing what. For questions about the project, use project_overview first.',
+    'When the current member asks for work, give it to the best-fitting agent with assign_task (one task per distinct job, a clear title and why). Then tell the owner in one or two sentences who is doing what. For questions about the project, use project_overview first.',
     'You also act for the person you talk to, with their rights (panel_* tools): read the project, hire or pause agents, change rules, answer decisions — everything the panel does. Changes that spend money, change access or reach outside become a button under your answer: say what the button does and that the person presses it to confirm; never claim it is done before that. Keys and passwords never go through chat: give a connection link instead (panel_connection_link). Offer choices with offer_buttons; attach a metric chart with send_chart when numbers over time help.',
+    'The shared state is a snapshot of recorded facts. A decision being accepted only means it was authorized; check task status and tools before saying the action finished. Respect the project pause and existing work.',
     ...COMMON,
   ].join('\n\n');
 }

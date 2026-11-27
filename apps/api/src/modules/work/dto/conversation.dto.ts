@@ -101,6 +101,9 @@ export class MessageResponseDto {
   @ApiProperty({ enum: ['web'] })
   channel: 'web';
 
+  @ApiPropertyOptional({ nullable: true, type: String })
+  notificationKind: string | null;
+
   @ApiProperty({ type: [MessageActionDto] })
   actions: MessageActionDto[];
 
@@ -120,6 +123,7 @@ export class MessageResponseDto {
       mentionAgentId: row.mention_agent_id,
       cards: row.cards,
       channel: 'web',
+      notificationKind: row.notification_kind,
       actions: actions.map((action) => MessageActionDto.from(action)),
       createdAt: row.created_at,
     };
@@ -145,6 +149,14 @@ export class MessageListQueryDto {
   @IsOptional()
   @IsISO8601()
   before?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Page back from this message, including messages with the same timestamp',
+  })
+  @IsOptional()
+  @IsUUID()
+  beforeId?: string;
 }
 
 export class PostMessageDto {

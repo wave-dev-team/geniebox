@@ -41,13 +41,9 @@ export class ProjectsRepository {
     return Number(row.count);
   }
 
-  findById(db: Transaction<DB>, id: string): Promise<ProjectRow | undefined> {
-    return db
-      .selectFrom('projects')
-      .selectAll()
-      .where('id', '=', id)
-      .where('deleted_at', 'is', null)
-      .executeTakeFirst();
+  findById(db: Transaction<DB>, id: string, lock = false): Promise<ProjectRow | undefined> {
+    const query = db.selectFrom('projects').selectAll().where('id', '=', id).where('deleted_at', 'is', null);
+    return (lock ? query.forUpdate() : query).executeTakeFirst();
   }
 
   listForAccount(db: Transaction<DB>, accountId: string): Promise<ProjectRow[]> {

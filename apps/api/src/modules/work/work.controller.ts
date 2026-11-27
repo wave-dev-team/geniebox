@@ -228,6 +228,12 @@ export class ConversationsController {
     return this.conversations.create(dto.agentId);
   }
 
+  @Get('manager')
+  @ApiOperation({ summary: 'The current user’s permanent conversation with the project manager' })
+  async manager(): Promise<{ conversation: ConversationResponseDto | null }> {
+    return { conversation: await this.conversations.manager() };
+  }
+
   @Get(':conversationId')
   @ApiOperation({ summary: 'Conversation' })
   get(@Param('conversationId', ParseUUIDPipe) id: string): Promise<ConversationResponseDto> {
@@ -240,7 +246,7 @@ export class ConversationsController {
     @Param('conversationId', ParseUUIDPipe) id: string,
     @Query() query: MessageListQueryDto,
   ): Promise<MessageResponseDto[]> {
-    return this.conversations.messages(id, query.before);
+    return this.conversations.messages(id, query.before, query.beforeId);
   }
 
   @Post(':conversationId/messages')

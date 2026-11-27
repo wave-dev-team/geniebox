@@ -104,6 +104,9 @@ export class TaskLifecycle {
   /** The agent reports back in the conversation the task came from. */
   private async say(tx: AccountTx, task: TaskRow, text: string, cards: Card[]): Promise<void> {
     if (!task.conversation_id) return;
+    const conversation = await this.conversations.find(tx.db, task.project_id, task.conversation_id);
+    const recipientUserId = conversation?.created_by;
+    if (!recipientUserId || conversation.private_archive) return;
     const message = await this.conversations.insertMessage(tx.db, {
       account_id: tx.accountId,
       conversation_id: task.conversation_id,
@@ -121,6 +124,7 @@ export class TaskLifecycle {
     tx.afterCommit(() =>
       this.stream.publish(task.project_id, {
         type: 'message.created',
+        recipientUserId,
         conversationId,
         messageId: message.id,
       }),

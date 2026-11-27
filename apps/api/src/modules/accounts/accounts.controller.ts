@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { AccountsService } from './accounts.service.js';
@@ -31,6 +31,25 @@ export class AccountsController {
   @ApiOperation({ summary: 'Account details' })
   async get(): Promise<AccountResponseDto> {
     return AccountResponseDto.from(await this.accounts.getCurrent());
+  }
+
+  @Post(':accountId/manager-context/me/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiAccountParam()
+  @UseGuards(AccountAccessGuard)
+  @ApiOperation({ summary: 'Reset the caller’s manager conversation context in this account' })
+  resetMyManagerContext(): Promise<void> {
+    return this.accounts.resetManagerContext('personal');
+  }
+
+  @Post(':accountId/manager-context/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiAccountParam()
+  @UseGuards(AccountAccessGuard)
+  @RequireAccountRole('owner')
+  @ApiOperation({ summary: 'Reset the manager context across the account (owner)' })
+  resetAccountManagerContext(): Promise<void> {
+    return this.accounts.resetManagerContext('account');
   }
 
   @Patch(':accountId')

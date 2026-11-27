@@ -11,6 +11,7 @@ import {
 import type { Env } from '../../config/env.schema.js';
 import { AccountDb } from '../../database/scoped-db.js';
 import { SystemDb } from '../../database/system-db.js';
+import { readManagerContext } from '../accounts/manager-context.js';
 import { StreamPublisher } from '../stream/stream.publisher.js';
 import { ConversationsService } from '../work/conversations.service.js';
 import { DecisionsService } from '../work/decisions.service.js';
@@ -131,11 +132,21 @@ export class MessageActionsService {
         const conversation = message
           ? await this.conversations.findById(tx.db, message.conversation_id)
           : undefined;
-        if (!message || !conversation) {
+        if (!message || !conversation || conversation.created_by !== userId || conversation.private_archive) {
           throw new EntityNotFoundException();
         }
         if (expectProjectId && conversation.project_id !== expectProjectId) {
           throw new EntityNotFoundException();
+        }
+        if (conversation.manager_thread) {
+          const boundary = await readManagerContext(tx.db, tx.accountId, userId);
+          if (
+            !boundary ||
+            (boundary.historySince &&
+              !(await this.conversations.findMessage(tx.db, message.id, boundary.historySince)))
+          ) {
+            throw new EntityNotFoundException();
+          }
         }
         if (action.status === 'done') throw new ConflictException();
         if (action.status === 'expired' || action.expires_at.getTime() < Date.now()) {
@@ -166,7 +177,15 @@ export class MessageActionsService {
           { userId, accountId: located.accountId, role, projectId: conversation.project_id },
           () => this.execute(action, conversation.id),
         );
-        await this.settle(action, 'done', result.text, userId, conversation.project_id, conversation.id);
+        await this.settle(
+          action,
+          'done',
+          result.text,
+          userId,
+          conversation.project_id,
+          conversation.id,
+          userId,
+        );
         return { ...base, status: 'done', ...result };
       } catch (error) {
         const text = this.errors.of(error, await this.actor.locale(userId));
@@ -174,7 +193,7 @@ export class MessageActionsService {
           this.logger.error({ err: error, actionId }, 'Button action failed');
         }
         // Back to pending: after fixing the cause (money, a connection) the same button works.
-        await this.settle(action, 'pending', text, null, conversation.project_id, conversation.id);
+        await this.settle(action, 'pending', text, null, conversation.project_id, conversation.id, userId);
         return { ...base, status: 'failed', text };
       }
     });
@@ -241,10 +260,12 @@ export class MessageActionsService {
     usedBy: string | null,
     projectId: string,
     conversationId: string,
+    recipientUserId: string,
   ): Promise<void> {
     await this.accountDb.transaction((tx) => this.repo.settle(tx.db, action.id, { status, result, usedBy }));
     await this.stream.publish(projectId, {
       type: 'message.updated',
+      recipientUserId,
       conversationId,
       messageId: action.message_id,
     });

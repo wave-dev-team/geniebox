@@ -160,6 +160,16 @@ export class ToolExecutor {
     const execute = tool.execute;
     try {
       const result = await this.accountDb.transaction(async (tx) => {
+        if (tool.mutating) {
+          const project = await tx.db
+            .selectFrom('projects')
+            .select('agents_paused')
+            .where('id', '=', context.projectId)
+            .where('deleted_at', 'is', null)
+            .forShare()
+            .executeTakeFirst();
+          if (!project || project.agents_paused) throw new ToolError('KILL_SWITCH_PROJECT');
+        }
         const value = await execute(
           {
             ...context,
@@ -184,7 +194,7 @@ export class ToolExecutor {
       if (!(error instanceof ToolError)) {
         this.logger.error({ err: error, toolId }, 'Tool execution failed');
       }
-      return this.refuse(context, toolId, 'failed', code, args);
+      return this.refuse(context, toolId, code === 'KILL_SWITCH_PROJECT' ? 'blocked' : 'failed', code, args);
     }
   }
 

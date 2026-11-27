@@ -30,11 +30,24 @@ export class StreamController {
     summary: 'Live events of the project (SSE): messages, tasks, decisions, routines, agents',
   })
   stream(): Observable<MessageEvent> {
-    const { projectId } = this.projectContext.actor();
+    const { projectId, userId } = this.projectContext.actor();
     return new Observable<MessageEvent>((subscriber) => {
-      const unsubscribe = this.hub.subscribe(projectId, (event) =>
-        subscriber.next({ type: event.type, data: event }),
-      );
+      const unsubscribe = this.hub.subscribe(projectId, (event) => {
+        if (event.type === 'manager.context_reset') {
+          if (event.recipientUserId === null || event.recipientUserId === userId) {
+            subscriber.next({ type: event.type, data: { type: event.type } });
+          }
+          return;
+        }
+        if ('conversationId' in event) {
+          if (event.recipientUserId !== userId) return;
+          const { type, conversationId, messageId } = event;
+          const delta = event.type === 'message.delta' ? { delta: event.delta } : {};
+          subscriber.next({ type, data: { type, conversationId, messageId, ...delta } });
+          return;
+        }
+        subscriber.next({ type: event.type, data: event });
+      });
       subscriber.next({ type: 'ready', data: {} });
       const heartbeat = setInterval(() => subscriber.next({ type: 'ping', data: {} }), HEARTBEAT_MS);
       return () => {

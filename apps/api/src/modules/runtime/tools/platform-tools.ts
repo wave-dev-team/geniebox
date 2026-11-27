@@ -210,6 +210,14 @@ export class PlatformTools implements OnModuleInit {
   }
 
   private async assignTask(ctx: ToolExecution, args: z.infer<typeof assignTaskSchema>) {
+    const project = await ctx.tx.db
+      .selectFrom('projects')
+      .select('agents_paused')
+      .where('id', '=', ctx.projectId)
+      .where('deleted_at', 'is', null)
+      .forShare()
+      .executeTakeFirst();
+    if (!project || project.agents_paused) throw new ToolError('KILL_SWITCH_PROJECT');
     const agent = await ctx.tx.db
       .selectFrom('agents')
       .select(['id', 'kind', 'status'])

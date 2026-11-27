@@ -17,6 +17,7 @@ import { CreateAccountDialog } from '@/features/create-account/ui/create-account
 import { accountsApi } from '@/shared/api';
 import { routes } from '@/shared/config/routes';
 import { useErrorMessage } from '@/shared/lib/api-error';
+import { useConfirm } from '@/shared/ui/confirm-dialog';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 import { ProjectSettings } from '@/widgets/project-settings/ui/project-settings';
 import { SectionLayout } from '@/widgets/section-layout';
@@ -92,13 +93,66 @@ function AccountSettings({ active }: { active: Workspace }) {
   );
 }
 
+function ManagerContextSettings({ account }: { account: Workspace }) {
+  const t = useTranslations('managerContextSettings');
+  const client = useQueryClient();
+  const errorMessage = useErrorMessage();
+  const confirm = useConfirm();
+  const reset = useMutation({
+    mutationFn: (scope: 'personal' | 'account') => accountsApi.resetManagerContext(account.id, scope),
+    onSuccess: async (_response, scope) => {
+      await client.resetQueries({ queryKey: ['chat', account.id] });
+      toast.success(t(`${scope}.success`));
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const resetContext = async (scope: 'personal' | 'account') => {
+    if (
+      await confirm({
+        title: t(`${scope}.action`),
+        description: t(`${scope}.confirm`),
+        confirmLabel: t('confirmAction'),
+      })
+    )
+      reset.mutate(scope);
+  };
+
+  return (
+    <SettingsCard title={t('title')} description={t('description')}>
+      <SettingsRow label={t('personal.title')} hint={t('personal.hint')}>
+        <Button variant="outline" disabled={reset.isPending} onClick={() => void resetContext('personal')}>
+          {t('personal.action')}
+        </Button>
+      </SettingsRow>
+      {account.role === 'owner' && (
+        <SettingsRow label={t('account.title')} hint={t('account.hint')}>
+          <Button
+            variant="outline"
+            className="text-destructive"
+            disabled={reset.isPending}
+            onClick={() => void resetContext('account')}
+          >
+            {t('account.action')}
+          </Button>
+        </SettingsRow>
+      )}
+    </SettingsCard>
+  );
+}
+
 function Settings() {
   const t = useTranslations('workspace');
   const directory = useWorkspaces();
   const [creating, setCreating] = useState(false);
   const accountSettings = (
     <>
-      {directory.active && <AccountSettings key={directory.active.id} active={directory.active} />}
+      {directory.active && (
+        <>
+          <AccountSettings key={directory.active.id} active={directory.active} />
+          <ManagerContextSettings key={`context-${directory.active.id}`} account={directory.active} />
+        </>
+      )}
       <SettingsCard title={t('accounts')}>
         <SettingsRow label={t('newAccount')}>
           <Button onClick={() => setCreating(true)}>{t('create')}</Button>

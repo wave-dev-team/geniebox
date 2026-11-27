@@ -20,6 +20,10 @@ export const accountsApi = {
   create: async (name: string, locale?: Profile['locale']) =>
     workspaceSchema.parse(await (await authenticated(base, json('POST', { name, locale }))).json()),
   rename: (id: string, name: string) => authenticated(accountPath(id), json('PATCH', { name })),
+  resetManagerContext: (id: string, scope: 'personal' | 'account') =>
+    authenticated(`${accountPath(id)}/manager-context/${scope === 'personal' ? 'me/' : ''}reset`, {
+      method: 'POST',
+    }),
   members: async (id: string, signal?: AbortSignal) =>
     workspaceMembersSchema.parse(
       await (await authenticated(`${accountPath(id)}/members`, { signal })).json(),

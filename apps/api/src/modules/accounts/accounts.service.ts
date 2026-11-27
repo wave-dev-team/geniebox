@@ -1,3 +1,5 @@
+import { sql } from 'kysely';
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
@@ -10,6 +12,7 @@ import { AccountDb, UserDb } from '../../database/scoped-db.js';
 import { SystemDb } from '../../database/system-db.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
+import { StreamPublisher } from '../stream/stream.publisher.js';
 import { AccountContext } from './account-context.js';
 import { ACCOUNT_ERRORS, AccountException } from './accounts.errors.js';
 import { ACCOUNT_EVENTS, type AccountCreatedEvent, type MemberEvent } from './events/account.events.js';
@@ -42,6 +45,7 @@ export class AccountsService {
     private readonly members: MembersRepository,
     private readonly journal: JournalService,
     private readonly outbox: OutboxService,
+    private readonly stream: StreamPublisher,
     private readonly context: AccountContext,
     private readonly cls: ClsService<AppClsStore>,
     config: ConfigService<Env, true>,
@@ -122,6 +126,63 @@ export class AccountsService {
       throw new AccountException(ACCOUNT_ERRORS.ACCOUNT_NOT_FOUND);
     }
     return { ...account, role: actor.role };
+  }
+
+  async resetManagerContext(scope: 'personal' | 'account'): Promise<void> {
+    const { userId, role } = this.context.actor();
+    await this.accountDb.transaction(async (tx) => {
+      const resetAt = sql<Date>`clock_timestamp()`;
+      if (scope === 'personal') {
+        const member = await tx.db
+          .updateTable('account_members')
+          .set({ manager_context_reset_at: resetAt })
+          .where('account_id', '=', tx.accountId)
+          .where('user_id', '=', userId)
+          .returning('user_id')
+          .executeTakeFirst();
+        if (!member) throw new AccountException(ACCOUNT_ERRORS.ACCOUNT_NOT_FOUND);
+      } else {
+        const owner = await tx.db
+          .selectFrom('account_members')
+          .select('user_id')
+          .where('account_id', '=', tx.accountId)
+          .where('user_id', '=', userId)
+          .where('role', '=', 'owner')
+          .forShare()
+          .executeTakeFirst();
+        if (!owner) throw new AccountException(ACCOUNT_ERRORS.OWNER_REQUIRED);
+        const account = await tx.db
+          .updateTable('accounts')
+          .set({ manager_context_reset_at: resetAt })
+          .where('id', '=', tx.accountId)
+          .returning('id')
+          .executeTakeFirst();
+        if (!account) throw new AccountException(ACCOUNT_ERRORS.ACCOUNT_NOT_FOUND);
+      }
+      await this.journal.record(tx, {
+        actor: { type: 'user', id: userId, role },
+        action: 'accounts.manager_context.reset',
+        target: { type: 'account', id: tx.accountId },
+        args: { scope },
+        status: 'succeeded',
+      });
+      const projects = await tx.db
+        .selectFrom('projects')
+        .select('id')
+        .where('account_id', '=', tx.accountId)
+        .where('deleted_at', 'is', null)
+        .execute();
+      tx.afterCommit(async () => {
+        await Promise.all(
+          projects.map(({ id }) =>
+            this.stream.publish(id, {
+              type: 'manager.context_reset',
+              recipientUserId: scope === 'personal' ? userId : null,
+            }),
+          ),
+        );
+      });
+    });
   }
 
   private async pickSlug(trx: Parameters<AccountsRepository['slugExists']>[0], input: CreateAccountInput) {

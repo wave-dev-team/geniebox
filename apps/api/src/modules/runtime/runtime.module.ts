@@ -19,6 +19,7 @@ import { FakeProvider } from './llm/fake.provider.js';
 import { LlmService } from './llm/llm.service.js';
 import { LLM_PROVIDER, type LlmProvider } from './llm/llm.types.js';
 import { OpenAiProvider } from './llm/openai.provider.js';
+import { ManagerNotifications } from './manager-notifications.js';
 import { AgentTasksProcessor, AgentTurnsProcessor } from './runtime.processors.js';
 import { RuntimeContextLoader } from './runtime-context.js';
 import { RuntimeTexts } from './runtime-texts.js';
@@ -79,6 +80,7 @@ const llmProvider = {
     ConversationTurn,
     DecisionExecutor,
     RuntimeWorker,
+    ManagerNotifications,
     AgentTurnsProcessor,
     AgentTasksProcessor,
     CatalogScenariosProcessor,

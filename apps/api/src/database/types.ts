@@ -44,6 +44,7 @@ export interface AccountInvitations {
 export interface AccountMembers {
   account_id: string;
   created_at: Generated<Timestamp>;
+  manager_context_reset_at: Timestamp | null;
   role: string;
   updated_at: Generated<Timestamp>;
   user_id: string;
@@ -56,6 +57,7 @@ export interface Accounts {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   locale: Generated<string>;
+  manager_context_reset_at: Timestamp | null;
   name: string;
   slug: string;
   updated_at: Generated<Timestamp>;
@@ -239,6 +241,9 @@ export interface Conversations {
   created_by: string | null;
   id: Generated<string>;
   last_message_at: Generated<Timestamp>;
+  manager_thread: Generated<boolean>;
+  merged_into: string | null;
+  private_archive: Generated<boolean>;
   project_id: string;
   title: string | null;
 }
@@ -379,6 +384,8 @@ export interface Messages {
   id: Generated<string>;
   mention_agent_id: string | null;
   mode: string | null;
+  notification_event_id: string | null;
+  notification_kind: string | null;
   role: string;
   status: Generated<string>;
   text: Generated<string>;

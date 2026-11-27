@@ -126,6 +126,8 @@ export class ProjectsService {
   pause(until?: Date): Promise<ProjectRow> {
     const actor = this.projectContext.actor();
     return this.accountDb.transaction(async (tx) => {
+      const current = (await this.projects.findById(tx.db, actor.projectId, true)) ?? notFound();
+      if (current.agents_paused && current.paused_until?.getTime() === until?.getTime()) return current;
       const project =
         (await this.projects.update(tx.db, actor.projectId, {
           agents_paused: true,
@@ -157,6 +159,8 @@ export class ProjectsService {
   resume(): Promise<ProjectRow> {
     const actor = this.projectContext.actor();
     return this.accountDb.transaction(async (tx) => {
+      const current = (await this.projects.findById(tx.db, actor.projectId, true)) ?? notFound();
+      if (!current.agents_paused) return current;
       const project =
         (await this.projects.update(tx.db, actor.projectId, {
           agents_paused: false,

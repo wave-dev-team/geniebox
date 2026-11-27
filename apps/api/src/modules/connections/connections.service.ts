@@ -223,6 +223,12 @@ export class ConnectionsService {
         });
         await this.event(tx, CONNECTION_EVENTS.DISCONNECTED, row, actor.userId);
       }
+      if (rows.length) {
+        await this.outbox.add(tx, {
+          type: CONNECTION_EVENTS.PROJECT_DISCONNECTED,
+          payload: { projectId: actor.projectId, byUserId: actor.userId },
+        });
+      }
       return rows.length;
     });
   }
