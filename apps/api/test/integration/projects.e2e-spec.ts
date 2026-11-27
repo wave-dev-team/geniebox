@@ -7,6 +7,8 @@ import { CoreModule } from '../../src/core.module.js';
 import { SystemDb } from '../../src/database/system-db.js';
 import { ProjectTasks } from '../../src/modules/projects/project-tasks.js';
 import { ProjectsWorkerModule } from '../../src/modules/projects/projects.module.js';
+import { OutboxWorkerModule } from '../../src/outbox/outbox-worker.module.js';
+import { QueueRootModule } from '../../src/queues/queue-root.module.js';
 import { asAccount, flushRedis, uniqueEmail } from '../support/helpers.js';
 import { ApiHarness, type TokenPair } from '../support/http-app.js';
 
@@ -60,7 +62,7 @@ describe('projects (HTTP)', () => {
     ).body as ProjectBody;
 
     worker = await Test.createTestingModule({
-      imports: [CoreModule, ProjectsWorkerModule],
+      imports: [CoreModule, QueueRootModule, OutboxWorkerModule, ProjectsWorkerModule],
     }).compile();
     Logger.overrideLogger(false);
     await worker.init();

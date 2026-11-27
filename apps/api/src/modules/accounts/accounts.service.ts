@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
 
@@ -45,7 +45,7 @@ export class AccountsService {
     private readonly members: MembersRepository,
     private readonly journal: JournalService,
     private readonly outbox: OutboxService,
-    private readonly stream: StreamPublisher,
+    @Optional() @Inject(StreamPublisher) private readonly stream: StreamPublisher | undefined,
     private readonly context: AccountContext,
     private readonly cls: ClsService<AppClsStore>,
     config: ConfigService<Env, true>,
@@ -166,6 +166,8 @@ export class AccountsService {
         args: { scope },
         status: 'succeeded',
       });
+      const stream = this.stream;
+      if (!stream) return;
       const projects = await tx.db
         .selectFrom('projects')
         .select('id')
@@ -175,7 +177,7 @@ export class AccountsService {
       tx.afterCommit(async () => {
         await Promise.all(
           projects.map(({ id }) =>
-            this.stream.publish(id, {
+            stream.publish(id, {
               type: 'manager.context_reset',
               recipientUserId: scope === 'personal' ? userId : null,
             }),

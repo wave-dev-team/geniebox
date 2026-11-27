@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --testPathIgnorePatterns=integration",
-    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --testPathPatterns=integration",
+    "test:integration": "node --import tsx --experimental-vm-modules node_modules/jest/bin/jest.js --config test/jest-e2e.config.mjs --runInBand",
     "db:bootstrap": "node dist/database/cli.js bootstrap",
     "db:migrate": "node dist/database/cli.js migrate",
     "db:rollback": "node dist/database/cli.js rollback",

@@ -6,7 +6,7 @@ import { ClsService } from 'nestjs-cls';
 
 import type { AppClsStore } from '../../common/context/app-cls-store.js';
 import type { Locale } from '../../common/i18n/locales.js';
-import { QUEUES } from '../../queues/queues.js';
+import { jobId, QUEUES } from '../../queues/queues.js';
 import type { MailJob, MailTemplate } from './mail.types.js';
 
 export interface SendMailInput {
@@ -24,7 +24,11 @@ export class MailService {
     private readonly cls: ClsService<AppClsStore>,
   ) {}
 
-  async send(input: SendMailInput): Promise<void> {
-    await this.queue.add(input.template, { ...input, traceId: this.cls.getId() });
+  async send(input: SendMailInput, eventId?: string): Promise<void> {
+    await this.queue.add(
+      input.template,
+      { ...input, traceId: this.cls.getId() },
+      eventId ? { jobId: jobId('mail', eventId) } : undefined,
+    );
   }
 }

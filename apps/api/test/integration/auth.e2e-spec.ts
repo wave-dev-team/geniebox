@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { createLocalJWKSet, exportJWK, generateKeyPair, type JWK, SignJWT } from 'jose';
 
 import { flushRedis, uniqueEmail } from '../support/helpers.js';

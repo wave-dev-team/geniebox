@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { z } from 'zod';
 
 import { Injectable, Logger, Module, type OnModuleInit } from '@nestjs/common';
@@ -130,7 +131,7 @@ describe('outbox relay and scheduled tasks (worker)', () => {
   });
 
   it('drops events of a rolled-back transaction and skips afterCommit', async () => {
-    const afterCommit = jest.fn();
+    const afterCommit = jest.fn<() => void>();
     await expect(
       asAccount(cls, accountId, () =>
         accountDb.transaction(async (tx) => {

@@ -5,7 +5,7 @@ import { Injectable } from '@nestjs/common';
 import type { DB, UserIdentities, Users } from '../../../database/types.js';
 
 export type UserRow = Selectable<Users>;
-export type PublicUserRow = Omit<UserRow, 'password_hash'>;
+export type PublicUserRow = Pick<UserRow, (typeof PUBLIC_COLUMNS)[number]>;
 export type IdentityProvider = 'google' | 'apple';
 export type IdentityRow = Selectable<UserIdentities>;
 
@@ -21,9 +21,6 @@ const PUBLIC_COLUMNS = [
   'status',
   'created_at',
   'updated_at',
-  'blocked_at',
-  'blocked_reason',
-  'last_seen_at',
 ] as const;
 
 export interface InsertUser {

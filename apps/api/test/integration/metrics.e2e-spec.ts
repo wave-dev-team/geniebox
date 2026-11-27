@@ -1,6 +1,8 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+import { jest } from '@jest/globals';
+
 import type { TestingModule } from '@nestjs/testing';
 
 import { ProviderHttp } from '../../src/modules/connections/providers/provider-http.js';
