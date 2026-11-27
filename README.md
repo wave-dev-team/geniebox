@@ -116,3 +116,15 @@ pnpm --filter @workspace/web dev
 В настройках можно создать аккаунт или принять приглашение. Для первого диалога
 создайте проект в выбранном аккаунте. Worker создаёт управляющего проекта и передаёт
 ответы через SSE. В локальном Compose используется провайдер `fake`.
+
+## Production release
+
+Merging to `main` publishes the API and web images and runs the production workflow.
+Set `OPENAI_API_KEY` in `/opt/wave/shared/.env` on the deployment server before merging.
+The runtime uses the OpenAI Chat Completions API and defaults to `gpt-4.1-mini`.
+An approved OpenAI-compatible provider can be configured with `OPENAI_BASE_URL` and
+`LLM_MODEL`. The same server file supplies the SMTP settings and JWT secret.
+
+The release script provisions the database roles, the runtime secrets, and separate
+PostgreSQL and Redis volumes. The previous deployment’s database and Redis volumes are retained
+for rollback.

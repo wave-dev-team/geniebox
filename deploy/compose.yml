@@ -1,25 +1,75 @@
+x-database: &database
+  DATABASE_URL: ${RUNTIME_DATABASE_URL:?required}
+  DATABASE_SYSTEM_URL: ${RUNTIME_DATABASE_SYSTEM_URL:?required}
+
+x-app-environment: &app-environment
+  <<: *database
+  NODE_ENV: production
+  PUBLIC_HOST: 0.0.0.0
+  PUBLIC_PORT: 8000
+  INTERNAL_HOST: 127.0.0.1
+  INTERNAL_PORT: 8001
+  TRUST_PROXY: '${TRUST_PROXY:-loopback,uniquelocal}'
+  CORS_ORIGINS: https://app.geniebox.ru
+  REDIS_STATE_URL: redis://redis-state:6379
+  REDIS_CACHE_URL: redis://redis-cache:6379
+  APP_PUBLIC_URL: https://app.geniebox.ru
+  JWT_ACCESS_SECRET: ${JWT_SECRET:?required}
+  MAIL_TRANSPORT: smtp
+  SMTP_URL: ${SMTP_URL:?required}
+  MAIL_FROM: ${AUTH_MAIL_FROM:?required}
+  SECRETS_PUBLIC_KEY_FILE: /run/geniebox/kek.pub.pem
+  LLM_PROVIDER: openai
+  OPENAI_API_KEY: ${OPENAI_API_KEY:?set on the deployment server}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+  LLM_MODEL_FAST: ${LLM_MODEL_FAST:-gpt-4.1-mini}
+
+x-app: &app
+  image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
+  restart: unless-stopped
+  environment: *app-environment
+  volumes:
+    - ${RUNTIME_SECRETS_DIR:?required}/kek.pub.pem:/run/geniebox/kek.pub.pem:ro
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis-state:
+      condition: service_healthy
+    redis-cache:
+      condition: service_healthy
+
 services:
-  db:
+  # Use a separate cluster and volumes so the previous release remains recoverable.
+  runtime-db:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-geniebox}
-      POSTGRES_USER: ${POSTGRES_USER:-geniebox_owner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${RUNTIME_POSTGRES_PASSWORD:?required}
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres']
       interval: 3s
       timeout: 3s
       retries: 15
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - runtime-postgres-data:/var/lib/postgresql/data
 
-  redis:
+  redis-state:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 15
     volumes:
-      - redis-data:/data
+      - runtime-redis-data:/data
+
+  redis-cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--maxmemory', '128mb', '--maxmemory-policy', 'allkeys-lru']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 3s
@@ -30,48 +80,22 @@ services:
     image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
     command: ['sh', '-ec', 'node dist/database/cli.js bootstrap && node dist/database/cli.js migrate']
     environment:
-      DB_MIGRATION_URL: ${DB_MIGRATION_URL:?required}
-      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?required}
+      <<: *database
+      DATABASE_ADMIN_URL: ${RUNTIME_DATABASE_ADMIN_URL:?required}
+      DATABASE_OWNER_URL: ${RUNTIME_DATABASE_OWNER_URL:?required}
     depends_on:
-      db:
+      runtime-db:
         condition: service_healthy
 
   api:
-    restart: unless-stopped
-    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
-    environment: &app-environment
-      API_HOST: 0.0.0.0
-      TRUST_PROXY_HOPS: 1
-      DATABASE_URL: ${DATABASE_URL:?required}
-      JWT_SECRET: ${JWT_SECRET:?required}
-      AUTH_IDENTITY_SECRET: ${AUTH_IDENTITY_SECRET:?required}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      SMTP_URL: ${SMTP_URL:?required}
-      AUTH_MAIL_FROM: ${AUTH_MAIL_FROM:?required}
-      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
-      CONNECTIONS_ENCRYPTION_KEY: ${CONNECTIONS_ENCRYPTION_KEY:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-}
-      LLM_INCLUDE_WORKSPACE_REPORTS: ${LLM_INCLUDE_WORKSPACE_REPORTS:-false}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-90000}
-      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-768}
-      LLM_DAILY_CALL_LIMIT: ${LLM_DAILY_CALL_LIMIT:-100}
-      LLM_CALLS_PER_MINUTE: ${LLM_CALLS_PER_MINUTE:-30}
-      LLM_INPUT_USD_PER_MTOK: ${LLM_INPUT_USD_PER_MTOK:-0}
-      LLM_OUTPUT_USD_PER_MTOK: ${LLM_OUTPUT_USD_PER_MTOK:-0}
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    <<: *app
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:8000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "fetch('http://127.0.0.1:8000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
         ]
       interval: 5s
       timeout: 3s
@@ -80,45 +104,44 @@ services:
       - '127.0.0.1:8000:8000'
 
   worker:
-    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
-    restart: unless-stopped
+    <<: *app
     command: ['node', 'dist/main.worker.js']
-    environment: *app-environment
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    environment:
+      <<: *app-environment
+      SECRETS_PRIVATE_KEY_FILES: /run/geniebox/kek.key.pem
+    volumes:
+      - ${RUNTIME_SECRETS_DIR:?required}/kek.pub.pem:/run/geniebox/kek.pub.pem:ro
+      - ${RUNTIME_SECRETS_DIR:?required}/kek.key.pem:/run/geniebox/kek.key.pem:ro
 
   internal:
-    image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
-    restart: unless-stopped
+    <<: *app
     command: ['node', 'dist/main.internal.js']
-    environment: *app-environment
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:8001/internal/health/details').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+          "fetch('http://127.0.0.1:8001/health/details').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
         ]
-      interval: 10s
+      interval: 5s
       timeout: 3s
       retries: 12
 
   web:
     image: ghcr.io/wave-dev-team/geniebox-web:${RELEASE_SHA:?required}
     restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
     healthcheck:
       test:
         [
-          CMD,
-          node,
-          -e,
+          'CMD',
+          'node',
+          '-e',
           "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
         ]
       interval: 5s
@@ -128,5 +151,5 @@ services:
       - '127.0.0.1:3000:3000'
 
 volumes:
-  postgres-data:
-  redis-data:
+  runtime-postgres-data:
+  runtime-redis-data:

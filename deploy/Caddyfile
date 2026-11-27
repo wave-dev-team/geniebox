@@ -1,8 +1,11 @@
 app.geniebox.ru {
 	import common
 
-	@api path /api /api/*
-	handle @api {
+	@browser_api path /api/v1 /api/v1/*
+	handle @browser_api {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle_path /api/* {
 		reverse_proxy 127.0.0.1:8000
 	}
 	handle {
@@ -13,8 +16,7 @@ app.geniebox.ru {
 api.geniebox.ru {
 	import common
 
-	@api path /api /api/*
-	handle @api {
+	handle_path /api/* {
 		reverse_proxy 127.0.0.1:8000
 	}
 	handle {
