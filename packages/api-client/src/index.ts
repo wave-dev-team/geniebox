@@ -4,7 +4,6 @@ import { request } from './request.js';
 
 export { accountsApi } from './accounts.js';
 export { projectChat } from './chat.js';
-export { connectionsApi } from './connections.js';
 export { authApi, profileApi } from './identity.js';
 export type {
   KnowledgeNode,
@@ -15,7 +14,6 @@ export type {
   KnowledgeStats,
 } from './knowledge.js';
 export { knowledgeApi } from './knowledge.js';
-export { metricsApi, reportsApi } from './metrics.js';
 export { membersApi, projectsApi } from './projects.js';
 export { ApiError } from './request.js';
 
