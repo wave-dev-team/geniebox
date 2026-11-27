@@ -130,6 +130,14 @@ const finishTaskSchema = z
   })
   .strict();
 
+const continueTaskSchema = z
+  .object({
+    nextTitle: text(160),
+    nextPrompt: text(2000),
+    summary: text(200),
+  })
+  .strict();
+
 const noteSchema = z.object({ text: text(300) }).strict();
 const emptySchema = z.object({}).strict();
 
@@ -217,6 +225,19 @@ export class PlatformTools implements OnModuleInit {
         terminal: true,
         schema: finishTaskSchema,
         execute: (ctx, args) => this.finishTask(ctx, args),
+      }),
+      defineTool({
+        id: 'continue_task',
+        title: 'Продолжить задачу',
+        description:
+          'Save intermediate progress and schedule an immediate follow-up task for yourself to continue long multi-step analysis without hitting the step limit. Ends your turn.',
+        kind: 'platform',
+        audience: ['agent'],
+        risk: 'low',
+        mutating: false,
+        terminal: true,
+        schema: continueTaskSchema,
+        execute: (ctx, args) => this.continueTask(ctx, args),
       }),
       defineTool({
         id: 'project_overview',
@@ -487,6 +508,40 @@ export class PlatformTools implements OnModuleInit {
       ...(args.facts ? { facts: args.facts } : {}),
     });
     return { ok: true };
+  }
+
+  private async continueTask(ctx: ToolExecution, args: z.infer<typeof continueTaskSchema>) {
+    if (!ctx.taskId) throw new ToolError('NO_TASK');
+    const current = await this.tasks.findById(ctx.tx.db, ctx.taskId);
+    if (!current) throw new ToolError('NO_TASK');
+    await this.tasks.update(ctx.tx.db, ctx.taskId, {
+      result: args.summary,
+      summary: args.summary,
+    });
+    const next = await this.tasks.insert(
+      ctx.tx.db,
+      {
+        account_id: ctx.accountId,
+        project_id: ctx.projectId,
+        agent_id: ctx.agent.id,
+        parent_task_id: current.parent_task_id ?? null,
+        assigned_by_agent_id: ctx.agent.id,
+        title: args.nextTitle,
+        description: args.nextPrompt,
+        origin: 'agent',
+        mode: ctx.mode,
+        conversation_id: ctx.conversationId,
+        scheduled_at: new Date(),
+        created_by: ctx.userId,
+      },
+      [],
+    );
+    await this.outbox.add<TaskRunRequestedEvent>(ctx.tx, {
+      type: WORK_EVENTS.TASK_RUN_REQUESTED,
+      payload: { projectId: ctx.projectId, taskId: next.id, byUserId: ctx.userId },
+    });
+    ctx.tx.afterCommit(() => this.stream.publish(ctx.projectId, { type: 'task.updated', taskId: next.id }));
+    return { continuedTaskId: next.id };
   }
 
   private async overview(ctx: ToolExecution) {

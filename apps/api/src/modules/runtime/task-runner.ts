@@ -137,7 +137,11 @@ export class TaskRunner {
       const current = await this.accountDb.transaction((tx) => this.tasks.findById(tx.db, task.id));
       if (!current || current.status !== 'running') return;
       const terminal = result.terminal;
-      if (terminal && terminal.status === 'executed' && terminal.toolId === 'finish_task') {
+      if (
+        terminal &&
+        terminal.status === 'executed' &&
+        (terminal.toolId === 'finish_task' || terminal.toolId === 'continue_task')
+      ) {
         await this.lifecycle.complete(current, ['running'], {
           status: 'done',
           result: current.result ?? result.text ?? '',

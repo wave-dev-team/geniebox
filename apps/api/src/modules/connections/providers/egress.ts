@@ -64,16 +64,19 @@ export interface ProbeResponse {
   body: unknown;
 }
 
-/** GET with a timeout, no redirects (a redirect could lead to a private host). */
-export async function probe(
-  url: string,
-  init: {
-    headers?: Record<string, string>;
-    timeoutMs: number;
-    checkHost: boolean;
-    allowPrivate: boolean;
-  },
-): Promise<ProbeResponse> {
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface RequestInitOptions {
+  method?: HttpMethod;
+  headers?: Record<string, string>;
+  body?: unknown;
+  timeoutMs: number;
+  checkHost: boolean;
+  allowPrivate: boolean;
+}
+
+/** HTTP request with timeout and no redirects (a redirect could lead to a private host). */
+export async function request(url: string, init: RequestInitOptions): Promise<ProbeResponse> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new EgressError('BAD_RESPONSE');
@@ -81,10 +84,20 @@ export async function probe(
   if (init.checkHost) {
     await assertPublicHost(parsed.hostname, init.allowPrivate);
   }
+  const method = init.method ?? 'GET';
+  const hasBody = init.body !== undefined && method !== 'GET';
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    'user-agent': 'Geniebox/1.0',
+    ...(hasBody ? { 'content-type': 'application/json' } : {}),
+    ...init.headers,
+  };
   let response: Response;
   try {
     response = await fetch(parsed, {
-      headers: { accept: 'application/json', 'user-agent': 'Geniebox/1.0', ...init.headers },
+      method,
+      headers,
+      body: hasBody ? (typeof init.body === 'string' ? init.body : JSON.stringify(init.body)) : undefined,
       redirect: 'manual',
       signal: AbortSignal.timeout(init.timeoutMs),
     });
@@ -101,6 +114,19 @@ export async function probe(
     // Non-JSON bodies are passed as text.
   }
   return { status: response.status, body };
+}
+
+/** GET with a timeout, no redirects (a redirect could lead to a private host). */
+export function probe(
+  url: string,
+  init: {
+    headers?: Record<string, string>;
+    timeoutMs: number;
+    checkHost: boolean;
+    allowPrivate: boolean;
+  },
+): Promise<ProbeResponse> {
+  return request(url, { ...init, method: 'GET' });
 }
 
 /** Common mapping of HTTP statuses to check results. */

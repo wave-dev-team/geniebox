@@ -79,6 +79,7 @@ export const envSchema = z
     SECRETS_PRIVATE_KEY_FILES: commaList,
     // Lets connection checks reach private/loopback hosts. Never in production.
     CONNECTIONS_ALLOW_PRIVATE_HOSTS: booleanFromString.default(false),
+    DEMO_SANDBOX_ENABLED: booleanFromString.default(false),
     CONNECTION_CHECK_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     // Background re-check of every connection older than this.
     CONNECTION_RECHECK_HOURS: z.coerce.number().int().positive().default(6),
@@ -123,7 +124,7 @@ export const envSchema = z
     // Calls per second to the provider across the worker (rate limiter of the runtime queues).
     LLM_RATE_PER_SEC: z.coerce.number().int().positive().default(5),
     // Tool-calling rounds of one task or one answer before it is stopped.
-    AGENT_MAX_STEPS: z.coerce.number().int().positive().max(30).default(8),
+    AGENT_MAX_STEPS: z.coerce.number().int().positive().max(50).default(15),
     DECISION_TTL_DAYS: z.coerce.number().int().positive().default(14),
     DECISION_COOLDOWN_DAYS: z.coerce.number().int().positive().default(7),
   })

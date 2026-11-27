@@ -22,6 +22,7 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { ProjectsModule } from './modules/projects/projects.module.js';
+import { DemoSandboxModule } from './modules/sandbox/sandbox.module.js';
 import { StreamModule, StreamPublisherModule } from './modules/stream/stream.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { WorkModule } from './modules/work/work.module.js';
@@ -58,6 +59,7 @@ import { QueueRootModule } from './queues/queue-root.module.js';
     UsersModule,
     AccountsModule,
     ProjectsModule,
+    DemoSandboxModule,
     ConnectionsModule,
     AgentsModule,
     StreamPublisherModule,
