@@ -15,5 +15,7 @@ dist/
 .turbo/
 coverage/
 out/
+# Uploaded knowledge sources (KNOWLEDGE_BLOB_DIR)
+**/data/knowledge/
 *.tsbuildinfo
 next-env.d.ts

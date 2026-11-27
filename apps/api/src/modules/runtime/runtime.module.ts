@@ -8,6 +8,7 @@ import { ActionsModule } from '../actions/actions.module.js';
 import { ConnectionsWorkerModule } from '../connections/connections.module.js';
 import { ConnectionsImportAnalyzer } from '../connections/import/connections-import.analyzer.js';
 import { ConnectionsImportProcessor } from '../connections/import/connections-import.processor.js';
+import { KnowledgeDataModule } from '../knowledge/knowledge.module.js';
 import { MetricsDataModule } from '../metrics/metrics.module.js';
 import { WorkDataModule } from '../work/work.module.js';
 import { AgentLoop } from './agent-loop.js';
@@ -29,6 +30,7 @@ import { RuntimeWorker } from './runtime-worker.js';
 import { TaskLifecycle } from './task-lifecycle.js';
 import { TaskRunner } from './task-runner.js';
 import { DataTools } from './tools/data-tools.js';
+import { KnowledgeTools } from './tools/knowledge-tools.js';
 import { PanelTools } from './tools/panel-tools.js';
 import { PlatformTools } from './tools/platform-tools.js';
 import { ResultsTools } from './tools/results-tools.js';
@@ -53,6 +55,7 @@ const llmProvider = {
   imports: [
     WorkDataModule,
     MetricsDataModule,
+    KnowledgeDataModule,
     ConnectionsWorkerModule,
     ActionsModule,
     BullModule.registerQueue(
@@ -77,6 +80,7 @@ const llmProvider = {
     PlatformTools,
     PanelTools,
     DataTools,
+    KnowledgeTools,
     ResultsTools,
     AgentLoop,
     RuntimeContextLoader,

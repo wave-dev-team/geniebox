@@ -95,5 +95,19 @@
   "CATALOG_ALREADY_LISTED": "Агент уже в маркетплейсе",
   "CATALOG_SCENARIOS_EMPTY": "Добавьте хотя бы один сценарий",
   "CATALOG_SCENARIOS_RUNNING": "Сценарии уже проверяются",
-  "CATALOG_BETA_EMPTY": "Выберите аккаунты для беты"
+  "CATALOG_BETA_EMPTY": "Выберите аккаунты для беты",
+  "KNOWLEDGE_NOT_FOUND": "Страница или папка знаний не найдена",
+  "KNOWLEDGE_NOT_PUBLISHED": "Страница ещё не опубликована",
+  "KNOWLEDGE_CYCLE": "Нельзя переместить папку внутрь самой себя",
+  "KNOWLEDGE_PARENT_INVALID": "Родительская папка не подходит",
+  "KNOWLEDGE_TITLE_TAKEN": "В этой папке уже есть страница с таким названием",
+  "KNOWLEDGE_BODY_REQUIRED": "Опубликовать пустую страницу нельзя",
+  "KNOWLEDGE_SOURCE_FAILED": "Не удалось обработать источник",
+  "KNOWLEDGE_SOURCE_TOO_LARGE": "Файл больше допустимого размера",
+  "KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED": "Этот формат файла не поддерживается",
+  "KNOWLEDGE_SOURCE_NOT_FOUND": "Источник не найден",
+  "KNOWLEDGE_PROPOSAL_NOT_FOUND": "Предложение не найдено",
+  "KNOWLEDGE_PROPOSAL_CLOSED": "Предложение уже рассмотрено",
+  "KNOWLEDGE_FORBIDDEN": "Недостаточно прав для этого действия с базой знаний",
+  "KNOWLEDGE_TITLE_REQUIRED": "Предложению нужно название"
 }
