@@ -20,6 +20,7 @@ import { routes } from '@/shared/config/routes';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 import { ProjectSettings } from '@/widgets/project-settings/ui/project-settings';
+import { SectionLayout } from '@/widgets/section-layout';
 
 function SettingForm({
   label,
@@ -113,21 +114,9 @@ function Settings() {
   const me = useMe();
   const directory = useWorkspaces();
   const [creating, setCreating] = useState(false);
-  return (
-    <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-12">
-      <h1 className="text-xl font-semibold">{t('settings')}</h1>
-      {directory.isError && (
-        <Button variant="outline" onClick={() => void directory.refetch()}>
-          {t('retry')}
-        </Button>
-      )}
-      {directory.isPending && <Skeleton className="h-36" />}
-      {directory.active && (
-        <>
-          {!invite && <ProjectSettings key={directory.active.id} account={directory.active} />}
-          <AccountSettings key={`account-${directory.active.id}`} active={directory.active} />
-        </>
-      )}
+  const accountSettings = (
+    <>
+      {directory.active && <AccountSettings key={directory.active.id} active={directory.active} />}
       <SettingsCard title={t('accounts')}>
         <SettingsRow label={t('newAccount')}>
           <Button onClick={() => setCreating(true)}>{t('create')}</Button>
@@ -162,7 +151,29 @@ function Settings() {
           )}
         </SettingForm>
       </SettingsCard>
-    </main>
+    </>
+  );
+
+  if (directory.active && !invite) {
+    return (
+      <ProjectSettings
+        key={directory.active.id}
+        account={directory.active}
+        accountSettings={accountSettings}
+      />
+    );
+  }
+
+  return (
+    <SectionLayout title={t('settings')} nav={[]}>
+      {directory.isError && (
+        <Button variant="outline" onClick={() => void directory.refetch()}>
+          {t('retry')}
+        </Button>
+      )}
+      {directory.isPending && <Skeleton className="h-36" />}
+      {(!directory.isPending || invite) && accountSettings}
+    </SectionLayout>
   );
 }
 

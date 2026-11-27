@@ -117,33 +117,6 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
               )}
             />
           </SettingsRow>
-          <SettingsRow label={t('about')} htmlFor="project-about">
-            <Textarea id="project-about" rows={3} maxLength={2000} {...form.register('about')} />
-          </SettingsRow>
-          <SettingsRow label={t('goals')}>
-            <Controller
-              control={form.control}
-              name="goals"
-              render={({ field }) => (
-                <div className="grid gap-2">
-                  {PROJECT_GOALS.map((goal) => (
-                    <label className="flex items-center gap-2 text-sm" key={goal}>
-                      <Checkbox
-                        checked={field.value.includes(goal)}
-                        disabled={!editable || update.isPending}
-                        onCheckedChange={(checked) =>
-                          field.onChange(
-                            checked ? [...field.value, goal] : field.value.filter((item) => item !== goal),
-                          )
-                        }
-                      />
-                      {o(`goal.${goal}`)}
-                    </label>
-                  ))}
-                </div>
-              )}
-            />
-          </SettingsRow>
           <div className="flex flex-col gap-2 px-5 py-3.5">
             <label htmlFor="project-goal" className="flex flex-col gap-0.5">
               <span className="text-sm font-medium">{t('monthGoal')}</span>
@@ -326,6 +299,38 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
               maxLength={200}
               placeholder={t('clientSignaturePlaceholder')}
               {...form.register('clientSignature')}
+            />
+          </SettingsRow>
+        </SettingsCard>
+        <SettingsCard title={t('projectDetails')}>
+          <div className="grid gap-2 border-b px-5 py-3.5">
+            <label htmlFor="project-about" className="text-sm font-medium">
+              {t('about')}
+            </label>
+            <Textarea id="project-about" rows={3} maxLength={2000} {...form.register('about')} />
+          </div>
+          <SettingsRow label={t('goals')}>
+            <Controller
+              control={form.control}
+              name="goals"
+              render={({ field }) => (
+                <div className="grid gap-2">
+                  {PROJECT_GOALS.map((goal) => (
+                    <label className="flex items-center gap-2 text-sm" key={goal}>
+                      <Checkbox
+                        checked={field.value.includes(goal)}
+                        disabled={!editable || update.isPending}
+                        onCheckedChange={(checked) =>
+                          field.onChange(
+                            checked ? [...field.value, goal] : field.value.filter((item) => item !== goal),
+                          )
+                        }
+                      />
+                      {o(`goal.${goal}`)}
+                    </label>
+                  ))}
+                </div>
+              )}
             />
           </SettingsRow>
         </SettingsCard>

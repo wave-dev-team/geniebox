@@ -509,6 +509,7 @@
   },
   "projectSettings": {
     "title": "Настройки проекта",
+    "subtitle": "Проект «{project}»",
     "tabs": {
       "general": "Общие",
       "rules": "Правила",
@@ -516,7 +517,8 @@
       "permissions": "Права агентов",
       "keys": "Ключи доступа",
       "journal": "Журнал",
-      "members": "Участники"
+      "members": "Участники",
+      "account": "Аккаунт"
     },
     "noProject": "Создайте проект, чтобы настроить его.",
     "activeProject": "Проект",
@@ -529,6 +531,7 @@
     "sphere": "Сфера деятельности",
     "sphereHint": "Помогает агентам учитывать специфику проекта.",
     "spherePlaceholder": "Выберите сферу",
+    "projectDetails": "Описание и цели",
     "about": "Описание",
     "goals": "Цели проекта",
     "monthGoal": "Цель на месяц",

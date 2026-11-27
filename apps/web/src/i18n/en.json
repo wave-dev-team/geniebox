@@ -509,6 +509,7 @@
   },
   "projectSettings": {
     "title": "Project settings",
+    "subtitle": "Project · {project}",
     "tabs": {
       "general": "General",
       "rules": "Rules",
@@ -516,7 +517,8 @@
       "permissions": "Agent permissions",
       "keys": "Access keys",
       "journal": "Activity log",
-      "members": "Members"
+      "members": "Members",
+      "account": "Account"
     },
     "noProject": "Create a project to manage its settings.",
     "activeProject": "Project",
@@ -529,6 +531,7 @@
     "sphere": "Industry",
     "sphereHint": "Helps agents account for the project’s industry.",
     "spherePlaceholder": "Choose an industry",
+    "projectDetails": "Description and goals",
     "about": "Description",
     "goals": "Project goals",
     "monthGoal": "Monthly goal",
