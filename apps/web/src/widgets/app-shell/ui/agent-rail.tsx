@@ -10,7 +10,7 @@ export function AgentRail({ open, onManager }: { open: boolean; onManager: () =>
   return (
     <aside
       aria-label={t('label')}
-      className="hidden w-12 shrink-0 flex-col items-center gap-1 bg-sidebar py-3 text-sidebar-foreground md:flex"
+      className="hidden w-12 shrink-0 flex-col items-center gap-1 bg-sidebar py-4 text-sidebar-foreground md:flex"
     >
       <Tooltip>
         <TooltipTrigger

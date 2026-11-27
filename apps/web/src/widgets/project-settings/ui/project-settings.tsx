@@ -79,12 +79,13 @@ export function ProjectSettings({
       subtitle={project ? t('subtitle', { project: project.name }) : undefined}
       action={
         projects.data && projects.data.length > 1 && project && tab !== 'account' && tab !== 'members' ? (
-          <div className="grid w-full max-w-60 gap-1.5">
+          <div className="grid w-full max-w-60 grid-cols-1 gap-1.5">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="settings-project">
               {t('activeProject')}
             </label>
             <OptionSelect
               id="settings-project"
+              className="w-full"
               value={project.id}
               options={projects.data.map(({ id }) => id)}
               label={(id) => projects.data.find((item) => item.id === id)?.name ?? id}

@@ -107,7 +107,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             profile.emailVerified ? (
               t('emailHint')
             ) : (
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{t('emailUnverified')}</Badge>
                 <Link
                   href={routes.verifyEmail(routes.profile())}

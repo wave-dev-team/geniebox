@@ -214,7 +214,7 @@ export function AccountMembers({ account }: { account: Workspace }) {
           {roleOrder.map((role) => (
             <div
               key={role}
-              className="grid gap-1 border-b px-5 py-3 text-sm last:border-b-0 sm:grid-cols-[14rem_1fr]"
+              className="grid gap-1 border-b px-5 py-3 text-sm last:border-b-0 @lg/settings-card:grid-cols-[14rem_minmax(0,1fr)]"
             >
               <dt className="font-medium">{workspace(role)}</dt>
               <dd className="text-muted-foreground">{t(`roleDescription.${role}`)}</dd>

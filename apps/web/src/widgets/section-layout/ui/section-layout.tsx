@@ -33,7 +33,7 @@ export function SectionLayout({
 }) {
   const pathname = usePathname();
   return (
-    <div className="mx-auto flex w-full max-w-260 flex-col gap-8 px-6 py-10 md:px-10 md:py-14">
+    <div className="@container/section-layout mx-auto flex w-full max-w-260 flex-col gap-8 px-6 py-10 lg:px-10 lg:py-14">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0 space-y-1">
           <h1 className="text-xl font-semibold">{title}</h1>
@@ -41,9 +41,12 @@ export function SectionLayout({
         </div>
         {action}
       </header>
-      <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+      <div className="flex flex-col gap-6 @min-[48rem]/section-layout:flex-row @min-[48rem]/section-layout:gap-8">
         {nav.length > 0 && (
-          <nav aria-label={title} className="flex shrink-0 gap-1 overflow-x-auto md:w-52 md:flex-col">
+          <nav
+            aria-label={title}
+            className="flex shrink-0 gap-1 overflow-x-auto @min-[48rem]/section-layout:w-52 @min-[48rem]/section-layout:flex-col"
+          >
             {nav.map((item) => {
               const active = item.active ?? pathname === item.href;
               return (

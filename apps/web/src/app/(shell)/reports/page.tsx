@@ -36,10 +36,10 @@ function ReportCard({
   const label = report.metric === report.label ? t(report.metric) : report.label;
   return (
     <SettingsCard title={report.title} description={label}>
-      <SettingsRow label={t('baseline')} hint={`${report.baseline.from} — ${report.baseline.to}`}>
+      <SettingsRow label={t('baseline')} hint={t('dateRange', report.baseline)}>
         <span className="text-sm tabular-nums">{number(report.before)}</span>
       </SettingsRow>
-      <SettingsRow label={t('comparison')} hint={`${report.comparison.from} — ${report.comparison.to}`}>
+      <SettingsRow label={t('comparison')} hint={t('dateRange', report.comparison)}>
         <span className="text-sm tabular-nums">{number(report.after)}</span>
       </SettingsRow>
       <SettingsRow label={t('change')}>

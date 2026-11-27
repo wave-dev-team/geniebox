@@ -147,7 +147,7 @@
   },
   "profile": {
     "title": "My profile",
-    "subtitle": "Personal settings — apply to all your projects and are visible only to you",
+    "subtitle": "Personal settings for all your projects. Visible only to you.",
     "tabs": {
       "general": "Profile",
       "notifications": "Notifications",
@@ -162,7 +162,7 @@
     "verify": "Confirm",
     "language": "Interface language",
     "timezone": "Time zone",
-    "timezoneHint": "time in the interface and notifications — members in other cities have their own",
+    "timezoneHint": "Time used in the interface and notifications",
     "timezoneProject": "Same as the project",
     "theme": "Theme",
     "save": "Save",
@@ -173,7 +173,7 @@
       "signIn": "Sign-in",
       "password": "Password",
       "passwordChanged": "changed {when}",
-      "passwordNotSet": "not set — sign in with an email code",
+      "passwordNotSet": "No password is set. Sign in with a code sent by email.",
       "change": "Change",
       "set": "Set",
       "sessions": "Sessions",
@@ -349,7 +349,7 @@
     "modes": {
       "approve_all": {
         "label": "Approve everything",
-        "note": "agents propose, you decide — as now"
+        "note": "All agent actions require approval."
       },
       "approve_important": {
         "label": "Approve important",
@@ -360,7 +360,7 @@
         "note": "do nothing, just answer and suggest"
       }
     },
-    "viewer": "You are a viewer — owners, admins and tech members can write to agents"
+    "viewer": "Owners, administrators, and technical specialists can message agents."
   },
   "app": {
     "brand": "Geniebox",
@@ -371,7 +371,7 @@
     "businessUnavailable": "Data for this section is not connected yet."
   },
   "sections": {
-    "home": "Home",
+    "home": "Manager",
     "tasks": "Tasks",
     "agents": "Agents",
     "knowledge": "Knowledge base",
@@ -393,7 +393,7 @@
   "workspace": {
     "switch": "Switch workspace",
     "list": "Workspaces",
-    "settings": "Workspace settings",
+    "addProject": "Add project",
     "owner": "Owner",
     "member": "Member",
     "name": "Name",
@@ -462,6 +462,7 @@
     "title": "Report title",
     "baseline": "Before changes",
     "comparison": "After changes",
+    "dateRange": "From {from} to {to}",
     "from": "start",
     "to": "end",
     "criterion": "Success criterion",
@@ -632,7 +633,7 @@
       "deny": "Deny"
     },
     "resetPermission": "Reset",
-    "noKeys": "No keys yet — they appear once you connect something",
+    "noKeys": "Keys appear after you connect services.",
     "keyHealth": {
       "ok": "Active",
       "expiring": "Expiring soon",
@@ -684,7 +685,7 @@
     "probationHint": "everything only with your “yes”",
     "streakHint": "after how many correct proposals in a row",
     "asksHint": "Applies to all agents. A single agent can be stricter, never looser",
-    "limitsHint": "Hard limits — an agent cannot bypass them",
+    "limitsHint": "Mandatory limits for all agents",
     "budgetHint": "per month for the whole team",
     "agentRulesHint": "Every agent receives this list with each task",
     "agentRulePlaceholder": "For example, never mention competitors",
@@ -703,7 +704,7 @@
     "teamPause": "Pause the whole team",
     "teamPauseHint": "agents only watch and change nothing",
     "permissionsDescription": "What an agent does on its own, with a notification, only with your approval or never",
-    "permissionsEmptyHint": "Add agents from the marketplace — their permissions can be set here",
+    "permissionsEmptyHint": "Add agents from the marketplace to configure their permissions.",
     "keysDescription": "Keys and tokens agents use to work with connected services",
     "keysNote": "Keys live in encrypted storage and are injected by the system on every request. Agents never see their values and cannot change their rights.",
     "keysDenied": "Access keys are visible to administrators and technical specialists.",
