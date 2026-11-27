@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -104,15 +103,4 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }) {
       </DialogContent>
     </Dialog>
   );
-}
-
-export function FirstAccountDialog() {
-  const pathname = usePathname();
-  const search = useSearchParams();
-  const directory = useWorkspaces();
-  const [dismissed, setDismissed] = useState(false);
-  const joining =
-    pathname === '/invitations/accept' || (pathname === '/settings' && Boolean(search.get('invite')));
-  if (dismissed || joining || !directory.isSuccess || directory.data.workspaces.length > 0) return null;
-  return <CreateAccountDialog onClose={() => setDismissed(true)} />;
 }

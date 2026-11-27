@@ -23,6 +23,7 @@ import {
   WEEK_STARTS,
 } from '@workspace/types';
 
+import { useMe } from '@/entities/session';
 import { preferredProject, useProjects, useWorkspaces } from '@/entities/workspace';
 import { projectsApi } from '@/shared/api';
 
@@ -63,6 +64,28 @@ export const DATE_FORMAT_EXAMPLE: Record<Project['dateFormat'], string> = {
 
 const projectKey = (accountId: string, projectId: string) => ['project', accountId, projectId] as const;
 const projectsKey = (accountId: string) => ['projects', accountId] as const;
+
+export function useMyProjects() {
+  const { data: me } = useMe();
+  return useQuery({
+    queryKey: ['my-projects', me?.id],
+    enabled: Boolean(me),
+    queryFn: ({ signal }) => projectsApi.mine(signal),
+  });
+}
+
+export function useRefreshProjects() {
+  const client = useQueryClient();
+  return async (project: Project) => {
+    const key = projectsKey(project.accountId);
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ['my-projects'] }),
+      client.invalidateQueries({ queryKey: key }),
+    ]);
+    await client.cancelQueries({ queryKey: projectKey(project.accountId, project.id) });
+    client.setQueryData(projectKey(project.accountId, project.id), project);
+  };
+}
 
 /** Account, preferred project and its role: the scope of the settings screens. */
 export function useActiveProject() {
@@ -136,6 +159,7 @@ export function useDeleteProject(accountId: string, projectId: string, onDelete:
         list?.filter(({ id }) => id !== projectId),
       );
       client.removeQueries({ queryKey: projectKey(accountId, projectId) });
+      void client.invalidateQueries({ queryKey: ['my-projects'] });
       onDelete();
       void client.invalidateQueries({ queryKey: key });
     },

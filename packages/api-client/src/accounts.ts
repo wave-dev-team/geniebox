@@ -1,4 +1,10 @@
-import { projectSchema, workspaceMembersSchema, workspaceSchema } from '@workspace/types';
+import {
+  type Profile,
+  type ProjectCreate,
+  projectSchema,
+  workspaceMembersSchema,
+  workspaceSchema,
+} from '@workspace/types';
 
 import { authenticated } from './authenticated.js';
 
@@ -11,8 +17,8 @@ const json = (method: string, body: object) => ({ method, body: JSON.stringify(b
 export const accountsApi = {
   list: async (signal?: AbortSignal) =>
     workspaceSchema.array().parse(await (await authenticated(base, { signal })).json()),
-  create: async (name: string) =>
-    workspaceSchema.parse(await (await authenticated(base, json('POST', { name }))).json()),
+  create: async (name: string, locale?: Profile['locale']) =>
+    workspaceSchema.parse(await (await authenticated(base, json('POST', { name, locale }))).json()),
   rename: (id: string, name: string) => authenticated(accountPath(id), json('PATCH', { name })),
   members: async (id: string, signal?: AbortSignal) =>
     workspaceMembersSchema.parse(
@@ -28,8 +34,8 @@ export const accountsApi = {
     projectSchema
       .array()
       .parse(await (await authenticated(`${accountPath(id)}/projects`, { signal })).json()),
-  createProject: async (id: string, name: string) =>
+  createProject: async (id: string, project: ProjectCreate) =>
     projectSchema.parse(
-      await (await authenticated(`${accountPath(id)}/projects`, json('POST', { name }))).json(),
+      await (await authenticated(`${accountPath(id)}/projects`, json('POST', project))).json(),
     ),
 };

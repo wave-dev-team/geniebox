@@ -727,5 +727,76 @@
     "leaveHint": "You will lose access to {name} and its projects.",
     "changeOwnRole": "Change your role",
     "changeOwnRoleHint": "Your new role in this account will be {role}."
+  },
+  "onboarding": {
+    "steps": {
+      "project": "Project",
+      "connections": "Connections",
+      "team": "Team",
+      "rules": "Rules",
+      "ready": "Ready"
+    },
+    "progress": "Project setup progress",
+    "createTitle": "Create a project",
+    "setupTitle": "Tell us about your project",
+    "projectName": "For example, Online store",
+    "nameRequired": "Enter a project name.",
+    "haveInvite": "Have a team invitation?",
+    "later": "Finish later",
+    "continue": "Continue",
+    "back": "Back",
+    "connectionsTitle": "Connect your services",
+    "connectionsHint": "Connect the services your agents will use. You can skip this step.",
+    "provider": "Service",
+    "chooseProvider": "Choose a service",
+    "chooseValue": "Choose a value",
+    "connect": "Connect",
+    "sshHint": "Add this public key to your server.",
+    "access": "Access level",
+    "accessLevels": {
+      "read": "Read",
+      "read_write": "Read and write"
+    },
+    "connectionStatus": {
+      "pending": "Pending check",
+      "ok": "Connected",
+      "warn": "Needs attention",
+      "error": "Check failed"
+    },
+    "providers": {
+      "telegram_bot": "Telegram bot",
+      "yookassa": "YooKassa",
+      "yandex_metrika": "Yandex Metrica",
+      "gitlab": "GitLab",
+      "grafana": "Grafana",
+      "ssh_server": "SSH server",
+      "postgres": "PostgreSQL",
+      "http_api": "HTTP API"
+    },
+    "connectionFields": {
+      "url": "Service URL",
+      "host": "Host",
+      "token": "Token",
+      "secret_key": "Secret key",
+      "shop_id": "Shop ID",
+      "counter_id": "Counter ID",
+      "oauth_token": "OAuth token",
+      "port": "Port",
+      "username": "Username",
+      "database": "Database",
+      "password": "Password",
+      "ssl": "SSL mode"
+    },
+    "teamTitle": "Build your team",
+    "teamHint": "Choose the agents to add to your project. They’ll be added when you finish setup.",
+    "emptyTeam": "There are no agents available to add right now.",
+    "recommended": "Recommended for your goals",
+    "rulesTitle": "Set team rules",
+    "rulesHint": "Decide which actions require approval and set a monthly AI budget.",
+    "readyTitle": "Your project is ready",
+    "readyHint": "{count, plural, one {# selected agent will be added after launch.} other {# selected agents will be added after launch.}}",
+    "openProject": "Open project",
+    "unavailable": "Project unavailable",
+    "backHome": "Back to home"
   }
 }

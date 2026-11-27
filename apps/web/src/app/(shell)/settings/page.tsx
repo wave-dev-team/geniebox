@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { type ReactNode, Suspense, useState } from 'react';
 import { toast } from 'sonner';
@@ -64,7 +63,6 @@ function SettingForm({
 function AccountSettings({ active }: { active: Workspace }) {
   const t = useTranslations('workspace');
   const client = useQueryClient();
-  const router = useRouter();
   const { data: me } = useMe();
   const description = localAccountDescription(me?.id, active.id);
   const manager = active.role === 'owner' || active.role === 'admin';
@@ -84,24 +82,11 @@ function AccountSettings({ active }: { active: Workspace }) {
         </SettingForm>
       )}
       {manager && (
-        <SettingForm
-          label={t('newProject')}
-          action={t('create')}
-          submit={async (form) => {
-            const project = await accountsApi.createProject(active.id, String(form.get('name')).trim());
-            sessionStorage.setItem(`geniebox:project:${active.id}`, project.id);
-            await client.invalidateQueries({ queryKey: ['projects', active.id] });
-            router.push('/chat');
-          }}
-        >
-          <Input
-            aria-label={t('projectName')}
-            name="name"
-            placeholder={t('projectName')}
-            maxLength={120}
-            required
-          />
-        </SettingForm>
+        <SettingsRow label={t('newProject')}>
+          <Button render={<Link href={routes.onboarding()} />} nativeButton={false}>
+            {t('create')}
+          </Button>
+        </SettingsRow>
       )}
     </SettingsCard>
   );
@@ -109,9 +94,6 @@ function AccountSettings({ active }: { active: Workspace }) {
 
 function Settings() {
   const t = useTranslations('workspace');
-  const router = useRouter();
-  const invite = useSearchParams().get('invite') ?? '';
-  const me = useMe();
   const directory = useWorkspaces();
   const [creating, setCreating] = useState(false);
   const accountSettings = (
@@ -122,39 +104,16 @@ function Settings() {
           <Button onClick={() => setCreating(true)}>{t('create')}</Button>
         </SettingsRow>
         {creating && <CreateAccountDialog onClose={() => setCreating(false)} />}
-        <SettingForm
-          label={t('join')}
-          action={t('joinAction')}
-          disabled={!me.data?.emailVerified}
-          submit={async (form) => {
-            const account = await accountsApi.join(String(form.get('token')).trim());
-            directory.activate(account);
-            router.replace('/chat');
-          }}
-        >
-          <Input
-            aria-label={t('code')}
-            placeholder={t('code')}
-            name="token"
-            defaultValue={invite}
-            required
-            minLength={20}
-            maxLength={100}
-          />
-          {!me.data?.emailVerified && (
-            <Link
-              className="text-sm underline"
-              href={routes.verifyEmail('/settings' + (invite ? '?invite=' + encodeURIComponent(invite) : ''))}
-            >
-              {t('verifyFirst')}
-            </Link>
-          )}
-        </SettingForm>
+        <SettingsRow label={t('join')}>
+          <Button variant="outline" render={<Link href={routes.invitation()} />} nativeButton={false}>
+            {t('joinAction')}
+          </Button>
+        </SettingsRow>
       </SettingsCard>
     </>
   );
 
-  if (directory.active && !invite) {
+  if (directory.active) {
     return (
       <ProjectSettings
         key={directory.active.id}
@@ -172,7 +131,7 @@ function Settings() {
         </Button>
       )}
       {directory.isPending && <Skeleton className="h-36" />}
-      {(!directory.isPending || invite) && accountSettings}
+      {!directory.isPending && accountSettings}
     </SectionLayout>
   );
 }

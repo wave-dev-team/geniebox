@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { workspaceRoleSchema } from './accounts.js';
+
 /** Value lists shared with the backend (`project.constants.ts`). */
 export const PROJECT_SPHERES = [
   'subscription',
@@ -77,6 +79,26 @@ export const projectSchema = z.object({
   createdAt: z.string(),
 });
 
+export const myProjectSchema = projectSchema
+  .pick({
+    id: true,
+    accountId: true,
+    slug: true,
+    name: true,
+    onboardingStep: true,
+  })
+  .extend({
+    role: workspaceRoleSchema,
+    accountBlocked: z.object({ at: z.string(), reason: z.string() }).nullable(),
+  });
+
+export const projectCreateSchema = projectSchema
+  .pick({ name: true, sphere: true, about: true, goals: true })
+  .partial({ sphere: true, about: true, goals: true });
+
+export type MyProject = z.infer<typeof myProjectSchema>;
+export type ProjectCreate = z.infer<typeof projectCreateSchema>;
+
 export const projectUpdateSchema = z.object({
   name: z.string().optional(),
   sphere: z.enum(PROJECT_SPHERES).nullable().optional(),
@@ -94,6 +116,8 @@ export const projectUpdateSchema = z.object({
   clientTone: z.enum(CLIENT_TONES).optional(),
   clientAddress: z.enum(CLIENT_ADDRESSES).optional(),
   clientSignature: z.string().nullable().optional(),
+  plannedAgents: z.array(z.string()).optional(),
+  onboardingStep: z.number().int().min(1).max(5).optional(),
   journalRetentionDays: z.number().optional(),
   clientDataRetentionDays: z.number().optional(),
 });

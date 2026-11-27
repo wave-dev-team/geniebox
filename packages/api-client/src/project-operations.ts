@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   connectionProviderSchema,
   type JournalFilters,
+  onboardingAgentCatalogSchema,
   type PermissionMode,
   projectAgentDetailsSchema,
   projectAgentSchema,
@@ -42,6 +43,17 @@ export function projectOperations(accountId: string, projectId: string) {
       projectConnectionSchema
         .array()
         .parse(await (await authenticated(path + '/connections', { signal })).json()),
+    connect: async (
+      providerKey: string,
+      accessLevel: 'read' | 'read_write',
+      fields: Record<string, string>,
+    ) => {
+      const response = await authenticated(path + '/connections', {
+        method: 'POST',
+        body: JSON.stringify({ providerKey, accessLevel, fields }),
+      });
+      return z.object({ connection: projectConnectionSchema }).parse(await response.json());
+    },
     disconnectAll: async () => {
       await authenticated(path + '/connections/disconnect-all', { method: 'POST' });
     },
@@ -70,4 +82,10 @@ export async function listConnectionProviders(signal?: AbortSignal) {
   return connectionProviderSchema
     .array()
     .parse(await (await authenticated('/v1/connection-providers', { signal })).json());
+}
+
+export async function listOnboardingAgents(accountId: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ accountId });
+  const response = await authenticated('/v1/agent-catalog?' + query, { signal });
+  return onboardingAgentCatalogSchema.parse(await response.json());
 }

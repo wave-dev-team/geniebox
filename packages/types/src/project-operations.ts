@@ -25,6 +25,7 @@ export const projectConnectionSchema = z.object({
   providerKey: z.string(),
   name: z.string(),
   config: z.record(z.string(), z.string()),
+  status: z.enum(['pending', 'ok', 'warn', 'error']),
   credential: z
     .object({
       masked: z.string(),
@@ -38,14 +39,32 @@ export const projectConnectionSchema = z.object({
 export const connectionProviderSchema = z.object({
   key: z.string(),
   sshKey: z.boolean(),
+  accessLevels: z.array(z.enum(['read', 'read_write'])),
   fields: z.array(
     z.object({
       key: z.string(),
       kind: z.enum(['secret', 'text', 'url', 'host', 'port', 'select']),
       required: z.boolean(),
+      options: z.array(z.string()).nullable(),
+      defaultValue: z.string().nullable(),
     }),
   ),
 });
+
+export const onboardingAgentCatalogSchema = z.object({
+  templates: z.array(
+    z.object({
+      key: z.string(),
+      name: z.string(),
+      role: z.string(),
+      short: z.string(),
+      listed: z.boolean(),
+      onboarding: z.object({ offered: z.boolean(), goals: z.array(z.string()) }),
+    }),
+  ),
+});
+
+export type ConnectionProvider = z.infer<typeof connectionProviderSchema>;
 
 export const journalResults = ['ok', 'approval', 'refused', 'failed'] as const;
 export const journalPeriods = ['today', '7d', '30d'] as const;

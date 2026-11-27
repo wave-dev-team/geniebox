@@ -5,6 +5,7 @@ export {
   authApi,
   connectionsApi,
   listConnectionProviders,
+  listOnboardingAgents,
   membersApi,
   metricsApi,
   profileApi,

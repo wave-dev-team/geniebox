@@ -1,7 +1,8 @@
 import {
   invitationsSchema,
-  projectSchema,
+  myProjectSchema,
   type ProjectRulesUpdate,
+  projectSchema,
   type ProjectUpdate,
   workspaceMembersSchema,
 } from '@workspace/types';
@@ -16,6 +17,15 @@ const json = (method: string, body?: object) => ({
 
 /** One project with all its settings. `GET …/projects/:id`. */
 export const projectsApi = {
+  mine: async (signal?: AbortSignal) =>
+    myProjectSchema.array().parse(await (await authenticated('/v1/me/projects', { signal })).json()),
+  completeOnboarding: async (accountId: string, projectId: string) =>
+    projectSchema.parse(
+      await (
+        await authenticated(projectPath(accountId, projectId) + '/onboarding/complete', json('POST'))
+      ).json(),
+    ),
+
   get: async (accountId: string, projectId: string, signal?: AbortSignal) =>
     projectSchema.parse(await (await authenticated(projectPath(accountId, projectId), { signal })).json()),
   update: async (accountId: string, projectId: string, body: ProjectUpdate) =>
@@ -24,9 +34,7 @@ export const projectsApi = {
     ),
   updateRules: async (accountId: string, projectId: string, body: ProjectRulesUpdate) =>
     projectSchema.parse(
-      await (
-        await authenticated(`${projectPath(accountId, projectId)}/rules`, json('PATCH', body))
-      ).json(),
+      await (await authenticated(`${projectPath(accountId, projectId)}/rules`, json('PATCH', body))).json(),
     ),
   pause: async (accountId: string, projectId: string, until?: Date) =>
     projectSchema.parse(
@@ -64,5 +72,8 @@ export const membersApi = {
   invite: async (accountId: string, email: string, role: string) =>
     authenticated(`${accountPath(accountId)}/invitations`, json('POST', { email, role })),
   revokeInvitation: (accountId: string, invitationId: string) =>
-    authenticated(`${accountPath(accountId)}/invitations/${encodeURIComponent(invitationId)}`, json('DELETE')),
+    authenticated(
+      `${accountPath(accountId)}/invitations/${encodeURIComponent(invitationId)}`,
+      json('DELETE'),
+    ),
 };

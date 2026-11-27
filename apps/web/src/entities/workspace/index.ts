@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import type { Workspace, WorkspaceRole } from '@workspace/types';
 
@@ -22,10 +23,16 @@ export function useWorkspaces() {
       return { workspaces, activeId };
     },
   });
-  function select(id: string) {
-    sessionStorage.setItem(storageKey, id);
-    client.setQueryData<typeof query.data>(key, (data) => data && { ...data, activeId: id });
-  }
+  const select = useCallback(
+    (id: string) => {
+      sessionStorage.setItem(storageKey, id);
+      client.setQueryData<typeof query.data>(
+        ['workspaces', me?.id],
+        (data) => data && { ...data, activeId: id },
+      );
+    },
+    [client, me?.id, storageKey],
+  );
   function activate(account: Workspace) {
     sessionStorage.setItem(storageKey, account.id);
     client.setQueryData<typeof query.data>(key, (data) => ({
@@ -33,6 +40,7 @@ export function useWorkspaces() {
       workspaces: [...(data?.workspaces ?? []).filter((item) => item.id !== account.id), account],
     }));
     void client.invalidateQueries({ queryKey: key });
+    void client.invalidateQueries({ queryKey: ['my-projects'] });
   }
   const active = query.data?.workspaces.find(({ id }) => id === query.data.activeId);
   return { ...query, select, activate, active };
