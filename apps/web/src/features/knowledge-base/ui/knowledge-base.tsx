@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Folder } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -219,7 +220,7 @@ export function KnowledgeBase() {
   if (!api) return <Skeleton className="h-64" />;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
+    <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">{t('title')}</h1>
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
@@ -234,8 +235,9 @@ export function KnowledgeBase() {
       </header>
 
       <section className="flex flex-col gap-2">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
+            className="min-w-0 flex-1"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -259,7 +261,9 @@ export function KnowledgeBase() {
             onClick={() => setSelectedId(item.nodeId)}
           >
             <span className="font-medium">{item.title}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{item.headingPath.at(-1)}</span>
+            {item.headingPath.at(-1) !== item.title && (
+              <span className="ml-2 text-xs text-muted-foreground">{item.headingPath.at(-1)}</span>
+            )}
             <p className="mt-1 line-clamp-3 text-muted-foreground">{item.snippet}</p>
             {item.sources.some((source) => source.limitations.length > 0) && (
               <p className="mt-1 text-xs text-amber-600">
@@ -275,8 +279,9 @@ export function KnowledgeBase() {
       <div className="grid gap-4 md:grid-cols-[280px_1fr]">
         <aside className="flex min-w-0 flex-col gap-3">
           {canEdit && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Input
+                className="min-w-0 flex-1 basis-full sm:basis-0"
                 value={newTitle}
                 onChange={(event) => setNewTitle(event.target.value)}
                 placeholder={t('titlePlaceholder')}
@@ -315,9 +320,10 @@ export function KnowledgeBase() {
                     style={{ paddingLeft: `${8 + depth * 14}px` }}
                     onClick={() => setSelectedId(node.id)}
                   >
-                    <span className="truncate">
-                      {node.kind === 'folder' ? `📁 ${node.title}` : node.title}
-                    </span>
+                    {node.kind === 'folder' && (
+                      <Folder className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    )}
+                    <span className="truncate">{node.title}</span>
                     {node.status !== 'published' && (
                       <Badge variant="outline" className="ml-auto shrink-0 text-[10px]">
                         {t(`status.${node.status}`)}

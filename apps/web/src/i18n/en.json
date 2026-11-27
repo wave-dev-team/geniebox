@@ -943,7 +943,7 @@
     "proposals": "Agent proposals",
     "accept": "Accept",
     "reject": "Reject",
-    "stats": "{{drafts}} drafts · {{published}} published · {{chunks}} chunks",
+    "stats": "{drafts, plural, one {# draft} other {# drafts}} · {published} published · {chunks, plural, one {# chunk} other {# chunks}}",
     "processing": "Processing",
     "failed": "Processing failed",
     "retry": "Retry",

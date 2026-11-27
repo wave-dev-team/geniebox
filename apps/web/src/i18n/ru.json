@@ -943,7 +943,7 @@
     "proposals": "Предложения агентов",
     "accept": "Принять",
     "reject": "Отклонить",
-    "stats": "{{drafts}} черновиков · {{published}} опубликовано · {{chunks}} фрагментов",
+    "stats": "{drafts, plural, one {# черновик} few {# черновика} other {# черновиков}} · опубликовано {published} · {chunks, plural, one {# фрагмент} few {# фрагмента} other {# фрагментов}}",
     "processing": "Обрабатывается",
     "failed": "Ошибка обработки",
     "retry": "Повторить",
