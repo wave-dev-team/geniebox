@@ -1,9 +1,17 @@
-import { readdir } from 'node:fs/promises';
+import { readdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { migrationProvider } from './index.js';
+import { migrations } from './index.js';
 
-it('registers every migration file', async () => {
-  const files = await readdir(new URL('.', import.meta.url));
-  const names = files.filter((file) => /^\d{12}_.+\.ts$/.test(file)).map((file) => file.slice(0, -3));
-  expect(Object.keys(await migrationProvider.getMigrations()).sort()).toEqual(names.sort());
+const currentDir = dirname(fileURLToPath(import.meta.url));
+
+describe('migrations registry', () => {
+  it('registers every migration file in the folder', () => {
+    const files = readdirSync(currentDir)
+      .filter((file) => /^\d{12}_.+\.ts$/.test(file) && !file.endsWith('.spec.ts'))
+      .map((file) => file.replace(/\.ts$/, ''))
+      .sort();
+    expect(Object.keys(migrations).sort()).toEqual(files);
+  });
 });

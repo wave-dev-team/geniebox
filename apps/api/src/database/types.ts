@@ -9,34 +9,639 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type Numeric = ColumnType<string, number | string, number | string>;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
-export interface EmailIdentities {
-  email_key: string;
-  tenant_id: string;
+export interface AccountInvitations {
+  accepted_at: Timestamp | null;
+  accepted_by: string | null;
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  email: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  invited_by: string;
+  revoked_at: Timestamp | null;
+  role: string;
+  token_hash: string;
+}
+
+export interface AccountMembers {
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  manager_context_reset_at: Timestamp | null;
+  role: string;
+  updated_at: Generated<Timestamp>;
   user_id: string;
 }
 
-export interface MetricDefinitions {
-  key: string;
-  label: string;
-  tenant_id: string;
+export interface Accounts {
+  agent_actions_enabled: Generated<boolean>;
+  blocked_at: Timestamp | null;
+  blocked_reason: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  locale: Generated<string>;
+  manager_context_reset_at: Timestamp | null;
+  name: string;
+  slug: string;
+  updated_at: Generated<Timestamp>;
 }
 
-export interface UserProfiles {
+export interface ActionJournal {
+  account_id: string | null;
+  action: string;
+  actor_id: string;
+  actor_role: string | null;
+  actor_type: string;
+  args: Json | null;
+  id: Generated<Int8>;
+  occurred_at: Generated<Timestamp>;
+  result: Json | null;
+  status: string;
+  target_id: string | null;
+  target_type: string | null;
+  trace_id: string;
+}
+
+export interface AgentConnections {
+  access_level: string;
+  account_id: string;
+  agent_id: string;
+  connection_id: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface AgentNotes {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  text: string;
+}
+
+export interface AgentPermissions {
+  account_id: string;
+  action_id: string;
+  agent_id: string;
+  mode: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface Agents {
+  account_id: string;
+  asks: Generated<string[]>;
+  created_at: Generated<Timestamp>;
+  custom_tools: Generated<string[]>;
+  deleted_at: Timestamp | null;
+  display_name: string;
+  hired_at: Generated<Timestamp>;
+  hired_by: string | null;
+  icon_bg: string | null;
+  icon_kind: Generated<string>;
+  icon_value: string;
+  id: Generated<string>;
+  instructions: Generated<Json>;
+  kind: Generated<string>;
+  limits: Generated<Json>;
+  paused_until: Timestamp | null;
+  probation_until: Timestamp | null;
+  project_id: string;
+  role_text: string | null;
+  status: Generated<string>;
+  template_key: string | null;
+  template_version_id: string | null;
+  trust_level: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AgentTemplates {
+  availability: Generated<string>;
+  beta_account_ids: Generated<string[]>;
+  category: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  icon: string;
+  id: Generated<string>;
+  key: string;
+  published_version_id: string | null;
+  unpublished_at: Timestamp | null;
+  unpublished_reason: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AgentTemplateVersions {
+  content: Json;
+  content_hash: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  note: string | null;
+  number: number;
+  published_at: Timestamp | null;
+  published_by: string | null;
+  review: Json | null;
+  rollout: Json | null;
+  scenario_run: Json | null;
+  state: string;
+  template_id: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface Checks {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  decision_id: string | null;
+  due_at: Timestamp;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  idea_id: string | null;
+  project_id: string;
+  result: string | null;
+  status: Generated<string>;
+  task_id: string | null;
+  verdict: string | null;
+  what: string;
+}
+
+export interface ConnectionCredentials {
+  account_id: string;
+  ciphertext: Buffer;
+  connection_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp | null;
+  id: Generated<string>;
+  kek_id: string;
+  masked: string;
+  project_id: string;
+  retire_at: Timestamp | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  version: number;
+  wrapped_key: Buffer;
+}
+
+export interface ConnectionLinks {
+  account_id: string;
+  connection_id: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  project_id: string;
+  provider_key: string;
+  revoked_at: Timestamp | null;
+  token_hash: string;
+  used_at: Timestamp | null;
+}
+
+export interface Connections {
+  access_level: Generated<string>;
+  account_id: string;
+  config: Generated<Json>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  created_via: Generated<string>;
+  deleted_at: Timestamp | null;
+  id: Generated<string>;
+  last_check_at: Timestamp | null;
+  last_sync_at: Timestamp | null;
+  name: string;
+  project_id: string;
+  provider_key: string;
+  status: Generated<string>;
+  status_detail: string | null;
+  status_reason: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Conversations {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  last_message_at: Generated<Timestamp>;
+  manager_thread: Generated<boolean>;
+  merged_into: string | null;
+  private_archive: Generated<boolean>;
+  project_id: string;
+  title: string | null;
+}
+
+export interface Decisions {
+  account_id: string;
+  agent_id: string;
+  check_spec: Json | null;
+  cooldown_until: Timestamp | null;
+  cost: string | null;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  decided_via: string | null;
+  effect: string | null;
+  experiment: Json | null;
+  expires_at: Timestamp | null;
+  id: Generated<string>;
+  meta: string | null;
+  pending_actions: Generated<Json>;
+  plan: Generated<Json>;
+  project_id: string;
+  risk: Generated<string>;
+  risk_note: string | null;
+  selected_term: string | null;
+  status: Generated<string>;
+  task_id: string | null;
+  terms: Json | null;
+  title: string;
+  why: Generated<Json>;
+  yes_label: Generated<string>;
+  yes_text: string | null;
+}
+
+export interface Events {
+  account_id: string;
+  amount: Numeric | null;
+  currency: string | null;
+  external_id: string;
+  ingested_at: Generated<Timestamp>;
+  occurred_at: Timestamp;
+  project_id: string;
+  props: Generated<Json>;
+  source: string;
+  type: string;
+}
+
+export interface Ideas {
+  account_id: string;
+  agent_id: string;
+  comparison: string | null;
+  confidence: string | null;
+  decision_id: string | null;
+  effect_value: Numeric | null;
+  experiment: Json;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  metric_key: string;
+  outcome: string | null;
+  project_id: string;
+  sample: number | null;
+  started_at: Generated<Timestamp>;
+  status: Generated<string>;
+  title: string;
+}
+
+export interface IdempotencyKeys {
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  key: string;
+  request_hash: string;
+  response_body: Json | null;
+  response_status: number | null;
+  status: string;
+}
+
+export interface Insights {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  decision_id: string | null;
+  facts: Generated<Json>;
+  id: Generated<string>;
+  note: string | null;
+  period_days: number | null;
+  project_id: string;
+  task_id: string | null;
+  text: string;
+}
+
+export interface LlmCalls {
+  account_id: string;
+  agent_id: string | null;
+  conversation_id: string | null;
+  cost_rub: Generated<Numeric>;
+  cost_usd: Generated<Numeric>;
+  created_at: Generated<Timestamp>;
+  error_code: string | null;
+  id: Generated<string>;
+  latency_ms: Generated<number>;
+  model: string;
+  project_id: string;
+  prompt_version: string;
+  provider: string;
+  result: string;
+  role: string;
+  task_id: string | null;
+  tokens_in: Generated<number>;
+  tokens_out: Generated<number>;
+  trace_id: string | null;
+}
+
+export interface MessageActions {
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  kind: string;
+  label: string;
+  message_id: string;
+  payload: Generated<Json>;
+  position: number;
+  result: string | null;
+  status: Generated<string>;
+  used_at: Timestamp | null;
+  used_by: string | null;
+}
+
+export interface Messages {
+  account_id: string;
+  agent_id: string | null;
+  author_user_id: string | null;
+  cards: Generated<Json>;
+  channel: Generated<string>;
+  conversation_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  mention_agent_id: string | null;
+  mode: string | null;
+  notification_event_id: string | null;
+  notification_kind: string | null;
+  role: string;
+  status: Generated<string>;
+  text: Generated<string>;
+}
+
+export interface MetricDefinitions {
+  account_id: string;
+  aggregation: string;
+  attempted_at: Timestamp | null;
+  collected_at: Timestamp | null;
+  connection_id: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  good_direction: Generated<string>;
+  id: Generated<string>;
+  key: string;
+  last_error: string | null;
+  pinned: Generated<boolean>;
+  position: Generated<number>;
+  project_id: string;
+  source: Json | null;
+  title: string;
+  unit: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface MetricPoints {
+  account_id: string;
+  collected_at: Generated<Timestamp>;
+  day: Timestamp;
+  metric_id: string;
+  value: Numeric;
+}
+
+export interface OutboxEvents {
+  account_id: string | null;
+  created_at: Generated<Timestamp>;
+  event_id: Generated<string>;
+  id: Generated<Int8>;
+  payload: Json;
+  published_at: Timestamp | null;
+  trace_id: string;
+  type: string;
+}
+
+export interface PlatformFlags {
+  enabled: boolean;
+  key: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Projects {
+  about: string | null;
+  account_id: string;
+  agent_rules: Generated<string[]>;
+  agents_paused: Generated<boolean>;
+  ai_budget_monthly: Generated<number>;
+  always_ask: Generated<string[]>;
+  client_address: Generated<string>;
+  client_data_retention_days: Generated<number>;
+  client_language: Generated<string>;
+  client_signature: string | null;
+  client_tone: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  currency: Generated<string>;
+  custom_metric: string | null;
+  date_format: Generated<string>;
+  default_trust_level: Generated<string>;
+  deleted_at: Timestamp | null;
+  goals: Generated<string[]>;
+  id: Generated<string>;
+  journal_retention_days: Generated<number>;
+  main_metric: Generated<string>;
+  month_goal: string | null;
+  name: string;
+  number_format: Generated<string>;
+  onboarding_completed_at: Timestamp | null;
+  onboarding_step: Generated<number | null>;
+  paused_until: Timestamp | null;
+  planned_agents: Generated<string[]>;
+  probation_days: Generated<number>;
+  slug: string;
+  sphere: string | null;
+  timezone: Generated<string>;
+  trust_streak: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  week_start: Generated<string>;
+}
+
+export interface Routines {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  description: string | null;
+  enabled: Generated<boolean>;
+  id: Generated<string>;
+  kind: string | null;
+  last_run_at: Timestamp | null;
+  last_run_summary: string | null;
+  next_run_at: Timestamp | null;
+  project_id: string;
+  schedule: string;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ScheduledTasks {
+  account_id: string;
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  dedupe_key: string | null;
+  id: Generated<string>;
+  last_error: string | null;
+  payload: Generated<Json>;
+  run_at: Timestamp;
+  status: Generated<string>;
+  trace_id: string;
+  type: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface SupportRequests {
+  attach_journal: Generated<boolean>;
+  contact: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  message: string;
+  preferred_time: string | null;
+  project_id: string | null;
+  services: Generated<string[]>;
+  topic: string | null;
+  user_id: string;
+}
+
+export interface Tasks {
+  account_id: string;
+  agent_id: string;
+  attempts: Generated<number>;
+  conversation_id: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  description: string | null;
+  error: Json | null;
+  facts: Generated<Json>;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  mode: string | null;
+  origin: string;
+  progress_pct: number | null;
+  progress_text: string | null;
+  project_id: string;
+  result: string | null;
+  routine_id: string | null;
+  scheduled_at: Timestamp | null;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  summary: string | null;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface TaskSteps {
+  account_id: string;
+  at: Timestamp | null;
+  id: Generated<string>;
+  note: string | null;
+  position: number;
+  status: Generated<string>;
+  task_id: string;
+  title: string;
+}
+
+export interface ToolCalls {
+  account_id: string;
+  agent_id: string;
+  approved_by: string | null;
+  args: Generated<Json>;
+  connection_id: string | null;
+  created_at: Generated<Timestamp>;
+  decision_id: string | null;
+  error_code: string | null;
+  id: Generated<string>;
+  idempotency_key: string;
+  mode: string | null;
+  project_id: string;
+  result: Json | null;
+  status: string;
+  task_id: string | null;
+  tool_id: string;
+  trace_id: string | null;
+}
+
+export interface UserIdentities {
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  id: Generated<string>;
+  provider: string;
+  subject: string;
+  user_id: string;
+}
+
+export interface Users {
+  blocked_at: Timestamp | null;
+  blocked_reason: string | null;
+  created_at: Generated<Timestamp>;
+  display_name: string | null;
   email: string;
   email_verified_at: Timestamp | null;
-  id: string;
+  id: Generated<string>;
+  last_seen_at: Timestamp | null;
   locale: Generated<string>;
-  name: string;
-  password_changed_at: Generated<Timestamp>;
+  password_changed_at: Timestamp | null;
   password_hash: string | null;
-  tenant_id: string;
+  status: Generated<string>;
   timezone: string | null;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface DB {
-  email_identities: EmailIdentities;
+  account_invitations: AccountInvitations;
+  account_members: AccountMembers;
+  accounts: Accounts;
+  action_journal: ActionJournal;
+  agent_connections: AgentConnections;
+  agent_notes: AgentNotes;
+  agent_permissions: AgentPermissions;
+  agent_template_versions: AgentTemplateVersions;
+  agent_templates: AgentTemplates;
+  agents: Agents;
+  checks: Checks;
+  connection_credentials: ConnectionCredentials;
+  connection_links: ConnectionLinks;
+  connections: Connections;
+  conversations: Conversations;
+  decisions: Decisions;
+  events: Events;
+  ideas: Ideas;
+  idempotency_keys: IdempotencyKeys;
+  insights: Insights;
+  llm_calls: LlmCalls;
+  message_actions: MessageActions;
+  messages: Messages;
   metric_definitions: MetricDefinitions;
-  user_profiles: UserProfiles;
+  metric_points: MetricPoints;
+  outbox_events: OutboxEvents;
+  platform_flags: PlatformFlags;
+  projects: Projects;
+  routines: Routines;
+  scheduled_tasks: ScheduledTasks;
+  support_requests: SupportRequests;
+  task_steps: TaskSteps;
+  tasks: Tasks;
+  tool_calls: ToolCalls;
+  user_identities: UserIdentities;
+  users: Users;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Lock, Send, User } from 'lucide-react';
+import { Bell, Lock, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { routes } from '@/shared/config/routes';
@@ -15,7 +15,6 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
       nav={[
         { href: routes.profile(), label: t('tabs.general'), icon: User },
         { href: routes.profile('notifications'), label: t('tabs.notifications'), icon: Bell },
-        { href: routes.profile('telegram'), label: t('tabs.telegram'), icon: Send },
         { href: routes.profile('security'), label: t('tabs.security'), icon: Lock },
       ]}
     >

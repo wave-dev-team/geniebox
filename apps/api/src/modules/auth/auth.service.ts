@@ -1,205 +1,279 @@
-import type { Selectable } from 'kysely';
-
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, Logger } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { I18nContext } from 'nestjs-i18n';
 
-import { localeSchema } from '@workspace/types';
+import type { AppClsStore } from '../../common/context/app-cls-store.js';
+import { UserContextMissingException } from '../../common/exceptions/index.js';
+import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '../../common/i18n/locales.js';
+import { MailService } from '../mail/mail.service.js';
+import { normalizeEmail } from '../users/email.js';
+import type { IdentityProvider, UserRow } from '../users/repositories/users.repository.js';
+import { UsersService } from '../users/users.service.js';
+import { AUTH_ERRORS, AuthException } from './auth.errors.js';
+import { EMAIL_CODE_TTL_MINUTES, type EmailCodePurpose, EmailCodeStore } from './codes/email-code.store.js';
+import { LoginAttemptsLimiter } from './login-attempts.limiter.js';
+import { OidcVerifier } from './oidc/oidc-verifier.js';
+import { PasswordHasher } from './passwords/password-hasher.js';
+import { type SessionMeta, SessionStore } from './sessions/session.store.js';
+import { AccessTokenService } from './tokens/access-token.service.js';
 
-import type { UserProfiles } from '../../database/types.js';
-import { type Identity, ProfileRepository } from '../profile/profile.repository.js';
-import { AuthError } from './auth-errors.js';
-import { EmailCodesService, type EmailPurpose } from './email-codes.service.js';
-import { LoginAttempts } from './login-attempts.js';
-import { PasswordHasher } from './password-hasher.js';
-import { ACCESS_SECONDS, type Actor, SessionStore } from './session.store.js';
+export interface TokenPair {
+  accessToken: string;
+  accessTokenExpiresAt: Date;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+}
 
-type UserRow = Selectable<UserProfiles>;
-type Meta = { userAgent?: string; ip?: string };
+export interface AuthResult extends TokenPair {
+  userId: string;
+  /** True when this call created the user (sign-up). */
+  created: boolean;
+}
 
-const normalise = (email: string) => email.trim().toLowerCase();
-const identity = (user: UserRow): Identity => ({ tenantId: user.tenant_id, userId: user.id });
-const version = (user: UserRow) => user.password_changed_at.toISOString();
-const requestLocale = () => localeSchema.safeParse(I18nContext.current()?.lang).data ?? 'ru';
-const isDuplicate = (error: unknown) =>
-  error instanceof Error && 'constraint' in error && error.constraint === 'email_identities_pkey';
+const CODE_TEMPLATES = {
+  login: 'login_code',
+  verify_email: 'verify_email_code',
+  reset_password: 'reset_password_code',
+} as const satisfies Record<EmailCodePurpose, string>;
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly profiles: ProfileRepository,
-    private readonly passwords: PasswordHasher,
-    private readonly codes: EmailCodesService,
+    private readonly users: UsersService,
+    private readonly hasher: PasswordHasher,
     private readonly sessions: SessionStore,
-    private readonly jwt: JwtService,
-    private readonly attempts: LoginAttempts,
+    private readonly accessTokens: AccessTokenService,
+    private readonly codes: EmailCodeStore,
+    private readonly limiter: LoginAttemptsLimiter,
+    private readonly oidc: OidcVerifier,
+    private readonly mail: MailService,
+    private readonly cls: ClsService<AppClsStore>,
   ) {}
 
-  async register(input: { email: string; name: string; password: string; locale?: string }, meta: Meta) {
-    const email = normalise(input.email);
-    const emailKey = this.codes.emailKey(email);
-    let user: UserRow;
-    try {
-      user = await this.profiles.register({
-        email,
-        emailKey,
-        name: input.name.trim(),
-        locale: input.locale ?? requestLocale(),
-        passwordHash: await this.passwords.hash(input.password),
-      });
-    } catch (error) {
-      if (isDuplicate(error)) {
-        throw new AuthError('EMAIL_IN_USE');
-      }
-      throw error;
-    }
-    try {
-      await this.codes.send('verify', user.email, user.locale);
-    } catch (error) {
-      if (!(error instanceof ServiceUnavailableException)) throw error;
-      this.logger.warn('Verification delivery failed after registration');
-    }
+  async register(
+    input: { email: string; password: string; displayName?: string },
+    meta: SessionMeta,
+  ): Promise<AuthResult> {
+    const user = await this.users.registerWithPassword({
+      email: input.email,
+      passwordHash: await this.hasher.hash(input.password),
+      displayName: input.displayName,
+      locale: requestLocale(),
+    });
+    await this.sendCode('verify_email', user.email, user.locale);
     return this.startSession(user, meta, true);
   }
 
-  async login(email: string, password: string, meta: Meta) {
-    const key = this.codes.emailKey(normalise(email));
-    await this.attempts.claim(key);
-    const user = await this.profiles.findByEmail(key);
-    const valid = await this.passwords.verify(user?.password_hash ?? undefined, password);
-    if (!user || !valid) throw new AuthError('INVALID_CREDENTIALS');
-    await this.attempts.reset(key);
-    return this.startSession(user, meta);
-  }
-
-  async requestCode(purpose: Exclude<EmailPurpose, 'verify'>, email: string) {
-    const target = normalise(email);
-    const user = await this.byEmail(target);
-    if (purpose === 'login') {
-      await this.codes.send(purpose, target, user?.locale);
-    } else if (user) {
-      try {
-        await this.codes.send(purpose, user.email, user.locale);
-      } catch (error) {
-        if (!(error instanceof ServiceUnavailableException)) throw error;
-        this.logger.warn('Password reset delivery failed');
+  async login(input: { email: string; password: string }, meta: SessionMeta): Promise<AuthResult> {
+    const email = normalizeEmail(input.email);
+    if (await this.limiter.isLocked(email)) {
+      throw new AuthException(AUTH_ERRORS.TOO_MANY_LOGIN_ATTEMPTS);
+    }
+    const user = await this.users.findByEmail(email);
+    // Always runs argon2 (against a dummy hash for unknown emails) to keep timing uniform.
+    const valid = await this.hasher.verify(user?.password_hash, input.password);
+    if (!user || !valid) {
+      await this.limiter.recordFailure(email);
+      if (user) {
+        await this.users.recordPlatformAction(user.id, 'auth.login.password', 'rejected');
       }
+      throw new AuthException(AUTH_ERRORS.INVALID_CREDENTIALS);
     }
+    await this.users.getActiveById(user.id);
+    await this.limiter.reset(email);
+    return this.startSession(user, meta, false);
   }
 
-  async loginWithCode(email: string, code: string, meta: Meta) {
-    const target = normalise(email);
-    if (!(await this.codes.consume('login', target, code))) throw new AuthError('INVALID_EMAIL_CODE');
-    const emailKey = this.codes.emailKey(target);
-    let user = await this.profiles.findByEmail(emailKey);
-    if (!user) {
-      try {
-        const created = await this.profiles.register({
-          email: target,
-          emailKey,
-          name: target.slice(0, target.lastIndexOf('@')).slice(0, 120),
-          locale: requestLocale(),
-          passwordHash: null,
-          verified: true,
-        });
-        return this.startSession(created, meta, true);
-      } catch (error) {
-        if (!isDuplicate(error)) throw error;
-        user = await this.profiles.findByEmail(emailKey);
-      }
+  /** Sign-in (or sign-up) code. Same response whether or not the email is registered. */
+  async requestLoginCode(emailInput: string): Promise<void> {
+    const email = normalizeEmail(emailInput);
+    const user = await this.users.findByEmail(email);
+    await this.sendCode('login', email, user?.locale ?? requestLocale(), { strictCooldown: true });
+  }
+
+  async loginWithCode(input: { email: string; code: string }, meta: SessionMeta): Promise<AuthResult> {
+    const email = normalizeEmail(input.email);
+    if (!(await this.codes.consume('login', email, input.code))) {
+      throw new AuthException(AUTH_ERRORS.INVALID_CODE);
     }
-    if (!user) throw new AuthError('INVALID_CREDENTIALS');
-    if (!user.email_verified_at) {
-      const owner = identity(user);
-      // Before verification, a password may have been set by someone without mailbox access.
-      const claimed = await this.profiles.claimUnverifiedEmail(owner);
-      if (claimed) {
-        await this.sessions.revokeAll(owner);
-        return this.startSession(claimed, meta);
-      }
-      const verified = await this.profiles.find(owner);
-      if (!verified) throw new AuthError('INVALID_CREDENTIALS');
-      return this.startSession(verified, meta);
+    const { user, created } = await this.users.findOrCreateVerified(email, requestLocale());
+    return this.startSession(user, meta, created);
+  }
+
+  async loginWithProvider(
+    provider: IdentityProvider,
+    input: { idToken: string; nonce?: string; displayName?: string },
+    meta: SessionMeta,
+  ): Promise<AuthResult> {
+    const result = await this.oidc.verify(provider, input.idToken, input.nonce);
+    if (result.status === 'disabled') {
+      throw new AuthException(AUTH_ERRORS.OIDC_PROVIDER_DISABLED);
     }
-    return this.startSession(user, meta);
-  }
-
-  async requestVerification(actor: Actor) {
-    const user = await this.profiles.find(actor);
-    if (user && !user.email_verified_at) await this.codes.send('verify', user.email, user.locale);
-  }
-
-  async verifyEmail(actor: Actor, code: string) {
-    const user = await this.profiles.find(actor);
-    if (!user || !(await this.codes.consume('verify', user.email, code)))
-      throw new AuthError('INVALID_EMAIL_CODE');
-    await this.profiles.verifyEmail(actor);
-  }
-
-  async resetPassword(email: string, code: string, newPassword: string) {
-    const user = await this.byEmail(email);
-    if (!user || !(await this.codes.consume('reset', user.email, code)))
-      throw new AuthError('INVALID_EMAIL_CODE');
-    await this.replacePassword(user, newPassword, true);
-    await this.attempts.reset(this.codes.emailKey(user.email));
-  }
-
-  async changePassword(actor: Actor, currentPassword: string | undefined, newPassword: string, meta: Meta) {
-    const user = await this.profiles.find(actor);
-    if (
-      !user ||
-      (user.password_hash && !(await this.passwords.verify(user.password_hash, currentPassword ?? '')))
-    ) {
-      throw new AuthError('INVALID_CREDENTIALS');
+    if (result.status === 'invalid') {
+      throw new AuthException(AUTH_ERRORS.INVALID_ID_TOKEN);
     }
-    const updated = await this.replacePassword(user, newPassword);
-    return this.startSession(updated, meta);
-  }
-
-  async refresh(token: string) {
-    const next = await this.sessions.rotate(token);
-    const user = await this.profiles.find(next.actor);
-    if (!user || version(user) !== next.version || next.expiresIn <= 0) {
-      await this.sessions.revoke(next.actor);
-      throw new AuthError('SESSION_EXPIRED');
+    const { identity } = result;
+    if (!identity.email) {
+      throw new AuthException(AUTH_ERRORS.OIDC_EMAIL_REQUIRED);
     }
-    return { ...next, access: await this.issueAccess(next.actor, next.version) };
-  }
-
-  private byEmail(email: string) {
-    return this.profiles.findByEmail(this.codes.emailKey(normalise(email)));
-  }
-
-  private async replacePassword(user: UserRow, newPassword: string, verifyEmail = false) {
-    const actor = identity(user);
-    const updated = await this.profiles.changePassword(
-      actor,
-      user.password_hash,
-      await this.passwords.hash(newPassword),
-      verifyEmail,
-    );
-    if (!updated) throw new AuthError('PASSWORD_CHANGED');
-    await this.sessions.revokeAll(actor);
-    return updated;
-  }
-
-  private async startSession(user: UserRow, meta: Meta, created = false) {
-    const session = await this.sessions.create(identity(user), version(user), meta);
-    const access = await this.issueAccess(session.actor, version(user));
-    return { ...session, access, result: { created, emailVerified: Boolean(user.email_verified_at) } };
-  }
-
-  private issueAccess(actor: Actor, passwordVersion: string) {
-    return this.jwt.signAsync(
+    const existing = await this.users.findByEmail(identity.email);
+    const user = await this.users.resolveExternalIdentity(
       {
-        sub: actor.userId,
-        tenant_id: actor.tenantId,
-        sid: actor.sessionId,
-        ver: passwordVersion,
+        provider,
+        subject: identity.subject,
+        email: identity.email,
+        emailVerified: identity.emailVerified,
+        // Apple returns the name to the client only once; accept it from the request then.
+        displayName: identity.name ?? input.displayName,
       },
-      { expiresIn: ACCESS_SECONDS, issuer: 'geniebox', audience: 'geniebox-api', algorithm: 'HS256' },
+      requestLocale(),
     );
+    return this.startSession(user, meta, !existing);
   }
+
+  /** Always succeeds from the caller's point of view: no account enumeration. */
+  async requestPasswordReset(emailInput: string): Promise<void> {
+    const user = await this.users.findByEmail(emailInput);
+    if (user?.status === 'active') {
+      await this.sendCode('reset_password', user.email, user.locale, { strictCooldown: false });
+    }
+  }
+
+  async resetPassword(input: { email: string; code: string; newPassword: string }): Promise<void> {
+    const email = normalizeEmail(input.email);
+    if (!(await this.codes.consume('reset_password', email, input.code))) {
+      throw new AuthException(AUTH_ERRORS.INVALID_CODE);
+    }
+    const user = await this.users.findByEmail(email);
+    if (!user) {
+      throw new AuthException(AUTH_ERRORS.INVALID_CODE);
+    }
+    await this.users.setPassword(user.id, await this.hasher.hash(input.newPassword));
+    // The code proved control of the mailbox.
+    await this.users.markEmailVerified(user.id);
+    await this.sessions.revokeAll(user.id);
+    await this.limiter.reset(email);
+  }
+
+  async refresh(refreshToken: string): Promise<TokenPair> {
+    const rotation = await this.sessions.rotate(refreshToken);
+    switch (rotation.status) {
+      case 'rotated': {
+        await this.users.touchLastSeen(rotation.userId);
+        const access = await this.accessTokens.issue(rotation.userId, rotation.sessionId);
+        return {
+          accessToken: access.accessToken,
+          accessTokenExpiresAt: access.expiresAt,
+          refreshToken: rotation.refreshToken,
+          refreshTokenExpiresAt: rotation.expiresAt,
+        };
+      }
+      case 'concurrent':
+        throw new AuthException(AUTH_ERRORS.REFRESH_IN_PROGRESS);
+      case 'reused':
+        this.logger.warn('Refresh token reuse detected, session revoked');
+        throw new AuthException(AUTH_ERRORS.REFRESH_TOKEN_REUSED);
+      case 'invalid':
+        throw new AuthException(AUTH_ERRORS.INVALID_REFRESH_TOKEN);
+    }
+  }
+
+  async logout(): Promise<void> {
+    const sessionId = this.cls.get('sessionId');
+    if (sessionId) {
+      await this.sessions.revoke(sessionId);
+    }
+  }
+
+  async logoutEverywhere(): Promise<number> {
+    return this.sessions.revokeAll(this.currentUserId());
+  }
+
+  async requestEmailVerification(): Promise<void> {
+    const user = await this.users.getActiveById(this.currentUserId());
+    if (!user.email_verified_at) {
+      await this.sendCode('verify_email', user.email, user.locale, { strictCooldown: true });
+    }
+  }
+
+  async confirmEmailVerification(code: string): Promise<void> {
+    const user = await this.users.getActiveById(this.currentUserId());
+    if (!(await this.codes.consume('verify_email', user.email, code))) {
+      throw new AuthException(AUTH_ERRORS.INVALID_CODE);
+    }
+    await this.users.markEmailVerified(user.id);
+  }
+
+  /** Sets or changes the password; other sessions are signed out. */
+  async changePassword(input: { currentPassword?: string; newPassword: string }): Promise<void> {
+    const user = await this.users.getActiveById(this.currentUserId());
+    if (user.password_hash) {
+      const valid = await this.hasher.verify(user.password_hash, input.currentPassword ?? '');
+      if (!valid) {
+        throw new AuthException(AUTH_ERRORS.CURRENT_PASSWORD_INVALID);
+      }
+    }
+    await this.users.setPassword(user.id, await this.hasher.hash(input.newPassword));
+    await this.sessions.revokeAll(user.id, this.cls.get('sessionId'));
+  }
+
+  private async startSession(user: UserRow, meta: SessionMeta, created: boolean): Promise<AuthResult> {
+    // Blocked by an administrator: no sign-in by any method.
+    if (user.status !== 'active') {
+      await this.users.getActiveById(user.id);
+    }
+    await this.users.touchLastSeen(user.id);
+    const refresh = await this.sessions.create(user.id, meta);
+    const access = await this.accessTokens.issue(user.id, refresh.sessionId);
+    await this.users.recordPlatformAction(user.id, 'auth.session.create', 'succeeded', {
+      sessionId: refresh.sessionId,
+    });
+    return {
+      userId: user.id,
+      created,
+      accessToken: access.accessToken,
+      accessTokenExpiresAt: access.expiresAt,
+      refreshToken: refresh.refreshToken,
+      refreshTokenExpiresAt: refresh.expiresAt,
+    };
+  }
+
+  private async sendCode(
+    purpose: EmailCodePurpose,
+    email: string,
+    locale: string,
+    options: { strictCooldown: boolean } = { strictCooldown: false },
+  ): Promise<void> {
+    const issued = await this.codes.issue(purpose, email);
+    if (issued.status === 'cooldown') {
+      if (options.strictCooldown) {
+        throw new AuthException(AUTH_ERRORS.CODE_RESEND_TOO_SOON);
+      }
+      return;
+    }
+    await this.mail.send({
+      to: email,
+      template: CODE_TEMPLATES[purpose],
+      locale: toLocale(locale),
+      params: { code: issued.code, ttlMinutes: String(EMAIL_CODE_TTL_MINUTES) },
+    });
+  }
+
+  private currentUserId(): string {
+    const userId = this.cls.get('userId');
+    if (!userId) {
+      throw new UserContextMissingException();
+    }
+    return userId;
+  }
+}
+
+function toLocale(value: string | undefined): Locale {
+  return (SUPPORTED_LOCALES as readonly string[]).includes(value ?? '') ? (value as Locale) : DEFAULT_LOCALE;
+}
+
+function requestLocale(): Locale {
+  return toLocale(I18nContext.current()?.lang);
 }

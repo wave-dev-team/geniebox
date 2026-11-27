@@ -2,13 +2,15 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { type CSSProperties, type ReactNode, useEffect } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@workspace/ui/components/sidebar';
 import { cn } from '@workspace/ui/lib/utils';
 
 import { AgentRail } from './agent-rail';
 import { AppSidebar } from './app-sidebar';
+
+import { ManagerChatScreen } from '@/widgets/manager-chat/ui/manager-chat-screen';
 
 const sidebarStyle = { '--sidebar-width': '15.5rem' } as CSSProperties;
 
@@ -22,7 +24,10 @@ function ShowSidebarButton() {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const showRail = pathname !== '/';
+  const t = useTranslations('rail');
+  const showRail = pathname !== '/' && pathname !== '/chat';
+  const [panel, setPanel] = useState(false);
+  const showPanel = showRail && panel;
 
   useEffect(() => {
     function openSearch(event: KeyboardEvent) {
@@ -40,7 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <SidebarProvider style={sidebarStyle} className="h-svh overflow-hidden bg-sidebar">
+    <SidebarProvider style={sidebarStyle} className="relative h-svh overflow-hidden bg-sidebar">
       <AppSidebar />
       <SidebarInset
         className={cn('min-w-0 overflow-hidden', showRail && 'md:peer-data-[variant=inset]:mr-0')}
@@ -50,7 +55,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </SidebarInset>
-      {showRail && <AgentRail />}
+      {showPanel && (
+        <aside
+          aria-label={t('managerHint')}
+          className="absolute inset-y-0 right-12 z-20 my-2 ml-2 hidden w-[min(26rem,calc(100vw-3rem))] shrink-0 overflow-hidden rounded-xl border bg-background shadow-sm md:block lg:static"
+        >
+          <ManagerChatScreen closePanel={() => setPanel(false)} />
+        </aside>
+      )}
+      {showRail && <AgentRail open={showPanel} onManager={() => setPanel((current) => !current)} />}
     </SidebarProvider>
   );
 }

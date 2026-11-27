@@ -1,41 +1,7 @@
 import { authResultSchema, profileSchema, type ProfileUpdate, sessionsSchema } from '@workspace/types';
 
-import { ApiError, request } from './request.js';
-
-let refreshInFlight: Promise<void> | undefined;
-
-function refreshSession() {
-  refreshInFlight ??= request('/v1/auth/refresh', { method: 'POST' })
-    .then(() => undefined)
-    .finally(() => {
-      refreshInFlight = undefined;
-    });
-  return refreshInFlight;
-}
-
-async function authenticated(path: string, options?: RequestInit): Promise<Response> {
-  try {
-    return await request(path, options);
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    try {
-      await refreshSession();
-    } catch (refreshError) {
-      if (!(refreshError instanceof ApiError) || refreshError.code !== 'REFRESH_CONCURRENT')
-        throw refreshError;
-      for (const delay of [100, 250, 500]) {
-        await new Promise<void>((resolve) => setTimeout(resolve, delay));
-        try {
-          return await request(path, options);
-        } catch (retryError) {
-          if (!(retryError instanceof ApiError) || retryError.status !== 401) throw retryError;
-        }
-      }
-      throw refreshError;
-    }
-    return request(path, options);
-  }
-}
+import { authenticated } from './authenticated.js';
+import { request } from './request.js';
 
 const json = (body: object) => JSON.stringify(body);
 const post = (path: string, body?: object) =>
@@ -43,13 +9,16 @@ const post = (path: string, body?: object) =>
 const authenticatedPost = (path: string, body?: object) =>
   authenticated(`/v1/auth/${path}`, { method: 'POST', body: body && json(body) });
 
+async function openSession(path: string, body: object) {
+  const result = authResultSchema.parse(await (await post(path, body)).json());
+  return result;
+}
+
 export const authApi = {
-  register: async (body: { email: string; password: string; name: string; locale: string }) =>
-    authResultSchema.parse(await (await post('register', body)).json()),
-  login: async (body: { email: string; password: string }) =>
-    authResultSchema.parse(await (await post('login', body)).json()),
-  loginWithCode: async (body: { email: string; code: string }) =>
-    authResultSchema.parse(await (await post('email-code/verify', body)).json()),
+  register: (body: { email: string; password: string; name: string }) =>
+    openSession('register', { email: body.email, password: body.password, displayName: body.name }),
+  login: (body: { email: string; password: string }) => openSession('login', body),
+  loginWithCode: (body: { email: string; code: string }) => openSession('email-code/verify', body),
   requestLoginCode: (email: string) => post('email-code', { email }),
   forgotPassword: (email: string) => post('password/forgot', { email }),
   resetPassword: (body: { email: string; code: string; newPassword: string }) => post('password/reset', body),
@@ -62,8 +31,10 @@ export const authApi = {
 };
 
 export const profileApi = {
-  me: async (signal?: AbortSignal) =>
-    profileSchema.parse(await (await authenticated('/v1/me', { signal })).json()),
+  me: async (signal?: AbortSignal) => {
+    const profile = profileSchema.parse(await (await authenticated('/v1/me', { signal })).json());
+    return profile;
+  },
   update: async (body: ProfileUpdate) =>
     profileSchema.parse(await (await authenticated('/v1/me', { method: 'PATCH', body: json(body) })).json()),
   sessions: async () => sessionsSchema.parse(await (await authenticated('/v1/me/sessions')).json()),

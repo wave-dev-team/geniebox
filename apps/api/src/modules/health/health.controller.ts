@@ -1,28 +1,20 @@
 import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { type HealthResponse, healthStatuses } from '@workspace/types';
+import { Public } from '../../common/decorators/public.decorator.js';
 
-import { Public } from '../../common/auth/public.js';
-
-class HealthResponseDto implements HealthResponse {
-  @ApiProperty({ description: 'Liveness status of the API process.', enum: [...healthStatuses] })
-  status!: HealthResponse['status'];
+export class LivenessResponseDto {
+  status: 'ok';
 }
 
-@Public()
+/** Public liveness probe: says only that the process is up, nothing about dependencies. */
 @ApiTags('health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
-  constructor(private readonly health: HealthCheckService) {}
-
+  @Public()
   @Get()
-  @HealthCheck()
-  @ApiOperation({ summary: 'Check whether the API process is alive' })
-  @ApiOkResponse({ type: HealthResponseDto })
-  async check(): Promise<HealthResponseDto> {
-    const { status } = await this.health.check([]);
-    return { status };
+  @ApiOperation({ summary: 'Liveness probe' })
+  live(): LivenessResponseDto {
+    return { status: 'ok' };
   }
 }

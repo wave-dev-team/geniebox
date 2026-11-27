@@ -1,5 +1,6 @@
 .git
 **/node_modules
+**/.secrets
 **/.next
 **/.turbo
 **/dist

@@ -1,38 +1,61 @@
-import { Migrator } from 'kysely/migration';
-import { z } from 'zod';
+import { loadDbToolingEnv } from '../config/env.js';
+import { bootstrapDatabase } from './bootstrap.js';
+import { createKysely } from './create-kysely.js';
+import { createMigrator, migrateToLatest } from './migrator.js';
 
-import { bootstrapEnvironment, migrationEnvironment } from '../config/environment.js';
-import { createDb } from './create-db.js';
-import { migrationProvider } from './migrations/index.js';
-import { bootstrapRoles } from './roles.js';
+const USAGE = 'Usage: db <bootstrap|migrate|rollback|status>';
 
-const command = z.enum(['bootstrap', 'migrate', 'rollback', 'status']).parse(process.argv[2]);
-const environment = migrationEnvironment.parse(process.env);
-const db = createDb(environment.DB_MIGRATION_URL);
+async function main(command: string | undefined): Promise<void> {
+  const env = loadDbToolingEnv();
 
-try {
-  const migrator = new Migrator({ db, provider: migrationProvider });
-
-  switch (command) {
-    case 'bootstrap': {
-      const { DB_APP_PASSWORD } = bootstrapEnvironment.parse(process.env);
-      await bootstrapRoles(db, DB_APP_PASSWORD);
-      break;
+  if (command === 'bootstrap') {
+    if (!env.DATABASE_ADMIN_URL) {
+      throw new Error('DATABASE_ADMIN_URL is required for bootstrap');
     }
-    case 'migrate':
-    case 'rollback': {
-      const result = await (command === 'migrate' ? migrator.migrateToLatest() : migrator.migrateDown());
-      process.stdout.write(JSON.stringify(result.results ?? []) + '\n');
-
-      if (result.error) {
-        throw result.error;
-      }
-      break;
-    }
-    case 'status':
-      process.stdout.write(JSON.stringify(await migrator.getMigrations(), null, 2) + '\n');
-      break;
+    await bootstrapDatabase({
+      adminUrl: env.DATABASE_ADMIN_URL,
+      ownerUrl: env.DATABASE_OWNER_URL,
+      appUrl: env.DATABASE_URL,
+      systemUrl: env.DATABASE_SYSTEM_URL,
+    });
+    console.log('Bootstrap completed');
+    return;
   }
-} finally {
-  await db.destroy();
+
+  const db = createKysely<unknown>({
+    connectionString: env.DATABASE_OWNER_URL,
+    max: 1,
+    applicationName: 'geniebox:migrator',
+  });
+  try {
+    switch (command) {
+      case 'migrate': {
+        const { results } = await migrateToLatest(db);
+        for (const r of results ?? []) console.log(`${r.status}: ${r.migrationName}`);
+        if (!results?.length) console.log('No pending migrations');
+        break;
+      }
+      case 'rollback': {
+        const { error, results } = await createMigrator(db).migrateDown();
+        for (const r of results ?? []) console.log(`${r.status}: ${r.migrationName} (down)`);
+        if (error) throw error instanceof Error ? error : new Error('Rollback failed', { cause: error });
+        break;
+      }
+      case 'status': {
+        for (const m of await createMigrator(db).getMigrations()) {
+          console.log(`${m.executedAt ? m.executedAt.toISOString() : 'pending'.padEnd(24)}  ${m.name}`);
+        }
+        break;
+      }
+      default:
+        throw new Error(USAGE);
+    }
+  } finally {
+    await db.destroy();
+  }
 }
+
+main(process.argv[2]).catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

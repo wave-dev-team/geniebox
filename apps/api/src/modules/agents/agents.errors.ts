@@ -1,0 +1,43 @@
+import { HttpStatus } from '@nestjs/common';
+
+import { DomainException, type DomainExceptionOptions } from '../../common/exceptions/index.js';
+
+export const AGENT_ERRORS = {
+  AGENT_NOT_FOUND: 'AGENT_NOT_FOUND',
+  AGENT_TEMPLATE_UNKNOWN: 'AGENT_TEMPLATE_UNKNOWN',
+  AGENT_ALREADY_HIRED: 'AGENT_ALREADY_HIRED',
+  AGENT_REQUIREMENTS_MISSING: 'AGENT_REQUIREMENTS_MISSING',
+  AGENT_MANAGER_IMMUTABLE: 'AGENT_MANAGER_IMMUTABLE',
+  AGENT_PERMISSION_LOCKED: 'AGENT_PERMISSION_LOCKED',
+  AGENT_TOOL_UNKNOWN: 'AGENT_TOOL_UNKNOWN',
+  AGENT_CONNECTION_INVALID: 'AGENT_CONNECTION_INVALID',
+  AGENT_LIMIT_INVALID: 'AGENT_LIMIT_INVALID',
+  AGENT_ICON_INVALID: 'AGENT_ICON_INVALID',
+  AGENT_LIMIT_REACHED: 'AGENT_LIMIT_REACHED',
+  AGENT_TEMPLATE_NOT_IN_PLAN: 'AGENT_TEMPLATE_NOT_IN_PLAN',
+} as const;
+
+type AgentErrorCode = (typeof AGENT_ERRORS)[keyof typeof AGENT_ERRORS];
+
+const STATUS: Record<AgentErrorCode, HttpStatus> = {
+  AGENT_NOT_FOUND: HttpStatus.NOT_FOUND,
+  AGENT_TEMPLATE_UNKNOWN: HttpStatus.BAD_REQUEST,
+  AGENT_ALREADY_HIRED: HttpStatus.CONFLICT,
+  AGENT_REQUIREMENTS_MISSING: HttpStatus.UNPROCESSABLE_ENTITY,
+  AGENT_MANAGER_IMMUTABLE: HttpStatus.CONFLICT,
+  // System-denied tools cannot be opened by anyone.
+  AGENT_PERMISSION_LOCKED: HttpStatus.FORBIDDEN,
+  AGENT_TOOL_UNKNOWN: HttpStatus.BAD_REQUEST,
+  AGENT_CONNECTION_INVALID: HttpStatus.BAD_REQUEST,
+  AGENT_LIMIT_INVALID: HttpStatus.BAD_REQUEST,
+  AGENT_ICON_INVALID: HttpStatus.BAD_REQUEST,
+  AGENT_LIMIT_REACHED: HttpStatus.CONFLICT,
+  // The catalog names the plans a template can be hired on.
+  AGENT_TEMPLATE_NOT_IN_PLAN: HttpStatus.FORBIDDEN,
+};
+
+export class AgentException extends DomainException {
+  constructor(code: AgentErrorCode, options?: DomainExceptionOptions) {
+    super(code, STATUS[code], options);
+  }
+}

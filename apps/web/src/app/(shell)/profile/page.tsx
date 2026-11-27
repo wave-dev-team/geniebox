@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 
 import { useMe } from '@/entities/session';
+import { useWorkspaces } from '@/entities/workspace';
 import { ProfileForm } from '@/features/profile-edit';
 import { initials } from '@/shared/lib/initials';
 import { SettingsCard } from '@/shared/ui/settings-card';
@@ -13,15 +14,16 @@ import { SettingsCard } from '@/shared/ui/settings-card';
 /** Profile (H07). Photo upload arrives with file storage; until then initials are shown. */
 export default function ProfilePage() {
   const t = useTranslations('profile');
-  const tRoles = useTranslations('roles');
-  const tApp = useTranslations('app');
+  const tWorkspace = useTranslations('workspace');
   const me = useMe();
+  const { data: directory } = useWorkspaces();
+  const active = directory?.workspaces.find(({ id }) => id === directory.activeId);
 
   if (!me.data) {
     return <Skeleton className="h-96 rounded-xl" />;
   }
-  const name = me.data.name;
-  const memberships = `${tRoles('owner')} · ${tApp('brand')}`;
+  const name = me.data.displayName ?? me.data.email;
+  const membership = active ? `${tWorkspace(active.role)} · ${active.name}` : me.data.email;
 
   return (
     <>
@@ -32,7 +34,7 @@ export default function ProfilePage() {
           </Avatar>
           <div className="flex min-w-0 flex-col">
             <span className="truncate font-medium">{name}</span>
-            <span className="truncate text-sm text-muted-foreground">{memberships || me.data.email}</span>
+            <span className="truncate text-sm text-muted-foreground">{membership}</span>
           </div>
         </div>
       </SettingsCard>

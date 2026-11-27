@@ -26,11 +26,13 @@ export function TimeZonePicker({
   value,
   onChange,
   nullLabel,
+  disabled,
 }: {
   id?: string;
   value: string | null;
   onChange: (value: string | null) => void;
   nullLabel?: string;
+  disabled?: boolean;
 }) {
   const t = useTranslations('timezone');
   const locale = useLocale();
@@ -48,6 +50,7 @@ export function TimeZonePicker({
         render={
           <Button
             id={id}
+            disabled={disabled}
             variant="outline"
             role="combobox"
             aria-expanded={open}

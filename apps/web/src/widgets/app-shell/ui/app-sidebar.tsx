@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from '@workspace/ui/components/sidebar';
 
+import { useWorkspaces } from '@/entities/workspace';
 import { AccountMenu } from '@/features/account-menu';
 import { footerNavigation, mainNavigation } from '@/shared/config/nav';
 
@@ -42,6 +43,8 @@ function WorkspaceLogo() {
 
 function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
   const t = useTranslations();
+  const { data, select } = useWorkspaces();
+  const selected = data?.workspaces.find(({ id }) => id === data.activeId);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -50,19 +53,31 @@ function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
         render={<SidebarMenuButton />}
       >
         <WorkspaceLogo />
-        <span className="truncate">{t('app.brand')}</span>
+        <span className="truncate">{selected?.name ?? t('app.brand')}</span>
         <ChevronDown className="-ml-0.5 size-3.5! opacity-50" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-68" align="start">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="sr-only">{t('workspace.list')}</DropdownMenuLabel>
-          <DropdownMenuItem render={<Link href="/" onClick={onSelect} />} className="min-h-10">
-            <WorkspaceLogo />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate">{t('app.brand')}</span>
-              <span className="text-xs text-muted-foreground">{t('app.description')}</span>
-            </span>
-            <Check />
+          {data?.workspaces.map((workspace) => (
+            <DropdownMenuItem
+              className="min-h-10"
+              key={workspace.id}
+              onClick={() => {
+                onSelect();
+                if (workspace.id !== data.activeId) select(workspace.id);
+              }}
+            >
+              <WorkspaceLogo />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate">{workspace.name}</span>
+                <span className="text-xs text-muted-foreground">{t(`workspace.${workspace.role}`)}</span>
+              </span>
+              {workspace.id === data.activeId ? <Check /> : null}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem render={<Link href="/settings" onClick={onSelect} />}>
+            {t('workspace.settings')}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

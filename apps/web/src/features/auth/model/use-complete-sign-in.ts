@@ -26,7 +26,9 @@ export function useCompleteSignIn() {
     queryClient.removeQueries({ queryKey: queryKeys.sessions() });
     const profile = await profileApi.me();
     queryClient.setQueryData(queryKeys.me(), profile);
+    if (result.created && !profile.emailVerified)
+      sessionStorage.setItem('geniebox:verification-sent', profile.id);
     if (profile.locale !== locale) await setLocale(profile.locale);
-    router.replace(target ?? (result.emailVerified ? destination : routes.verifyEmail(destination)));
+    router.replace(target ?? (profile.emailVerified ? destination : routes.verifyEmail(destination)));
   };
 }

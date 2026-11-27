@@ -1,0 +1,38 @@
+{
+  "login_code": {
+    "subject": "Код для входа в Geniebox: {code}",
+    "text": "Ваш код для входа: {code}\n\nКод действует {ttlMinutes} минут. Если вы не запрашивали вход, просто проигнорируйте это письмо."
+  },
+  "verify_email_code": {
+    "subject": "Подтверждение email в Geniebox",
+    "text": "Код подтверждения: {code}\n\nКод действует {ttlMinutes} минут."
+  },
+  "reset_password_code": {
+    "subject": "Сброс пароля в Geniebox",
+    "text": "Код для сброса пароля: {code}\n\nКод действует {ttlMinutes} минут. Если вы не запрашивали сброс, проигнорируйте это письмо: пароль останется прежним."
+  },
+  "account_invitation": {
+    "subject": "Приглашение в «{accountName}» на Geniebox",
+    "text": "{inviterName} приглашает вас в «{accountName}».\n\nПринять приглашение: {link}\n\nСсылка действует до {expiresAt}."
+  },
+  "support_request": {
+    "subject": "Обращение в поддержку от {from}",
+    "text": "Обращение {requestId}\n\nОт: {from}\nПроект: {project}\nТема: {topic}\nДоступ к журналу: {attachJournal}\n\n{message}"
+  },
+  "support_turnkey": {
+    "subject": "Заявка на настройку под ключ от {from}",
+    "text": "Заявка {requestId}\n\nОт: {from}\nПроект: {project}\nЧто настроить: {services}\nКонтакт: {contact}\nУдобное время: {preferredTime}\n\n{message}"
+  },
+  "connection_ready": {
+    "subject": "Разработчик подключил сервис к «{project}»",
+    "text": "По вашей ссылке подключили сервис ({provider}) к проекту «{project}». Результат проверки: {status}.\n\nОткрыть подключения: {link}"
+  },
+  "account_blocked": {
+    "subject": "Аккаунт «{accountName}» заблокирован",
+    "text": "Аккаунт «{accountName}» заблокирован. Агенты остановлены, вход участников закрыт, данные сохранены.\n\nПричина: {reason}\n\nЧтобы снять блокировку, ответьте на это письмо."
+  },
+  "account_unblocked": {
+    "subject": "Аккаунт «{accountName}» разблокирован",
+    "text": "Блокировка аккаунта «{accountName}» снята.\n\n{reason}\n\nОткрыть Geniebox: {link}"
+  }
+}
