@@ -506,5 +506,223 @@
     "restored": "Instructions restored",
     "retry": "Retry",
     "more": "Show more"
+  },
+  "projectSettings": {
+    "title": "Project settings",
+    "tabs": {
+      "general": "General",
+      "rules": "Rules",
+      "security": "Security",
+      "permissions": "Agent permissions",
+      "keys": "Access keys",
+      "journal": "Activity log",
+      "members": "Members"
+    },
+    "noProject": "Create a project to manage its settings.",
+    "activeProject": "Project",
+    "save": "Save",
+    "saved": "Settings saved",
+    "readOnly": "You can view these settings.",
+    "project": "About the project",
+    "projectHint": "Project details and team goals.",
+    "name": "Name",
+    "sphere": "Industry",
+    "sphereHint": "Helps agents account for the project’s industry.",
+    "spherePlaceholder": "Choose an industry",
+    "about": "Description",
+    "goals": "Project goals",
+    "monthGoal": "Monthly goal",
+    "monthGoalHint": "The outcome the team wants to achieve this month.",
+    "monthGoalPlaceholder": "For example, increase repeat sales",
+    "metrics": "Metrics and formats",
+    "metricsHint": "Primary metric and display preferences.",
+    "mainMetric": "Primary metric",
+    "mainMetricHint": "The metric the team tracks.",
+    "customMetric": "Metric name",
+    "currency": "Currency",
+    "timezone": "Time zone",
+    "timezoneHint": "Sets the day boundary for reports.",
+    "numberFormat": "Number format",
+    "dateFormat": "Date format",
+    "weekStart": "Start of week",
+    "clients": "Customer communication",
+    "clientsHint": "Language and style used in customer messages.",
+    "clientLanguage": "Language",
+    "clientTone": "Tone",
+    "clientAddress": "Form of address",
+    "clientSignature": "Signature",
+    "clientSignatureHint": "Used in messages to customers.",
+    "clientSignaturePlaceholder": "Support team",
+    "newAgents": "New agent policy",
+    "trust": "Trust level",
+    "probation": "Trial period",
+    "streak": "Successful actions in a row",
+    "asks": "Always require approval",
+    "limits": "Project limits",
+    "budget": "Monthly AI budget, RUB",
+    "agentRules": "Agent instructions",
+    "addRule": "Add rule",
+    "removeRule": "Remove",
+    "noRules": "No shared instructions yet.",
+    "ruleNumber": "Rule {number}",
+    "team": "Agent team",
+    "teamState": "Agent status",
+    "paused": "Paused",
+    "running": "Running",
+    "pausedUntil": "Resumes automatically {time}",
+    "pause": "Pause agents",
+    "pauseUntil": "Pause until",
+    "pauseHint": "Leave blank to resume manually. The time is in your device’s time zone.",
+    "pauseFuture": "Choose a time in the future.",
+    "resume": "Resume agents",
+    "danger": "Critical actions",
+    "disconnect": "Disconnect all services",
+    "disconnectHint": "Agents will lose access to all connections in this project.",
+    "disconnected": "All services disconnected",
+    "delete": "Delete project",
+    "deleteHint": "The project will disappear immediately. Its data will be deleted after a grace period.",
+    "deleted": "Project deleted",
+    "agent": "Agent",
+    "noAgents": "This project has no agents yet.",
+    "noPermissions": "No tool permissions are available for this agent.",
+    "permissionSource": {
+      "preset": "From trust preset",
+      "explicit": "Custom setting",
+      "system": "Set by the system"
+    },
+    "permissionMode": {
+      "auto": "Automatic",
+      "notify": "Notify",
+      "approve": "Require approval",
+      "deny": "Deny"
+    },
+    "resetPermission": "Reset",
+    "noKeys": "No connections have active keys yet.",
+    "keyHealth": {
+      "ok": "Active",
+      "expiring": "Expiring soon",
+      "expired": "Expired"
+    },
+    "keyExpires": "Expires {date}",
+    "keyUpdated": "Updated {date}",
+    "rotate": "Rotate key",
+    "rotateTitle": "Rotate the key for {name}",
+    "rotateSsh": "A new SSH key pair will be generated.",
+    "rotateExternal": "Enter the replacement credentials issued by the service.",
+    "providerMissing": "Settings for this provider are unavailable.",
+    "installSsh": "Install the new public key on your server.",
+    "keyCheckFailed": "The key was replaced, but the connection check failed.",
+    "rotated": "Key updated",
+    "downloadCsv": "Download CSV",
+    "period": "Period",
+    "connection": "Connection",
+    "result": "Result",
+    "allAgents": "All agents",
+    "allConnections": "All connections",
+    "journalPeriod": {
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "journalResult": {
+      "all": "All results",
+      "ok": "Executed",
+      "approval": "Awaiting approval",
+      "refused": "Refused",
+      "failed": "Failed"
+    },
+    "journalStatus": {
+      "executed": "Executed",
+      "approval": "Awaiting approval",
+      "denied": "Denied",
+      "rejected": "Rejected",
+      "failed": "Failed",
+      "blocked": "Blocked"
+    },
+    "journalEmpty": "No events match the selected filters.",
+    "loadMore": "Load more"
+  },
+  "projectOptions": {
+    "sphere": {
+      "subscription": "Subscriptions",
+      "ecommerce": "E-commerce",
+      "online_school": "Online school",
+      "saas": "SaaS",
+      "services": "Services",
+      "media": "Media",
+      "personal": "Personal project",
+      "open_source": "Open source",
+      "other": "Other"
+    },
+    "goal": {
+      "more_clients": "Attract more customers",
+      "less_churn": "Reduce churn",
+      "faster_support": "Improve support response time",
+      "less_routine": "Reduce routine work",
+      "tech_order": "Improve technical operations"
+    },
+    "metric": {
+      "revenue": "Revenue",
+      "active_subscriptions": "Active subscriptions",
+      "subscribers": "Subscribers",
+      "uptime": "Uptime",
+      "custom": "Custom metric"
+    },
+    "currency": {
+      "RUB": "Russian ruble (RUB)",
+      "USD": "US dollar (USD)",
+      "EUR": "Euro (EUR)",
+      "KZT": "Kazakhstani tenge (KZT)"
+    },
+    "weekStart": {
+      "monday": "Monday",
+      "sunday": "Sunday"
+    },
+    "clientLanguage": {
+      "ru": "Russian",
+      "en": "English",
+      "kk": "Kazakh",
+      "uk": "Ukrainian"
+    },
+    "clientTone": {
+      "friendly": "Friendly",
+      "business": "Professional",
+      "neutral": "Neutral"
+    },
+    "clientAddress": {
+      "formal": "Formal",
+      "informal": "Informal"
+    },
+    "trust": {
+      "approve_all": "Approve all actions",
+      "approve_important": "Approve important actions",
+      "autonomous": "Act autonomously"
+    },
+    "ask": {
+      "discount_over_20": "Discounts over 20%",
+      "mailing_over_500": "Mailings to over 500 recipients",
+      "spend_over_10000": "Spending over RUB 10,000",
+      "release_changes": "Releasing changes",
+      "publish_on_behalf": "Publishing on behalf of the project"
+    },
+    "days": "{count, plural, one {# day} other {# days}}"
+  },
+  "membersSettings": {
+    "scope": "Members of the {account} account.",
+    "invitations": "Invitations",
+    "email": "Email",
+    "noInvites": "No pending invitations.",
+    "expired": "Expired",
+    "expires": "Expires {date}",
+    "revoke": "Revoke",
+    "revokeHint": "Revoke the invitation for {email}?",
+    "remove": "Remove member",
+    "removeHint": "{name} will lose access to the account and its projects.",
+    "transfer": "Transfer ownership",
+    "transferHint": "{name} will become the owner and your role will change to admin.",
+    "leave": "Leave account",
+    "leaveHint": "You will lose access to {name} and its projects.",
+    "changeOwnRole": "Change your role",
+    "changeOwnRoleHint": "Your new role in this account will be {role}."
   }
 }

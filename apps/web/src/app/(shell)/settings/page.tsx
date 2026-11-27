@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -19,6 +19,7 @@ import { accountsApi } from '@/shared/api';
 import { routes } from '@/shared/config/routes';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
+import { ProjectSettings } from '@/widgets/project-settings/ui/project-settings';
 
 function SettingForm({
   label,
@@ -66,11 +67,6 @@ function AccountSettings({ active }: { active: Workspace }) {
   const { data: me } = useMe();
   const description = localAccountDescription(me?.id, active.id);
   const manager = active.role === 'owner' || active.role === 'admin';
-  const members = useQuery({
-    queryKey: ['workspace-members', active.id],
-    queryFn: ({ signal }) => accountsApi.members(active.id, signal),
-    enabled: active.role !== 'viewer',
-  });
   return (
     <SettingsCard title={active.name} description={description ?? undefined}>
       {manager && (
@@ -86,70 +82,26 @@ function AccountSettings({ active }: { active: Workspace }) {
           <Input aria-label={t('name')} name="name" defaultValue={active.name} maxLength={200} required />
         </SettingForm>
       )}
-      {active.role !== 'viewer' && (
-        <SettingsRow label={t('members')}>
-          {members.isError ? (
-            <Button variant="outline" onClick={() => void members.refetch()}>
-              {t('retry')}
-            </Button>
-          ) : members.isPending ? (
-            <Skeleton className="h-6 w-40" />
-          ) : (
-            <ul className="space-y-2">
-              {members.data.map((m) => (
-                <li key={m.userId} className="text-sm break-words">
-                  {m.displayName ?? m.email} · {t(m.role)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </SettingsRow>
-      )}
       {manager && (
-        <>
-          <SettingForm
-            label={t('invite')}
-            action={t('send')}
-            submit={async (form) => {
-              await accountsApi.invite(active.id, String(form.get('email')), String(form.get('role')));
-              toast.success(t('sent'));
-            }}
-          >
-            <Input aria-label="Email" name="email" placeholder="name@example.com" type="email" required />
-            <select
-              className="rounded-md border bg-background p-2 text-sm"
-              aria-label={t('role')}
-              name="role"
-              defaultValue="viewer"
-            >
-              {['viewer', 'tech', 'admin'].map((role) => (
-                <option key={role} value={role}>
-                  {t(role)}
-                </option>
-              ))}
-            </select>
-          </SettingForm>
-          <SettingForm
-            label={t('newProject')}
-            action={t('create')}
-            submit={async (form) => {
-              const project = await accountsApi.createProject(active.id, String(form.get('name')).trim());
-              sessionStorage.setItem(`geniebox:project:${active.id}`, project.id);
-              await client.invalidateQueries({ queryKey: ['projects', active.id] });
-              router.push('/chat');
-            }}
-          >
-            <Input
-              aria-label={t('projectName')}
-              name="name"
-              placeholder={t('projectName')}
-              maxLength={120}
-              required
-            />
-          </SettingForm>
-        </>
+        <SettingForm
+          label={t('newProject')}
+          action={t('create')}
+          submit={async (form) => {
+            const project = await accountsApi.createProject(active.id, String(form.get('name')).trim());
+            sessionStorage.setItem(`geniebox:project:${active.id}`, project.id);
+            await client.invalidateQueries({ queryKey: ['projects', active.id] });
+            router.push('/chat');
+          }}
+        >
+          <Input
+            aria-label={t('projectName')}
+            name="name"
+            placeholder={t('projectName')}
+            maxLength={120}
+            required
+          />
+        </SettingForm>
       )}
-      {active.role === 'viewer' && <SettingsRow label={t('role')}>{t(active.role)}</SettingsRow>}
     </SettingsCard>
   );
 }
@@ -170,7 +122,12 @@ function Settings() {
         </Button>
       )}
       {directory.isPending && <Skeleton className="h-36" />}
-      {directory.active && <AccountSettings key={directory.active.id} active={directory.active} />}
+      {directory.active && (
+        <>
+          {!invite && <ProjectSettings key={directory.active.id} account={directory.active} />}
+          <AccountSettings key={`account-${directory.active.id}`} active={directory.active} />
+        </>
+      )}
       <SettingsCard title={t('accounts')}>
         <SettingsRow label={t('newAccount')}>
           <Button onClick={() => setCreating(true)}>{t('create')}</Button>

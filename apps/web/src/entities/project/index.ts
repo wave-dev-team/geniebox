@@ -1,26 +1,26 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  ALWAYS_ASK,
   CLIENT_ADDRESSES,
+  CLIENT_DATA_RETENTION_DAYS,
   CLIENT_LANGUAGES,
   CLIENT_TONES,
   CURRENCIES,
   DATE_FORMATS,
   JOURNAL_RETENTION_DAYS,
-  CLIENT_DATA_RETENTION_DAYS,
   MAIN_METRICS,
   NUMBER_FORMATS,
   PROBATION_DAYS,
-  PROJECT_SPHERES,
-  TRUST_LEVELS,
-  TRUST_STREAKS,
-  ALWAYS_ASK,
-  WEEK_STARTS,
   type Project,
+  PROJECT_SPHERES,
   type ProjectRulesUpdate,
   type ProjectUpdate,
+  TRUST_LEVELS,
+  TRUST_STREAKS,
+  WEEK_STARTS,
 } from '@workspace/types';
 
 import { preferredProject, useProjects, useWorkspaces } from '@/entities/workspace';
@@ -43,11 +43,7 @@ export {
   TRUST_STREAKS,
   WEEK_STARTS,
 };
-export type {
-  Project,
-  ProjectRulesUpdate,
-  ProjectUpdate,
-} from '@workspace/types';
+export type { Project, ProjectRulesUpdate, ProjectUpdate } from '@workspace/types';
 
 export type TrustLevel = Project['defaultTrustLevel'];
 export type AlwaysAsk = Project['alwaysAsk'][number];
@@ -74,6 +70,14 @@ export function useActiveProject() {
   const projects = useProjects(directory.active?.id);
   const project = preferredProject(projects.data, directory.active?.id);
   return { directory, account: directory.active, project, projects };
+}
+
+export function useProject(accountId: string, projectId: string) {
+  return useQuery({
+    queryKey: projectKey(accountId, projectId),
+    queryFn: ({ signal }) => projectsApi.get(accountId, projectId, signal),
+    refetchInterval: (query) => (query.state.data?.pausedUntil ? 30_000 : false),
+  });
 }
 
 function useStoreProject(accountId: string, projectId: string) {
@@ -105,7 +109,7 @@ export function useUpdateProjectRules(accountId?: string, projectId?: string) {
 export function usePauseProject(accountId?: string, projectId?: string) {
   const store = useStoreProject(accountId ?? '', projectId ?? '');
   return useMutation({
-    mutationFn: () => projectsApi.pause(accountId!, projectId!),
+    mutationFn: (until?: Date) => projectsApi.pause(accountId!, projectId!, until),
     onSuccess: store,
   });
 }
@@ -119,14 +123,21 @@ export function useResumeProject(accountId?: string, projectId?: string) {
 }
 
 /** Soft delete by the owner; the typed name is checked by the backend as well. */
-export function useDeleteProject(accountId?: string, projectId?: string) {
+export function useDeleteProject(accountId: string, projectId: string, onDelete: () => void) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (confirmName: string) => projectsApi.remove(accountId!, projectId!, confirmName),
-    onSuccess: () => {
-      const list = client.getQueryData<{ id: string }[]>(projectsKey(accountId ?? ''));
-      client.setQueryData(projectsKey(accountId ?? ''), list?.filter(({ id }) => id !== projectId));
-      client.removeQueries({ queryKey: projectKey(accountId ?? '', projectId ?? '') });
+    mutationFn: (confirmName: string) => projectsApi.remove(accountId, projectId, confirmName),
+    onSuccess: async () => {
+      const key = projectsKey(accountId);
+      await client.cancelQueries({ queryKey: key });
+      const list = client.getQueryData<Project[]>(key);
+      client.setQueryData(
+        key,
+        list?.filter(({ id }) => id !== projectId),
+      );
+      client.removeQueries({ queryKey: projectKey(accountId, projectId) });
+      onDelete();
+      void client.invalidateQueries({ queryKey: key });
     },
   });
 }

@@ -18,7 +18,7 @@ const uuid = '[0-9a-fA-F-]{36}';
 const account = `accounts/${uuid}`;
 const project = `${account}/projects/${uuid}`;
 const resources = new RegExp(
-  `^(?:me(?:/sessions(?:/${uuid})?)?|accounts|${account}(?:/members|/invitations|/projects)?|invitations/accept|${project}/(?:stream|conversations(?:/${uuid}/messages)?))$`,
+  `^(?:me(?:/sessions(?:/${uuid})?)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|${project}(?:/(?:stream|conversations(?:/${uuid}/messages)?|rules|pause|resume|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
 );
 const accessCookie = 'geniebox-access';
 const refreshCookie = 'geniebox-refresh';
@@ -93,4 +93,4 @@ async function proxy(req: NextRequest, context: RouteContext<'/api/v1/[...path]'
   return response;
 }
 
-export { proxy as DELETE, proxy as GET, proxy as PATCH, proxy as POST };
+export { proxy as DELETE, proxy as GET, proxy as PATCH, proxy as POST, proxy as PUT };

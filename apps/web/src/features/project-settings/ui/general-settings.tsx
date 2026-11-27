@@ -4,10 +4,12 @@ import { useTranslations } from 'next-intl';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { Button } from '@workspace/ui/components/button';
+import { PROJECT_GOALS } from '@workspace/types';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Input } from '@workspace/ui/components/input';
-import { Spinner } from '@workspace/ui/components/spinner';
 import { Textarea } from '@workspace/ui/components/textarea';
+
+import { SaveBar } from './save-bar';
 
 import {
   CLIENT_ADDRESSES,
@@ -33,6 +35,7 @@ type Values = Pick<
   Project,
   | 'name'
   | 'sphere'
+  | 'goals'
   | 'mainMetric'
   | 'currency'
   | 'timezone'
@@ -42,11 +45,13 @@ type Values = Pick<
   | 'clientLanguage'
   | 'clientTone'
   | 'clientAddress'
-> & { monthGoal: string; customMetric: string; clientSignature: string };
+> & { about: string; monthGoal: string; customMetric: string; clientSignature: string };
 
 const toValues = (project: Project): Values => ({
   name: project.name,
   sphere: project.sphere,
+  about: project.about ?? '',
+  goals: project.goals,
   monthGoal: project.monthGoal ?? '',
   mainMetric: project.mainMetric,
   customMetric: project.customMetric ?? '',
@@ -75,6 +80,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
       {
         ...values,
         name: values.name.trim() || project.name,
+        about: values.about.trim() || null,
         monthGoal: values.monthGoal.trim() || null,
         customMetric: values.mainMetric === 'custom' ? values.customMetric.trim() || null : null,
         clientSignature: values.clientSignature.trim() || null,
@@ -88,7 +94,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
 
   return (
     <form noValidate onSubmit={submit}>
-      <fieldset disabled={!editable} className="flex flex-col gap-4">
+      <fieldset disabled={!editable || update.isPending} className="flex flex-col gap-4">
         {!editable ? <p className="text-sm text-muted-foreground">{t('readOnly')}</p> : null}
         <SettingsCard title={t('project')} description={t('projectHint')}>
           <SettingsRow label={t('name')} htmlFor="project-name">
@@ -105,9 +111,36 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={SPHERES}
                   label={(value) => o(`sphere.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                   placeholder={t('spherePlaceholder')}
                 />
+              )}
+            />
+          </SettingsRow>
+          <SettingsRow label={t('about')} htmlFor="project-about">
+            <Textarea id="project-about" rows={3} maxLength={2000} {...form.register('about')} />
+          </SettingsRow>
+          <SettingsRow label={t('goals')}>
+            <Controller
+              control={form.control}
+              name="goals"
+              render={({ field }) => (
+                <div className="grid gap-2">
+                  {PROJECT_GOALS.map((goal) => (
+                    <label className="flex items-center gap-2 text-sm" key={goal}>
+                      <Checkbox
+                        checked={field.value.includes(goal)}
+                        disabled={!editable || update.isPending}
+                        onCheckedChange={(checked) =>
+                          field.onChange(
+                            checked ? [...field.value, goal] : field.value.filter((item) => item !== goal),
+                          )
+                        }
+                      />
+                      {o(`goal.${goal}`)}
+                    </label>
+                  ))}
+                </div>
               )}
             />
           </SettingsRow>
@@ -138,7 +171,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={MAIN_METRICS}
                   label={(value) => o(`metric.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -164,7 +197,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={CURRENCIES}
                   label={(value) => o(`currency.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -177,6 +210,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                 <TimeZonePicker
                   id="project-timezone"
                   value={field.value}
+                  disabled={!editable || update.isPending}
                   onChange={(value) => value && field.onChange(value)}
                 />
               )}
@@ -193,7 +227,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={NUMBER_FORMATS}
                   label={(value) => NUMBER_FORMAT_EXAMPLE[value]}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -209,7 +243,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={DATE_FORMATS}
                   label={(value) => DATE_FORMAT_EXAMPLE[value]}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -225,7 +259,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={WEEK_STARTS}
                   label={(value) => o(`weekStart.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -244,7 +278,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={CLIENT_LANGUAGES}
                   label={(value) => o(`clientLanguage.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -260,7 +294,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={CLIENT_TONES}
                   label={(value) => o(`clientTone.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
@@ -276,7 +310,7 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
                   options={CLIENT_ADDRESSES}
                   label={(value) => o(`clientAddress.${value}`)}
                   onChange={field.onChange}
-                  disabled={!editable}
+                  disabled={!editable || update.isPending}
                 />
               )}
             />
