@@ -3,6 +3,9 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = ['planned', 'running', 'waiting', 'failed'];
 export const FINISHED_TASK_STATUSES: TaskStatus[] = ['done', 'cancelled'];
 
+export const WAITING_REASONS = ['decision', 'subtasks', 'connection'] as const;
+export type WaitingReason = (typeof WAITING_REASONS)[number];
+
 export const TASK_ORIGINS = ['owner', 'manager', 'agent', 'routine', 'check'] as const;
 export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 

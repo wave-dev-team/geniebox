@@ -1081,5 +1081,168 @@
     "retry": "Retry",
     "requestError": "Could not complete the action. Try again.",
     "accessError": "You do not have permission to do this."
+  },
+  "agentsSection": {
+    "title": "Agents",
+    "subtitle": "Your project AI team: activity stats, action timeline, and configuration",
+    "askManager": "Ask manager",
+    "filters": {
+      "all": "All",
+      "active": "Active",
+      "paused": "Paused"
+    },
+    "found": "Found: {count}",
+    "loadError": "Failed to load agents.",
+    "emptyTitle": "No agents yet",
+    "emptyHint": "Ask the manager to hire the first agent for your project.",
+    "toggleLabel": "Toggle agent {name}",
+    "metrics": {
+      "actionsWeek": "Actions (7d): {count}",
+      "tasksActive": "Active: {count}",
+      "acceptedPct": "Accepted: {pct}%"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused"
+    },
+    "notFound": "Agent not found.",
+    "backToList": "Back to agents",
+    "pausedBanner": "Agent is paused — new tasks and routines will not run.",
+    "stats": {
+      "actionsWeek": "Actions this week",
+      "tasksActive": "Active tasks",
+      "acceptedPct": "Decisions accepted",
+      "streak": "Clean streak"
+    },
+    "detailTabs": {
+      "actions": "Actions",
+      "about": "About"
+    },
+    "periods": {
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "actionsEmpty": "No actions in this period.",
+    "loadMore": "Load more",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "about": {
+      "whatDoes": "Responsibilities",
+      "abilities": "Template capabilities",
+      "connections": "Connections",
+      "noConnections": "No connected services.",
+      "permissions": "Permissions & autonomy",
+      "permissionsHint": "Controls which actions the agent runs automatically vs asks for approval.",
+      "lockedBySystem": "Locked by system",
+      "limits": "Limits",
+      "instructions": "Instructions",
+      "alwaysAsk": "Always ask before acting",
+      "projectRule": "project rule",
+      "notes": "Agent notes",
+      "noNotes": "No notes yet.",
+      "skills": "Built-in skills"
+    },
+    "permModes": {
+      "auto": "Automatic",
+      "notify": "With notification",
+      "approve": "Requires approval",
+      "deny": "Denied"
+    }
+  },
+  "tasksSection": {
+    "title": "Tasks",
+    "subtitle": "Agent assignments, subtasks, and recurring schedules",
+    "loadError": "Failed to load tasks.",
+    "emptyActive": "No active tasks yet.",
+    "emptyRoutines": "No schedules yet.",
+    "emptyDone": "No completed tasks yet.",
+    "tabs": {
+      "active": "Active",
+      "routines": "Routines",
+      "done": "Done"
+    },
+    "filters": {
+      "allAgents": "All agents",
+      "agent": "Filter by agent"
+    },
+    "createTaskButton": "New task",
+    "createRoutineButton": "New routine",
+    "createTask": {
+      "title": "Assign task to agent",
+      "agent": "Agent",
+      "name": "Task title",
+      "namePlaceholder": "e.g., Analyze customer reviews for this week",
+      "why": "Context & expected outcome",
+      "whyPlaceholder": "Describe details, constraints, or desired report format",
+      "submit": "Create task"
+    },
+    "createRoutine": {
+      "title": "Create recurring routine",
+      "agent": "Agent",
+      "name": "Title",
+      "schedule": "Schedule",
+      "description": "What to do on each run",
+      "submit": "Create routine"
+    },
+    "schedules": {
+      "every_5m": "Every 5 minutes",
+      "hourly": "Hourly",
+      "daily_09": "Daily at 09:00",
+      "daily_18": "Daily at 18:00",
+      "daily_21": "Daily at 21:00",
+      "weekly_mon_10": "Mondays at 10:00",
+      "continuous": "Continuous"
+    },
+    "status": {
+      "planned": "Planned",
+      "running": "Running",
+      "waiting": "Waiting",
+      "failed": "Failed",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "waitingReason": {
+      "decision": "Waiting for your decision",
+      "subtasks": "Waiting for subtasks",
+      "connection": "Waiting for connection"
+    },
+    "origin": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "agent": "Agent",
+      "routine": "Routine",
+      "check": "Check"
+    },
+    "tree": {
+      "subtasksCount": "Subtasks: {count}",
+      "delegatedBy": "From: {name}",
+      "expand": "Expand subtasks",
+      "collapse": "Collapse subtasks"
+    },
+    "detail": {
+      "title": "Task details",
+      "steps": "Execution steps",
+      "facts": "Key facts",
+      "result": "Result",
+      "error": "Execution error",
+      "fix": "How to fix",
+      "openDecision": "View decision",
+      "noDescription": "No description provided.",
+      "runNow": "Run now",
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "close": "Close"
+    },
+    "routine": {
+      "enabled": "Enabled",
+      "paused": "Paused",
+      "nextRun": "Next run: {date}",
+      "lastRun": "Last run: {date}",
+      "runNow": "Run now",
+      "recentRuns": "Recent runs",
+      "noRuns": "No runs yet"
+    }
   }
 }

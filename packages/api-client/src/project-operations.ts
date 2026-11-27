@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 import {
+  agentActionPageSchema,
+  type AgentActionType,
+  agentStatsSchema,
   connectionProviderSchema,
   importJobResponseSchema,
   importJobSchema,
@@ -35,6 +38,35 @@ export function projectOperations(accountId: string, projectId: string) {
       projectAgentSchema.array().parse(await (await authenticated(path + '/agents', { signal })).json()),
     agent: async (id: string, signal?: AbortSignal) =>
       projectAgentDetailsSchema.parse(await (await authenticated(agentPath(id), { signal })).json()),
+    pauseAgent: async (id: string, until?: string) =>
+      projectAgentDetailsSchema.parse(
+        await (
+          await authenticated(agentPath(id) + '/pause', {
+            method: 'POST',
+            body: JSON.stringify(until ? { until } : {}),
+          })
+        ).json(),
+      ),
+    resumeAgent: async (id: string) =>
+      projectAgentDetailsSchema.parse(
+        await (await authenticated(agentPath(id) + '/resume', { method: 'POST' })).json(),
+      ),
+    agentStats: async (id: string, signal?: AbortSignal) =>
+      agentStatsSchema.parse(await (await authenticated(agentPath(id) + '/stats', { signal })).json()),
+    agentActions: async (
+      id: string,
+      filters: { period?: '7d' | '30d'; types?: AgentActionType[]; cursor?: string } = {},
+      signal?: AbortSignal,
+    ) => {
+      const query = new URLSearchParams();
+      if (filters.period) query.set('period', filters.period);
+      if (filters.types?.length) query.set('types', filters.types.join(','));
+      if (filters.cursor) query.set('cursor', filters.cursor);
+      const qs = query.toString();
+      return agentActionPageSchema.parse(
+        await (await authenticated(agentPath(id) + '/actions' + (qs ? `?${qs}` : ''), { signal })).json(),
+      );
+    },
     setPermission: async (id: string, actionId: string, mode: PermissionMode | null) =>
       projectAgentDetailsSchema.parse(
         await (

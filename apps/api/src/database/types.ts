@@ -572,6 +572,7 @@ export interface Projects {
 export interface Routines {
   account_id: string;
   agent_id: string;
+  assigned_by_agent_id: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   description: string | null;
@@ -619,6 +620,7 @@ export interface SupportRequests {
 export interface Tasks {
   account_id: string;
   agent_id: string;
+  assigned_by_agent_id: string | null;
   attempts: Generated<number>;
   conversation_id: string | null;
   created_at: Generated<Timestamp>;
@@ -630,6 +632,7 @@ export interface Tasks {
   id: Generated<string>;
   mode: string | null;
   origin: string;
+  parent_task_id: string | null;
   progress_pct: number | null;
   progress_text: string | null;
   project_id: string;
@@ -641,6 +644,7 @@ export interface Tasks {
   summary: string | null;
   title: string;
   updated_at: Generated<Timestamp>;
+  waiting_reason: string | null;
 }
 
 export interface TaskSteps {

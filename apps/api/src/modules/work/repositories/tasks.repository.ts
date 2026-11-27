@@ -87,6 +87,28 @@ export class TasksRepository {
     return rows.map(asTask);
   }
 
+  async listByParent(db: Transaction<DB>, parentTaskId: string): Promise<TaskRow[]> {
+    const rows = await db
+      .selectFrom('tasks')
+      .selectAll()
+      .where('parent_task_id', '=', parentTaskId)
+      .orderBy('created_at', 'asc')
+      .execute();
+    return rows.map(asTask);
+  }
+
+  async listByParents(db: Transaction<DB>, projectId: string, parentIds: string[]): Promise<TaskRow[]> {
+    if (parentIds.length === 0) return [];
+    const rows = await db
+      .selectFrom('tasks')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .where('parent_task_id', 'in', parentIds)
+      .orderBy('created_at', 'asc')
+      .execute();
+    return rows.map(asTask);
+  }
+
   async listByRoutine(db: Transaction<DB>, routineId: string, limit: number): Promise<TaskRow[]> {
     const rows = await db
       .selectFrom('tasks')

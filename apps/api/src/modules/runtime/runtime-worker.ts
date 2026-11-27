@@ -64,6 +64,28 @@ export class RuntimeWorker implements OnModuleInit {
       payloadSchema: z.object({ decisionId: z.uuid() }),
       handle: (payload) => this.expireDecision(payload.decisionId),
     });
+    this.registry.register({
+      type: RUNTIME_TASKS.TASK_RUN,
+      payloadSchema: z.object({
+        accountId: z.uuid(),
+        projectId: z.uuid(),
+        taskId: z.uuid(),
+        userId: z.uuid().nullable(),
+      }),
+      handle: async (payload) => {
+        await this.taskQueue.add(
+          'run',
+          {
+            accountId: payload.accountId,
+            projectId: payload.projectId,
+            taskId: payload.taskId,
+            userId: payload.userId,
+            traceId: `scheduled:${payload.taskId}`,
+          },
+          { jobId: jobId('task', `scheduled:${payload.taskId}`) },
+        );
+      },
+    });
   }
 
   @OnOutboxEvent(WORK_EVENTS.MESSAGE_POSTED)

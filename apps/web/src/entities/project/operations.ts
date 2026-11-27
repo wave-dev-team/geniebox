@@ -16,9 +16,12 @@ export function useProjectConnections(project: ProjectRef) {
   });
 }
 
-export function useProjectAgents(project: ProjectRef) {
+export const projectAgentsKey = ({ accountId, id }: ProjectRef) => ['project-agents', accountId, id] as const;
+
+export function useProjectAgents(project: ProjectRef | undefined) {
   return useQuery({
-    queryKey: ['project-agents', project.accountId, project.id],
-    queryFn: ({ signal }) => projectOperations(project.accountId, project.id).agents(signal),
+    queryKey: project ? projectAgentsKey(project) : ['project-agents', 'none'],
+    enabled: Boolean(project),
+    queryFn: ({ signal }) => projectOperations(project!.accountId, project!.id).agents(signal),
   });
 }

@@ -15,6 +15,8 @@ import {
   TASK_STATUSES,
   type TaskOrigin,
   type TaskStatus,
+  WAITING_REASONS,
+  type WaitingReason,
 } from '../work.constants.js';
 import { FactDto } from './common.dto.js';
 
@@ -54,6 +56,15 @@ export class TaskResponseDto {
 
   @ApiProperty({ format: 'uuid' })
   agentId: string;
+
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  parentTaskId: string | null;
+
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  assignedByAgentId: string | null;
+
+  @ApiProperty({ enum: WAITING_REASONS, nullable: true })
+  waitingReason: WaitingReason | null;
 
   @ApiProperty()
   title: string;
@@ -116,6 +127,9 @@ export class TaskResponseDto {
     return {
       id: task.id,
       agentId: task.agent_id,
+      parentTaskId: task.parent_task_id,
+      assignedByAgentId: task.assigned_by_agent_id,
+      waitingReason: task.waiting_reason as WaitingReason | null,
       title: task.title,
       summary: task.summary,
       description: task.description,
@@ -215,7 +229,10 @@ export class RoutineResponseDto {
   @ApiProperty({ format: 'uuid' })
   agentId: string;
 
-  @ApiProperty({ nullable: true, type: String, description: 'System routine key' })
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  assignedByAgentId: string | null;
+
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
   kind: string | null;
 
   @ApiProperty()
@@ -246,6 +263,7 @@ export class RoutineResponseDto {
     return {
       id: routine.id,
       agentId: routine.agent_id,
+      assignedByAgentId: routine.assigned_by_agent_id,
       kind: routine.kind,
       title: routine.title,
       description: routine.description,
@@ -262,6 +280,29 @@ export class RoutineResponseDto {
       })),
     };
   }
+}
+
+export class CreateRoutineDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  agentId: string;
+
+  @ApiProperty({ maxLength: 120 })
+  @Transform(trim)
+  @IsString()
+  @Length(1, 120)
+  title: string;
+
+  @ApiPropertyOptional({ maxLength: 1000 })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiProperty({ enum: SCHEDULE_KEYS })
+  @IsIn(SCHEDULE_KEYS)
+  schedule: ScheduleKey;
 }
 
 export class UpdateRoutineDto {
