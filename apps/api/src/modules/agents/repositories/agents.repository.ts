@@ -263,4 +263,56 @@ export class AgentsRepository {
       .executeTakeFirst();
     return result.numDeletedRows > 0n;
   }
+
+  // --- summaries -----------------------------------------------------------------------------
+
+  listToolCallCountsSince(
+    db: Transaction<DB>,
+    projectId: string,
+    since: Date,
+  ): Promise<Array<{ agent_id: string; cnt: string; last_at: Date | null }>> {
+    return db
+      .selectFrom('tool_calls')
+      .select([
+        'agent_id',
+        (eb) => eb.fn.countAll<string>().as('cnt'),
+        (eb) => eb.fn.max('created_at').as('last_at'),
+      ])
+      .where('project_id', '=', projectId)
+      .where('tool_id', 'like', '%.%')
+      .where('created_at', '>', since)
+      .groupBy('agent_id')
+      .execute() as Promise<Array<{ agent_id: string; cnt: string; last_at: Date | null }>>;
+  }
+
+  listProjectTaskStatuses(
+    db: Transaction<DB>,
+    projectId: string,
+  ): Promise<Array<{ agent_id: string; status: string; updated_at: Date }>> {
+    return db
+      .selectFrom('tasks')
+      .select(['agent_id', 'status', 'updated_at'])
+      .where('project_id', '=', projectId)
+      .execute();
+  }
+
+  listProjectDecisionStatuses(
+    db: Transaction<DB>,
+    projectId: string,
+  ): Promise<Array<{ agent_id: string; status: string }>> {
+    return db
+      .selectFrom('decisions')
+      .select(['agent_id', 'status'])
+      .where('project_id', '=', projectId)
+      .where('status', 'in', ['accepted', 'modified', 'rejected', 'expired'])
+      .execute();
+  }
+
+  findProjectAlwaysAsk(db: Transaction<DB>, projectId: string): Promise<{ always_ask: string[] }> {
+    return db
+      .selectFrom('projects')
+      .select('always_ask')
+      .where('id', '=', projectId)
+      .executeTakeFirstOrThrow();
+  }
 }

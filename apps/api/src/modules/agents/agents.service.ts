@@ -71,29 +71,9 @@ export class AgentsService {
       const agentIds = agents.map((a) => a.id);
       const [links, toolRows, taskRows, decisionRows] = await Promise.all([
         this.agents.listConnections(tx.db, agentIds),
-        tx.db
-          .selectFrom('tool_calls')
-          .select([
-            'agent_id',
-            (eb) => eb.fn.countAll<string>().as('cnt'),
-            (eb) => eb.fn.max('created_at').as('last_at'),
-          ])
-          .where('project_id', '=', projectId)
-          .where('tool_id', 'like', '%.%')
-          .where('created_at', '>', weekAgo)
-          .groupBy('agent_id')
-          .execute(),
-        tx.db
-          .selectFrom('tasks')
-          .select(['agent_id', 'status', 'updated_at'])
-          .where('project_id', '=', projectId)
-          .execute(),
-        tx.db
-          .selectFrom('decisions')
-          .select(['agent_id', 'status'])
-          .where('project_id', '=', projectId)
-          .where('status', 'in', ['accepted', 'modified', 'rejected', 'expired'])
-          .execute(),
+        this.agents.listToolCallCountsSince(tx.db, projectId, weekAgo),
+        this.agents.listProjectTaskStatuses(tx.db, projectId),
+        this.agents.listProjectDecisionStatuses(tx.db, projectId),
       ]);
 
       const toolByAgent = new Map(
@@ -348,7 +328,7 @@ export class AgentsService {
       this.agents.listConnections(tx.db, [id]),
       this.agents.listPermissions(tx.db, id),
       this.agents.listNotes(tx.db, id),
-      tx.db.selectFrom('projects').select('always_ask').where('id', '=', projectId).executeTakeFirstOrThrow(),
+      this.agents.findProjectAlwaysAsk(tx.db, projectId),
     ]);
     const modes = new Map(explicit.map((row) => [row.action_id, row.mode as PermissionMode]));
     const permissions = this.toolsOf(agent).flatMap((actionId): EffectivePermission[] => {
