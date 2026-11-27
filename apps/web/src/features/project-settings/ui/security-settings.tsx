@@ -1,20 +1,37 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import type { Project, WorkspaceRole } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 
-import { useDeleteProject, usePauseProject, useResumeProject } from '@/entities/project';
+import {
+  CLIENT_DATA_RETENTION_DAYS,
+  JOURNAL_RETENTION_DAYS,
+  useDeleteProject,
+  usePauseProject,
+  useResumeProject,
+  useUpdateProject,
+} from '@/entities/project';
 import { projectConnectionsKey } from '@/entities/project/operations';
 import { hasRoleAtLeast } from '@/entities/workspace';
 import { projectOperations } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { useConfirm } from '@/shared/ui/confirm-dialog';
+import { OptionSelect } from '@/shared/ui/option-select';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
 export function SecuritySettings({
@@ -28,12 +45,16 @@ export function SecuritySettings({
 }) {
   const t = useTranslations('projectSettings');
   const format = useFormatter();
+  const options = useTranslations('projectOptions');
+  const common = useTranslations('common');
+  const [pausing, setPausing] = useState(false);
   const confirm = useConfirm();
   const errorMessage = useErrorMessage();
   const client = useQueryClient();
   const [until, setUntil] = useState('');
   const editable = hasRoleAtLeast(role, 'admin');
   const { accountId, id } = project;
+  const update = useUpdateProject(accountId, id);
   const pause = usePauseProject(accountId, id);
   const resume = useResumeProject(accountId, id);
   const remove = useDeleteProject(accountId, id, () => {
@@ -76,10 +97,60 @@ export function SecuritySettings({
   }
 
   return (
-    <div className="grid gap-4">
-      <SettingsCard title={t('team')}>
+    <div className="flex flex-col gap-4">
+      <SettingsCard title={t('tabs.journal')} description={t('journalHint')}>
+        <SettingsRow label={t('journalRetention')} htmlFor="security-journal">
+          <OptionSelect<number>
+            id="security-journal"
+            value={project.journalRetentionDays}
+            options={JOURNAL_RETENTION_DAYS}
+            label={(count) => options('days', { count })}
+            onChange={(journalRetentionDays) =>
+              update.mutate({ journalRetentionDays }, { onError: reportError })
+            }
+            disabled={!editable || update.isPending}
+          />
+        </SettingsRow>
+        <SettingsRow label={t('journalExport')} hint={t('journalExportHint')}>
+          {hasRoleAtLeast(role, 'tech') ? (
+            <Button
+              variant="outline"
+              render={<Link href={`/settings?project=${encodeURIComponent(id)}&section=journal`} />}
+              nativeButton={false}
+            >
+              {t('openJournal')}
+            </Button>
+          ) : (
+            <Button variant="outline" disabled>
+              {t('openJournal')}
+            </Button>
+          )}
+        </SettingsRow>
+      </SettingsCard>
+
+      <SettingsCard title={t('data')}>
+        <SettingsRow label={t('dataExport')} hint={t('dataExportHint')}>
+          <Button variant="outline" disabled>
+            {t('export')}
+          </Button>
+        </SettingsRow>
+        <SettingsRow label={t('clientRetention')} hint={t('clientRetentionHint')} htmlFor="security-clients">
+          <OptionSelect<number>
+            id="security-clients"
+            value={project.clientDataRetentionDays}
+            options={CLIENT_DATA_RETENTION_DAYS}
+            label={(count) => options('days', { count })}
+            onChange={(clientDataRetentionDays) =>
+              update.mutate({ clientDataRetentionDays }, { onError: reportError })
+            }
+            disabled={!editable || update.isPending}
+          />
+        </SettingsRow>
+      </SettingsCard>
+
+      <SettingsCard title={t('danger')}>
         <SettingsRow
-          label={t('teamState')}
+          label={t('teamPause')}
           hint={
             project.pausedUntil
               ? t('pausedUntil', {
@@ -88,61 +159,102 @@ export function SecuritySettings({
                     timeStyle: 'short',
                   }),
                 })
-              : undefined
+              : t(project.agentsPaused ? 'paused' : 'teamPauseHint')
           }
         >
-          {project.agentsPaused ? t('paused') : t('running')}
+          <Button
+            variant="outline"
+            disabled={!editable || busy}
+            onClick={() => {
+              if (project.agentsPaused) resume.mutate(undefined, { onError: reportError });
+              else setPausing(true);
+            }}
+          >
+            {t(project.agentsPaused ? 'resume' : 'pause')}
+          </Button>
         </SettingsRow>
-        {editable &&
-          (project.agentsPaused ? (
-            <SettingsRow label={t('resume')}>
-              <Button disabled={busy} onClick={() => resume.mutate(undefined, { onError: reportError })}>
-                {t('resume')}
-              </Button>
-            </SettingsRow>
-          ) : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const date = until ? new Date(until) : undefined;
-                if (date && !(date.getTime() > Date.now())) {
-                  toast.error(t('pauseFuture'));
-                  return;
-                }
-                pause.mutate(date, { onSuccess: () => setUntil(''), onError: reportError });
-              }}
-            >
-              <SettingsRow label={t('pauseUntil')} hint={t('pauseHint')} htmlFor="pause-until">
-                <Input
-                  id="pause-until"
-                  type="datetime-local"
-                  value={until}
-                  disabled={busy}
-                  onChange={(event) => setUntil(event.target.value)}
-                />
-                <Button type="submit" variant="outline" disabled={busy}>
-                  {t('pause')}
-                </Button>
-              </SettingsRow>
-            </form>
-          ))}
+        <SettingsRow label={t('disconnect')} hint={t('disconnectHint')}>
+          <Button
+            variant="outline"
+            className="text-destructive"
+            disabled={!editable || busy}
+            onClick={() => void disconnectAll()}
+          >
+            {t('disconnectButton')}
+          </Button>
+        </SettingsRow>
+        <SettingsRow label={t('delete')} hint={role === 'owner' ? t('deleteHint') : t('ownerOnly')}>
+          <Button
+            variant="outline"
+            className="text-destructive"
+            disabled={role !== 'owner' || busy}
+            onClick={() => void deleteProject()}
+          >
+            {t('deleteButton')}
+          </Button>
+        </SettingsRow>
       </SettingsCard>
-      {editable && (
-        <SettingsCard title={t('danger')}>
-          <SettingsRow label={t('disconnect')} hint={t('disconnectHint')}>
-            <Button variant="destructive" disabled={busy} onClick={() => void disconnectAll()}>
-              {t('disconnect')}
-            </Button>
-          </SettingsRow>
-          {role === 'owner' && (
-            <SettingsRow label={t('delete')} hint={t('deleteHint')}>
-              <Button variant="destructive" disabled={busy} onClick={() => void deleteProject()}>
-                {t('delete')}
+
+      <Dialog
+        open={pausing}
+        onOpenChange={(open) => {
+          if (!busy) {
+            setPausing(open);
+            if (!open) setUntil('');
+          }
+        }}
+      >
+        <DialogContent>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const date = until ? new Date(until) : undefined;
+              if (date && !(date.getTime() > Date.now())) {
+                toast.error(t('pauseFuture'));
+                return;
+              }
+              pause.mutate(date, {
+                onSuccess: () => {
+                  setUntil('');
+                  setPausing(false);
+                },
+                onError: reportError,
+              });
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{t('teamPause')}</DialogTitle>
+              <DialogDescription>{t('pauseHint')}</DialogDescription>
+            </DialogHeader>
+            <label className="grid gap-2 text-sm font-medium">
+              {t('pauseUntil')}
+              <Input
+                type="datetime-local"
+                value={until}
+                disabled={busy}
+                onChange={(event) => setUntil(event.target.value)}
+              />
+            </label>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setUntil('');
+                  setPausing(false);
+                }}
+              >
+                {common('cancel')}
               </Button>
-            </SettingsRow>
-          )}
-        </SettingsCard>
-      )}
+              <Button type="submit" disabled={busy}>
+                {t('pause')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

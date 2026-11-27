@@ -1,6 +1,17 @@
 'use client';
 
-import { BookOpen, Building2, KeyRound, ListChecks, Lock, Settings2, ShieldCheck, Users } from 'lucide-react';
+import {
+  BookOpenCheck,
+  Building2,
+  CreditCard,
+  KeyRound,
+  ListChecks,
+  Lock,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
@@ -16,6 +27,7 @@ import { KeysSettings } from '@/features/project-settings/ui/keys-settings';
 import { PermissionsSettings } from '@/features/project-settings/ui/permissions-settings';
 import { RulesSettings } from '@/features/project-settings/ui/rules-settings';
 import { SecuritySettings } from '@/features/project-settings/ui/security-settings';
+import { ComingSoon } from '@/shared/ui/coming-soon';
 import { OptionSelect } from '@/shared/ui/option-select';
 import { SettingsCard } from '@/shared/ui/settings-card';
 import { SettingsQueryStatus } from '@/shared/ui/settings-query-status';
@@ -23,11 +35,13 @@ import { SectionLayout } from '@/widgets/section-layout';
 
 const tabIcons = {
   general: Building2,
-  rules: BookOpen,
+  rules: BookOpenCheck,
+  models: Sparkles,
   permissions: ShieldCheck,
   members: Users,
   keys: KeyRound,
   journal: ListChecks,
+  billing: CreditCard,
   security: Lock,
   account: Settings2,
 };
@@ -49,9 +63,7 @@ export function ProjectSettings({
   const selected = params.get('project');
   const project =
     projects.data?.find(({ id }) => id === selected) ?? preferredProject(projects.data, account.id);
-  const canSeeOperations = hasRoleAtLeast(account.role, 'tech');
-  const visibleTabs = tabs.filter((tab) => canSeeOperations || (tab !== 'keys' && tab !== 'journal'));
-  const tab = visibleTabs.find((tab) => tab === params.get('section')) ?? 'general';
+  const tab = tabs.find((tab) => tab === params.get('section')) ?? 'general';
 
   const href = (section: Tab, projectId?: string) => {
     const query = new URLSearchParams(params);
@@ -81,7 +93,7 @@ export function ProjectSettings({
           </div>
         ) : undefined
       }
-      nav={visibleTabs.map((item) => ({
+      nav={tabs.map((item) => ({
         href: href(item, project?.id),
         label: t(`tabs.${item}`),
         icon: tabIcons[item],
@@ -92,6 +104,12 @@ export function ProjectSettings({
         accountSettings
       ) : tab === 'members' ? (
         <AccountMembers account={account} />
+      ) : tab === 'models' || tab === 'billing' ? (
+        <ComingSoon
+          icon={tab === 'models' ? <Sparkles /> : <CreditCard />}
+          title={t(`tabs.${tab}`)}
+          text={t(`${tab}Unavailable`)}
+        />
       ) : projects.isPending || projects.isError ? (
         <SettingsQueryStatus query={projects} />
       ) : project ? (
@@ -117,16 +135,20 @@ function ProjectSettingsPanel({
   projectId,
   onDelete,
 }: {
-  tab: Exclude<Tab, 'members' | 'account'>;
+  tab: Exclude<Tab, 'members' | 'account' | 'models' | 'billing'>;
   account: Workspace;
   projectId: string;
   onDelete: () => void;
 }) {
+  const t = useTranslations('projectSettings');
   const query = useProject(account.id, projectId);
   if (query.isPending || query.isError) return <SettingsQueryStatus query={query} />;
   const project = query.data;
   const isAdmin = hasRoleAtLeast(account.role, 'admin');
   const isTech = hasRoleAtLeast(account.role, 'tech');
+  if (!isTech && (tab === 'keys' || tab === 'journal')) {
+    return <p className="rounded-xl border px-5 py-4 text-sm text-muted-foreground">{t(`${tab}Denied`)}</p>;
+  }
 
   switch (tab) {
     case 'general':
@@ -138,8 +160,8 @@ function ProjectSettingsPanel({
     case 'permissions':
       return <PermissionsSettings project={project} editable={isTech} />;
     case 'keys':
-      return isTech ? <KeysSettings project={project} /> : null;
+      return <KeysSettings project={project} />;
     case 'journal':
-      return isTech ? <JournalSettings project={project} /> : null;
+      return <JournalSettings project={project} />;
   }
 }

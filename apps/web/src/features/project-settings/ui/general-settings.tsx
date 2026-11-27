@@ -5,6 +5,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { PROJECT_GOALS } from '@workspace/types';
+import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
+import { Button } from '@workspace/ui/components/button';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
@@ -27,6 +29,7 @@ import {
   WEEK_STARTS,
 } from '@/entities/project';
 import { useErrorMessage } from '@/shared/lib/api-error';
+import { initials } from '@/shared/lib/initials';
 import { OptionSelect } from '@/shared/ui/option-select';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 import { TimeZonePicker } from '@/shared/ui/time-zone-picker';
@@ -94,9 +97,19 @@ export function GeneralSettings({ project, editable }: { project: Project; edita
 
   return (
     <form noValidate onSubmit={submit}>
-      <fieldset disabled={!editable || update.isPending} className="flex flex-col gap-4">
+      <fieldset disabled={!editable || update.isPending} className="flex min-w-0 flex-col gap-4">
         {!editable ? <p className="text-sm text-muted-foreground">{t('readOnly')}</p> : null}
         <SettingsCard title={t('project')} description={t('projectHint')}>
+          <SettingsRow label={t('logo')} hint={t('logoHint')}>
+            <Avatar className="size-9 rounded-lg">
+              <AvatarFallback className="rounded-lg">{initials(project.name)}</AvatarFallback>
+            </Avatar>
+            <span tabIndex={0} title={t('logoSoon')}>
+              <Button variant="outline" type="button" disabled>
+                {t('upload')}
+              </Button>
+            </span>
+          </SettingsRow>
           <SettingsRow label={t('name')} htmlFor="project-name">
             <Input id="project-name" className="sm:w-60" maxLength={120} {...form.register('name')} />
           </SettingsRow>

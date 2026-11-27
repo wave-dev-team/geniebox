@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { KeyRound } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -15,11 +16,11 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
+import { cn } from '@workspace/ui/lib/utils';
 
 import { projectConnectionsKey, type ProjectRef, useProjectConnections } from '@/entities/project/operations';
 import { listConnectionProviders, projectOperations } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
-import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 import { SettingsQueryStatus } from '@/shared/ui/settings-query-status';
 
 export function KeysSettings({ project }: { project: ProjectRef }) {
@@ -27,52 +28,83 @@ export function KeysSettings({ project }: { project: ProjectRef }) {
   const format = useFormatter();
   const connections = useProjectConnections(project);
   const [rotating, setRotating] = useState<ProjectConnection>();
-  const keys = connections.data?.filter(({ credential }) => credential);
+  const keys = (connections.data ?? []).flatMap((connection) =>
+    connection.credential ? [{ connection, key: connection.credential }] : [],
+  );
 
   return (
-    <SettingsCard title={t('tabs.keys')}>
+    <section className="flex flex-col gap-4">
+      <header className="flex flex-col gap-0.5">
+        <h2 className="font-semibold">{t('tabs.keys')}</h2>
+        <p className="text-sm text-muted-foreground">{t('keysDescription')}</p>
+      </header>
       {connections.isPending || connections.isError ? (
         <SettingsQueryStatus query={connections} />
+      ) : !keys.length ? (
+        <p className="rounded-xl border px-5 py-4 text-sm text-muted-foreground">{t('noKeys')}</p>
       ) : (
-        <>
-          {!keys?.length && <p className="p-5 text-sm text-muted-foreground">{t('noKeys')}</p>}
-          {keys?.map((connection) => {
-            const key = connection.credential!;
-            return (
-              <SettingsRow
-                key={connection.id}
-                label={connection.name}
-                hint={
-                  <span className="grid gap-1">
-                    <code>{key.masked}</code>
-                    <span>
-                      {t(`keyHealth.${key.health}`)} ·{' '}
-                      {key.expiresAt
-                        ? t('keyExpires', {
-                            date: format.dateTime(new Date(key.expiresAt), { dateStyle: 'medium' }),
-                          })
-                        : t('keyUpdated', {
-                            date: format.dateTime(new Date(key.updatedAt), { dateStyle: 'medium' }),
-                          })}
-                    </span>
-                    {connection.config.public_key && (
-                      <code className="break-all text-xs">{connection.config.public_key}</code>
-                    )}
-                  </span>
-                }
+        <ul className="flex flex-col gap-2 rounded-xl border p-3">
+          {keys.map(({ connection, key }) => (
+            <li
+              key={connection.id}
+              className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg bg-muted/40 px-4 py-3 lg:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto]"
+            >
+              <span className="rounded-lg bg-muted p-2 text-muted-foreground">
+                <KeyRound className="size-4" />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium">{connection.name}</span>
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {connection.providerKey}
+                </span>
+              </span>
+              <span className="col-start-2 flex min-w-0 flex-col lg:col-start-auto">
+                <code className="truncate text-xs">{key.masked}</code>
+                <span className="text-xs text-muted-foreground">
+                  {key.expiresAt
+                    ? t('keyExpires', {
+                        date: format.dateTime(new Date(key.expiresAt), { dateStyle: 'medium' }),
+                      })
+                    : t('keyUpdated', {
+                        date: format.dateTime(new Date(key.updatedAt), { dateStyle: 'medium' }),
+                      })}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  'col-start-2 flex items-center gap-1.5 text-sm lg:col-start-auto',
+                  key.health !== 'ok' && 'text-destructive',
+                )}
               >
-                <Button variant="outline" onClick={() => setRotating(connection)}>
-                  {t('rotate')}
-                </Button>
-              </SettingsRow>
-            );
-          })}
-        </>
+                <span
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    key.health === 'ok' ? 'bg-chart-2' : 'bg-destructive',
+                  )}
+                />
+                {t(`keyHealth.${key.health}`)}
+              </span>
+              <Button
+                className="col-start-2 justify-self-start lg:col-start-auto"
+                variant="outline"
+                onClick={() => setRotating(connection)}
+              >
+                {t('rotate')}
+              </Button>
+              {connection.config.public_key && (
+                <code className="col-start-2 col-end-[-1] break-all text-xs text-muted-foreground">
+                  {connection.config.public_key}
+                </code>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
+      <p className="text-sm text-muted-foreground">{t('keysNote')}</p>
       {rotating && (
         <RotateKey project={project} connection={rotating} onClose={() => setRotating(undefined)} />
       )}
-    </SettingsCard>
+    </section>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 /** Select over a fixed list of values with translated labels (settings rows). */
 export function OptionSelect<T extends string | number>({
   id,
+  ariaLabel,
   value,
   options,
   label,
@@ -20,6 +21,7 @@ export function OptionSelect<T extends string | number>({
   className,
 }: {
   id?: string;
+  ariaLabel?: string;
   value: T | null;
   options: readonly T[];
   label: (value: T) => string;
@@ -37,7 +39,7 @@ export function OptionSelect<T extends string | number>({
         if (match !== undefined) onChange(match);
       }}
     >
-      <SelectTrigger id={id} className={className ?? 'w-full sm:w-60'}>
+      <SelectTrigger id={id} aria-label={ariaLabel} className={className ?? 'w-full sm:w-60'}>
         <SelectValue placeholder={placeholder}>
           {(current: string | null) => {
             const match = options.find((option) => String(option) === current);
