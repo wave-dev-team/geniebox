@@ -22,7 +22,7 @@ export default function ProfilePage() {
   if (!me.data) {
     return <Skeleton className="h-96 rounded-xl" />;
   }
-  const name = me.data.name;
+  const name = me.data.displayName ?? me.data.email;
   const membership = active ? `${tWorkspace(active.role)} · ${active.name}` : me.data.email;
 
   return (

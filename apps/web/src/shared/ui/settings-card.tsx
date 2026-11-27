@@ -58,7 +58,11 @@ export function SettingsRow({
         )}
         {hint ? <span className="text-sm text-muted-foreground">{hint}</span> : null}
       </div>
-      {children ? <div className="flex shrink-0 items-center gap-2 sm:max-w-[60%]">{children}</div> : null}
+      {children ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:max-w-[60%] [&>input]:min-w-32 [&>input]:flex-1">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function AccountMenu() {
     return <Skeleton className="h-12 w-full" />;
   }
 
-  const name = me.data.name;
+  const name = me.data.displayName ?? me.data.email;
   const themeName = {
     light: t('themeLight'),
     dark: t('themeDark'),

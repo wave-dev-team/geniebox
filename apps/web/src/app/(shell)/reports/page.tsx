@@ -17,6 +17,7 @@ import { Skeleton } from '@workspace/ui/components/skeleton';
 import { useMe } from '@/entities/session';
 import { useWorkspaces } from '@/entities/workspace';
 import { connectionsApi, metricsApi, reportsApi } from '@/shared/api';
+import { businessApiAvailable } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
@@ -120,26 +121,27 @@ function ReportCard({
 
 export default function ReportsPage() {
   const t = useTranslations('analytics');
+  const unavailable = useTranslations('app')('businessUnavailable');
   const { data: me } = useMe();
   const { data: workspaces } = useWorkspaces();
   const canDecide = workspaces?.workspaces.find(({ id }) => id === workspaces.activeId)?.role === 'owner';
-  const scope = [me?.tenantId, me?.id] as const;
+  const scope = [workspaces?.activeId, me?.id] as const;
   const key = ['metrics-reports', ...scope] as const;
   const errorMessage = useErrorMessage();
   const client = useQueryClient();
   const connections = useQuery({
     queryKey: ['connections', ...scope],
     queryFn: ({ signal }) => connectionsApi.list(signal),
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
   });
   const metrics = useQuery({
     queryKey: ['metric-definitions', ...scope],
     queryFn: ({ signal }) => metricsApi.list(signal),
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
   });
   const reports = useInfiniteQuery({
     queryKey: key,
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) => reportsApi.list(pageParam, signal),
     getNextPageParam: (page) => page.next ?? undefined,
@@ -174,7 +176,8 @@ export default function ReportsPage() {
           {t('metrics')}
         </Link>
       </div>
-      {connections.isPending || metrics.isPending ? (
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
+      {connections.isLoading || metrics.isLoading ? (
         <Skeleton className="h-40" />
       ) : connections.isError || metrics.isError ? (
         <Button
@@ -283,7 +286,7 @@ export default function ReportsPage() {
         </SettingsCard>
       )}
       <h2 className="text-lg font-semibold">{t('history')}</h2>
-      {reports.isPending ? (
+      {reports.isLoading ? (
         <Skeleton className="h-40" />
       ) : reports.isError ? (
         <Button className="self-start" variant="outline" onClick={() => void reports.refetch()}>
@@ -291,10 +294,10 @@ export default function ReportsPage() {
         </Button>
       ) : (
         <>
-          {reports.data.pages[0]?.reports.length === 0 ? (
+          {reports.data?.pages[0]?.reports.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           ) : null}
-          {reports.data.pages
+          {reports.data?.pages
             .flatMap((page) => page.reports)
             .map((report) => (
               <ReportCard

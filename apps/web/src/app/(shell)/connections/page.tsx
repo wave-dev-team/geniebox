@@ -13,22 +13,24 @@ import { Skeleton } from '@workspace/ui/components/skeleton';
 import { useMe } from '@/entities/session';
 import { useWorkspaces } from '@/entities/workspace';
 import { connectionsApi } from '@/shared/api';
+import { businessApiAvailable } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
 export default function ConnectionsPage() {
   const t = useTranslations('connectionSetup');
+  const unavailable = useTranslations('app')('businessUnavailable');
   const { data: me } = useMe();
   const { data: workspaces } = useWorkspaces();
   const owner = workspaces?.workspaces.find(({ id }) => id === workspaces.activeId)?.role === 'owner';
   const client = useQueryClient();
   const errorMessage = useErrorMessage();
-  const key = ['connections', me?.tenantId, me?.id] as const;
+  const key = ['connections', workspaces?.activeId, me?.id] as const;
   const [editing, setEditing] = useState(false);
   const data = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => connectionsApi.list(signal),
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
   });
   const save = useMutation({
     mutationFn: connectionsApi.save,
@@ -48,12 +50,13 @@ export default function ConnectionsPage() {
     onError: (error) => toast.error(errorMessage(error)),
   });
   const metrica = data.data?.metrica;
-  const busy = save.isPending || remove.isPending;
+  const busy = !businessApiAvailable || save.isPending || remove.isPending;
 
   return (
     <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-10">
       <h1 className="text-xl font-semibold">{t('title')}</h1>
-      {data.isPending ? (
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
+      {data.isLoading ? (
         <Skeleton className="h-40" />
       ) : data.isError ? (
         <Button className="self-start" variant="outline" onClick={() => void data.refetch()}>
@@ -75,7 +78,7 @@ export default function ConnectionsPage() {
           {owner ? (
             <div className="border-t">
               <div className="flex flex-wrap gap-2 px-5 py-4">
-                {data.data.liveAvailable ? (
+                {data.data?.liveAvailable ? (
                   <Button variant="outline" disabled={busy} onClick={() => setEditing(!editing)}>
                     {t(editing ? 'close' : 'configure')}
                   </Button>
@@ -93,7 +96,7 @@ export default function ConnectionsPage() {
                   </Button>
                 ) : null}
               </div>
-              {editing && data.data.liveAvailable ? (
+              {editing && data.data?.liveAvailable ? (
                 <form
                   className="border-t"
                   onSubmit={(event) => {

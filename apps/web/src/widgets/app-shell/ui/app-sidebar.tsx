@@ -1,11 +1,9 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
 import { Check, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { toast } from 'sonner';
 
 import {
   DropdownMenu,
@@ -30,9 +28,7 @@ import {
 
 import { useWorkspaces } from '@/entities/workspace';
 import { AccountMenu } from '@/features/account-menu';
-import { accountsApi } from '@/shared/api';
 import { footerNavigation, mainNavigation } from '@/shared/config/nav';
-import { useErrorMessage } from '@/shared/lib/api-error';
 
 function WorkspaceLogo() {
   return (
@@ -47,14 +43,8 @@ function WorkspaceLogo() {
 
 function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
   const t = useTranslations();
-  const { data } = useWorkspaces();
-  const errorMessage = useErrorMessage();
+  const { data, select } = useWorkspaces();
   const selected = data?.workspaces.find(({ id }) => id === data.activeId);
-  const switchTo = useMutation({
-    mutationFn: accountsApi.select,
-    onSuccess: () => window.location.assign('/'),
-    onError: (error) => toast.error(errorMessage(error)),
-  });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -72,11 +62,10 @@ function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
           {data?.workspaces.map((workspace) => (
             <DropdownMenuItem
               className="min-h-10"
-              disabled={switchTo.isPending}
               key={workspace.id}
               onClick={() => {
                 onSelect();
-                if (workspace.id !== data.activeId) switchTo.mutate(workspace.id);
+                if (workspace.id !== data.activeId) select(workspace.id);
               }}
             >
               <WorkspaceLogo />

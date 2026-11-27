@@ -3,10 +3,10 @@ export {
   agentsApi,
   ApiError,
   authApi,
-  chatApi,
   connectionsApi,
   metricsApi,
   profileApi,
+  projectChat,
   reportsApi,
   routinesApi,
   tasksApi,
@@ -16,3 +16,6 @@ export const queryKeys = {
   me: () => ['profile'] as const,
   sessions: () => ['profile', 'sessions'] as const,
 };
+
+// The retained business screens use the previous API contract. Enable each when its adapter is migrated.
+export const businessApiAvailable = false;

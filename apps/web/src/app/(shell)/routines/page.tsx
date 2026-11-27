@@ -12,7 +12,9 @@ import { Input } from '@workspace/ui/components/input';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 
 import { useMe } from '@/entities/session';
+import { useWorkspaces } from '@/entities/workspace';
 import { routinesApi } from '@/shared/api';
+import { businessApiAvailable } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
@@ -20,8 +22,10 @@ export default function RoutinesPage() {
   const t = useTranslations('routines');
   const format = useFormatter();
   const router = useRouter();
+  const { data: workspaces } = useWorkspaces();
+  const unavailable = useTranslations('app')('businessUnavailable');
   const { data: me } = useMe();
-  const scope = [me?.tenantId, me?.id] as const;
+  const scope = [workspaces?.activeId, me?.id] as const;
   const key = ['routines', ...scope] as const;
   const client = useQueryClient();
   const errorMessage = useErrorMessage();
@@ -29,7 +33,7 @@ export default function RoutinesPage() {
 
   const routines = useQuery({
     queryKey: key,
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
     queryFn: ({ signal }) => routinesApi.list(signal),
   });
   const create = useMutation({
@@ -62,9 +66,11 @@ export default function RoutinesPage() {
           {t('tasks')}
         </Link>
       </div>
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
       <form
         onSubmit={(event) => {
           event.preventDefault();
+          if (!businessApiAvailable) return;
           const form = new FormData(event.currentTarget);
           const input = createRoutineSchema.safeParse({
             id: crypto.randomUUID(),
@@ -84,7 +90,7 @@ export default function RoutinesPage() {
           title={t('new')}
           description={t('scheduleHelp')}
           footer={
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={!businessApiAvailable || create.isPending}>
               {t('save')}
             </Button>
           }
@@ -107,13 +113,13 @@ export default function RoutinesPage() {
           </SettingsRow>
         </SettingsCard>
       </form>
-      {routines.isPending ? (
+      {routines.isLoading ? (
         <Skeleton className="h-28" />
       ) : routines.isError ? (
         <Button className="self-start" variant="outline" onClick={() => void routines.refetch()}>
           {t('retry')}
         </Button>
-      ) : routines.data.length ? (
+      ) : routines.data?.length ? (
         <SettingsCard title={t('saved')}>
           {routines.data.map((routine) => (
             <SettingsRow

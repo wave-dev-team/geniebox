@@ -53,7 +53,8 @@
     "language": "Language",
     "signOut": "Sign out",
     "notificationsOn": "Notifications on",
-    "notificationsOff": "Notifications off"
+    "notificationsOff": "Notifications off",
+    "security": "Sign-in and security"
   },
   "home": {
     "title": "How can I help the project today?",
@@ -67,7 +68,7 @@
     "openAgents": "View agents"
   },
   "auth": {
-    "tagline": "Your product management assistant",
+    "tagline": "Sign in to Geniebox",
     "email": "Email",
     "emailPlaceholder": "name@company.com",
     "password": "Password",
@@ -79,7 +80,7 @@
     "codeMode": "Email me a sign-in code",
     "passwordMode": "Sign in with password",
     "noAccount": "No account?",
-    "createProject": "Create a project",
+    "createProject": "Sign up",
     "haveAccount": "Already have an account?",
     "signInLink": "Sign in",
     "login": {
@@ -96,7 +97,7 @@
       "changeEmail": "Use another email"
     },
     "signup": {
-      "title": "Create a project",
+      "title": "Sign up",
       "subtitle": "Create an account to open your workspace",
       "submit": "Create account",
       "passwordHint": "At least {min} characters"
@@ -286,9 +287,9 @@
       "completed": "Completed",
       "failed": "Failed"
     },
-    "title": "Manager",
+    "title": "Conversations",
     "open": "Open chat",
-    "empty": "Ask the manager about a hypothesis, store metrics, or release results.",
+    "empty": "Write the first message.",
     "you": "You",
     "queued": "Request queued",
     "working": "The manager is preparing a reply…",
@@ -300,7 +301,12 @@
     "busy": "Wait for the previous reply to finish.",
     "loadError": "Could not load chat history.",
     "retry": "Retry",
-    "older": "Show earlier messages"
+    "older": "Show earlier messages",
+    "project": "Project",
+    "history": "Conversation history",
+    "untitled": "Untitled conversation",
+    "new": "New conversation",
+    "start": "There are no conversations in this project yet."
   },
   "composer": {
     "placeholderHome": "Ask about metrics, hypotheses, or release results",
@@ -328,10 +334,11 @@
   },
   "app": {
     "brand": "Geniebox",
-    "description": "Product manager assistant for online stores",
+    "description": "Geniebox workspace",
     "placeholder": "This section will be available later.",
     "retry": "Try again",
-    "connectionError": "Could not load data. Check your connection."
+    "connectionError": "Could not load data. Check your connection.",
+    "businessUnavailable": "Data for this section is not connected yet."
   },
   "sections": {
     "home": "Home",
@@ -350,7 +357,8 @@
     "help": "Help",
     "search": "Search",
     "marketplace": "Marketplace",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "profile": "My profile"
   },
   "workspace": {
     "switch": "Switch workspace",
@@ -370,7 +378,23 @@
     "code": "Invitation code",
     "codeHelp": "Enter the code from your email",
     "verifyFirst": "Verify your email address first",
-    "retry": "Retry"
+    "retry": "Retry",
+    "accounts": "Accounts",
+    "newAccount": "Create account",
+    "newProject": "Create project",
+    "projectName": "Project name",
+    "create": "Create",
+    "role": "Role",
+    "accountCreated": "Account created",
+    "noAccounts": "Create an account in settings or accept an invitation to start chatting.",
+    "noProjects": "Conversations belong to a project. An account owner or admin can create one in settings.",
+    "admin": "Administrator",
+    "tech": "Technical specialist",
+    "viewer": "Viewer",
+    "description": "Description",
+    "createHint": "Account members will see this name.",
+    "descriptionLocal": "The description is currently saved in this browser.",
+    "descriptionStorageError": "Account created. The browser could not save the description."
   },
   "connectionSetup": {
     "title": "Connections",

@@ -3,7 +3,8 @@ import { ApiError, request } from './request.js';
 let refreshInFlight: Promise<void> | undefined;
 
 function refreshSession() {
-  refreshInFlight ??= request('/v1/auth/refresh', { method: 'POST' })
+  const rotate = () => request('/v1/auth/refresh', { method: 'POST' });
+  refreshInFlight ??= (navigator.locks ? navigator.locks.request('geniebox-refresh', rotate) : rotate())
     .then(() => undefined)
     .finally(() => {
       refreshInFlight = undefined;
@@ -19,7 +20,7 @@ export async function authenticated(path: string, options?: RequestInit): Promis
     try {
       await refreshSession();
     } catch (refreshError) {
-      if (!(refreshError instanceof ApiError) || refreshError.code !== 'REFRESH_CONCURRENT')
+      if (!(refreshError instanceof ApiError) || refreshError.code !== 'REFRESH_IN_PROGRESS')
         throw refreshError;
       for (const delay of [100, 250, 500]) {
         await new Promise<void>((resolve) => setTimeout(resolve, delay));

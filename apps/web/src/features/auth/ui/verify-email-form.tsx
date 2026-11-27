@@ -9,7 +9,8 @@ import { Button } from '@workspace/ui/components/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@workspace/ui/components/field';
 import { Spinner } from '@workspace/ui/components/spinner';
 
-import { authApi, queryKeys } from '@/shared/api';
+import { useMe } from '@/entities/session';
+import { ApiError, authApi, queryKeys } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { useCountdown } from '@/shared/lib/use-countdown';
 import { CodeInput } from '@/shared/ui/code-input';
@@ -24,6 +25,7 @@ export function VerifyEmailForm({ onVerified }: { onVerified: () => void }) {
   const [code, setCode] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const userId = useMe().data?.id;
   const sent = React.useRef(false);
   const verifying = React.useRef(false);
 
@@ -37,17 +39,23 @@ export function VerifyEmailForm({ onVerified }: { onVerified: () => void }) {
           toast(t('verify.resent'));
         }
       } catch (cause) {
-        setError(errorMessage(cause));
+        if (silent && cause instanceof ApiError && cause.code === 'CODE_RESEND_TOO_SOON') start();
+        else setError(errorMessage(cause));
       }
     },
     [errorMessage, start, t],
   );
 
   React.useEffect(() => {
-    if (sent.current) return;
+    if (!userId || sent.current) return;
     sent.current = true;
-    void resend(true);
-  }, [resend]);
+    if (sessionStorage.getItem('geniebox:verification-sent') === userId) {
+      sessionStorage.removeItem('geniebox:verification-sent');
+      start();
+    } else {
+      void resend(true);
+    }
+  }, [resend, start, userId]);
 
   const verify = async (value: string) => {
     if (verifying.current || !/^\d{6}$/.test(value)) {

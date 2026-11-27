@@ -1,7 +1,7 @@
 import { authResultSchema, profileSchema, type ProfileUpdate, sessionsSchema } from '@workspace/types';
 
 import { authenticated } from './authenticated.js';
-import { pinWorkspace, request } from './request.js';
+import { request } from './request.js';
 
 const json = (body: object) => JSON.stringify(body);
 const post = (path: string, body?: object) =>
@@ -11,13 +11,12 @@ const authenticatedPost = (path: string, body?: object) =>
 
 async function openSession(path: string, body: object) {
   const result = authResultSchema.parse(await (await post(path, body)).json());
-  pinWorkspace();
   return result;
 }
 
 export const authApi = {
-  register: (body: { email: string; password: string; name: string; locale: string }) =>
-    openSession('register', body),
+  register: (body: { email: string; password: string; name: string }) =>
+    openSession('register', { email: body.email, password: body.password, displayName: body.name }),
   login: (body: { email: string; password: string }) => openSession('login', body),
   loginWithCode: (body: { email: string; code: string }) => openSession('email-code/verify', body),
   requestLoginCode: (email: string) => post('email-code', { email }),
@@ -34,7 +33,6 @@ export const authApi = {
 export const profileApi = {
   me: async (signal?: AbortSignal) => {
     const profile = profileSchema.parse(await (await authenticated('/v1/me', { signal })).json());
-    pinWorkspace(profile.tenantId);
     return profile;
   },
   update: async (body: ProfileUpdate) =>

@@ -4,10 +4,11 @@ import { request } from './request.js';
 
 export { accountsApi } from './accounts.js';
 export { agentsApi } from './agents.js';
-export { chatApi } from './chat.js';
+export { projectChat } from './chat.js';
 export { connectionsApi } from './connections.js';
 export { authApi, profileApi } from './identity.js';
 export { metricsApi, reportsApi } from './metrics.js';
+export { membersApi, projectsApi } from './projects.js';
 export { ApiError } from './request.js';
 export { routinesApi } from './routines.js';
 

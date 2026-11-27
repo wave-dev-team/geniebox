@@ -1,161 +1,218 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { type ReactNode, Suspense, useState } from 'react';
 import { toast } from 'sonner';
 
+import type { Workspace } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 
 import { useMe } from '@/entities/session';
-import { useWorkspaces } from '@/entities/workspace';
+import { localAccountDescription, useWorkspaces } from '@/entities/workspace';
+import { CreateAccountDialog } from '@/features/create-account/ui/create-account-dialog';
 import { accountsApi } from '@/shared/api';
+import { routes } from '@/shared/config/routes';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
-export default function SettingsPage() {
-  const t = useTranslations('workspace');
-  const me = useMe();
-  const directory = useWorkspaces();
-  const active = directory.data?.workspaces.find(({ id }) => id === directory.data?.activeId);
-  const client = useQueryClient();
+function SettingForm({
+  label,
+  action,
+  submit,
+  children,
+  disabled,
+}: {
+  label: string;
+  action: string;
+  submit: (value: FormData) => Promise<void>;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   const errorMessage = useErrorMessage();
-  const onError = (error: Error) => toast.error(errorMessage(error));
-
-  const members = useQuery({
-    queryKey: ['workspace-members', active?.id, me.data?.id],
-    enabled: Boolean(active),
-    queryFn: ({ signal }) => accountsApi.members(signal),
-  });
-  const rename = useMutation({
-    mutationFn: accountsApi.rename,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['workspaces'] });
-      toast.success(t('saved'));
-    },
-    onError,
-  });
-  const invite = useMutation({
-    mutationFn: accountsApi.invite,
-    onSuccess: () => toast.success(t('sent')),
-    onError,
-  });
-  const join = useMutation({
-    mutationFn: accountsApi.join,
-    onSuccess: () => window.location.reload(),
-    onError,
-  });
-
-  if (!active || !me.data) {
-    return (
-      <main className="mx-auto w-full max-w-200 px-6 py-10">
-        {directory.isError ? (
-          <Button onClick={() => void directory.refetch()} variant="outline">
-            {t('retry')}
-          </Button>
-        ) : (
-          <Skeleton className="h-60" />
-        )}
-      </main>
-    );
-  }
-
+  const mutation = useMutation({ mutationFn: submit });
   return (
-    <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-10">
-      <h1 className="text-xl font-semibold">{t('settings')}</h1>
-      <SettingsCard title={active.name}>
-        {active.role === 'owner' ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const name = new FormData(event.currentTarget).get('name');
-              if (typeof name === 'string' && name.trim() && name.trim() !== active.name) rename.mutate(name);
-            }}
-          >
-            <SettingsRow htmlFor="workspace-name" label={t('name')}>
-              <Input id="workspace-name" name="name" defaultValue={active.name} maxLength={120} required />
-              <Button type="submit" disabled={rename.isPending}>
-                {t('save')}
-              </Button>
-            </SettingsRow>
-          </form>
-        ) : null}
-        <div className="border-t">
-          <SettingsRow label={t('members')}>
-            {members.isPending ? (
-              <Skeleton className="h-7 w-28" />
-            ) : members.isError ? (
-              <Button variant="outline" onClick={() => void members.refetch()}>
-                {t('retry')}
-              </Button>
-            ) : (
-              <ul className="flex min-w-0 flex-col gap-2">
-                {members.data?.map((member) => (
-                  <li key={member.id} className="break-words text-sm">
-                    {member.name} <span className="text-muted-foreground">· {t(member.role)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SettingsRow>
-        </div>
-        {active.role === 'owner' ? (
-          <form
-            className="border-t"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const email = new FormData(event.currentTarget).get('email');
-              if (typeof email === 'string') invite.mutate(email);
-            }}
-          >
-            <SettingsRow
-              htmlFor="workspace-invite"
-              label={t('invite')}
-              hint={!me.data.emailVerified ? t('verifyFirst') : undefined}
-            >
-              <Input
-                id="workspace-invite"
-                name="email"
-                type="email"
-                autoComplete="email"
-                disabled={!me.data.emailVerified}
-                required
-              />
-              <Button type="submit" disabled={invite.isPending || !me.data.emailVerified}>
-                {t('send')}
-              </Button>
-            </SettingsRow>
-          </form>
-        ) : null}
-      </SettingsCard>
-      <SettingsCard title={t('join')}>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const code = new FormData(event.currentTarget).get('code');
-            if (typeof code === 'string') join.mutate(code);
+    <form
+      className="border-t first:border-0"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        mutation.mutate(new FormData(form), { onSuccess: () => form.reset() });
+      }}
+    >
+      <SettingsRow label={label}>
+        {children}
+        <Button type="submit" disabled={disabled || mutation.isPending}>
+          {action}
+        </Button>
+        {mutation.error && (
+          <span role="alert" className="text-sm text-destructive">
+            {errorMessage(mutation.error)}
+          </span>
+        )}
+      </SettingsRow>
+    </form>
+  );
+}
+
+function AccountSettings({ active }: { active: Workspace }) {
+  const t = useTranslations('workspace');
+  const client = useQueryClient();
+  const router = useRouter();
+  const { data: me } = useMe();
+  const description = localAccountDescription(me?.id, active.id);
+  const manager = active.role === 'owner' || active.role === 'admin';
+  const members = useQuery({
+    queryKey: ['workspace-members', active.id],
+    queryFn: ({ signal }) => accountsApi.members(active.id, signal),
+    enabled: active.role !== 'viewer',
+  });
+  return (
+    <SettingsCard title={active.name} description={description ?? undefined}>
+      {manager && (
+        <SettingForm
+          label={t('name')}
+          action={t('save')}
+          submit={async (form) => {
+            await accountsApi.rename(active.id, String(form.get('name')).trim());
+            await client.invalidateQueries({ queryKey: ['workspaces'] });
+            toast.success(t('saved'));
           }}
         >
-          <SettingsRow
-            htmlFor="workspace-code"
-            label={t('code')}
-            hint={me.data.emailVerified ? t('codeHelp') : t('verifyFirst')}
+          <Input aria-label={t('name')} name="name" defaultValue={active.name} maxLength={200} required />
+        </SettingForm>
+      )}
+      {active.role !== 'viewer' && (
+        <SettingsRow label={t('members')}>
+          {members.isError ? (
+            <Button variant="outline" onClick={() => void members.refetch()}>
+              {t('retry')}
+            </Button>
+          ) : members.isPending ? (
+            <Skeleton className="h-6 w-40" />
+          ) : (
+            <ul className="space-y-2">
+              {members.data.map((m) => (
+                <li key={m.userId} className="text-sm break-words">
+                  {m.displayName ?? m.email} · {t(m.role)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </SettingsRow>
+      )}
+      {manager && (
+        <>
+          <SettingForm
+            label={t('invite')}
+            action={t('send')}
+            submit={async (form) => {
+              await accountsApi.invite(active.id, String(form.get('email')), String(form.get('role')));
+              toast.success(t('sent'));
+            }}
+          >
+            <Input aria-label="Email" name="email" placeholder="name@example.com" type="email" required />
+            <select
+              className="rounded-md border bg-background p-2 text-sm"
+              aria-label={t('role')}
+              name="role"
+              defaultValue="viewer"
+            >
+              {['viewer', 'tech', 'admin'].map((role) => (
+                <option key={role} value={role}>
+                  {t(role)}
+                </option>
+              ))}
+            </select>
+          </SettingForm>
+          <SettingForm
+            label={t('newProject')}
+            action={t('create')}
+            submit={async (form) => {
+              const project = await accountsApi.createProject(active.id, String(form.get('name')).trim());
+              sessionStorage.setItem(`geniebox:project:${active.id}`, project.id);
+              await client.invalidateQueries({ queryKey: ['projects', active.id] });
+              router.push('/chat');
+            }}
           >
             <Input
-              id="workspace-code"
-              name="code"
-              autoComplete="off"
-              spellCheck={false}
-              disabled={!me.data.emailVerified}
+              aria-label={t('projectName')}
+              name="name"
+              placeholder={t('projectName')}
+              maxLength={120}
               required
             />
-            <Button type="submit" disabled={join.isPending || !me.data.emailVerified}>
-              {t('joinAction')}
-            </Button>
-          </SettingsRow>
-        </form>
+          </SettingForm>
+        </>
+      )}
+      {active.role === 'viewer' && <SettingsRow label={t('role')}>{t(active.role)}</SettingsRow>}
+    </SettingsCard>
+  );
+}
+
+function Settings() {
+  const t = useTranslations('workspace');
+  const router = useRouter();
+  const invite = useSearchParams().get('invite') ?? '';
+  const me = useMe();
+  const directory = useWorkspaces();
+  const [creating, setCreating] = useState(false);
+  return (
+    <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-12">
+      <h1 className="text-xl font-semibold">{t('settings')}</h1>
+      {directory.isError && (
+        <Button variant="outline" onClick={() => void directory.refetch()}>
+          {t('retry')}
+        </Button>
+      )}
+      {directory.isPending && <Skeleton className="h-36" />}
+      {directory.active && <AccountSettings key={directory.active.id} active={directory.active} />}
+      <SettingsCard title={t('accounts')}>
+        <SettingsRow label={t('newAccount')}>
+          <Button onClick={() => setCreating(true)}>{t('create')}</Button>
+        </SettingsRow>
+        {creating && <CreateAccountDialog onClose={() => setCreating(false)} />}
+        <SettingForm
+          label={t('join')}
+          action={t('joinAction')}
+          disabled={!me.data?.emailVerified}
+          submit={async (form) => {
+            const account = await accountsApi.join(String(form.get('token')).trim());
+            directory.activate(account);
+            router.replace('/chat');
+          }}
+        >
+          <Input
+            aria-label={t('code')}
+            placeholder={t('code')}
+            name="token"
+            defaultValue={invite}
+            required
+            minLength={20}
+            maxLength={100}
+          />
+          {!me.data?.emailVerified && (
+            <Link
+              className="text-sm underline"
+              href={routes.verifyEmail('/settings' + (invite ? '?invite=' + encodeURIComponent(invite) : ''))}
+            >
+              {t('verifyFirst')}
+            </Link>
+          )}
+        </SettingForm>
       </SettingsCard>
     </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense>
+      <Settings />
+    </Suspense>
   );
 }

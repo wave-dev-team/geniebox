@@ -1,32 +1,28 @@
 import { z } from 'zod';
 
-export const workspaceRoleSchema = z.enum(['owner', 'member']);
-export const workspaceSchema = z.object({
-  id: z.uuid(),
-  name: z.string(),
-  role: workspaceRoleSchema,
-});
-
-export const workspaceNameSchema = z.strictObject({ name: z.string().trim().min(1).max(120) });
-export const workspaceInviteSchema = z.strictObject({ email: z.email().max(254) });
-export const workspaceJoinSchema = z.strictObject({
-  code: z
-    .string()
-    .trim()
-    .regex(/^[\w-]{43}$/),
-});
-
-export type Workspace = z.infer<typeof workspaceSchema>;
-
-export const workspaceDirectorySchema = z.object({
-  activeId: z.uuid(),
-  workspaces: z.array(workspaceSchema),
-});
-
+export const workspaceRoleSchema = z.enum(['owner', 'admin', 'tech', 'viewer']);
+export const workspaceSchema = z.object({ id: z.uuid(), name: z.string(), role: workspaceRoleSchema });
 export const workspaceMembersSchema = z.array(
   z.object({
-    id: z.uuid(),
-    name: z.string(),
+    userId: z.uuid(),
+    displayName: z.string().nullable(),
+    email: z.string(),
     role: workspaceRoleSchema,
+    joinedAt: z.string(),
   }),
 );
+export const invitationSchema = z.object({
+  id: z.uuid(),
+  email: z.string(),
+  role: z.enum(['admin', 'tech', 'viewer']),
+  invitedBy: z.uuid(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+  expired: z.boolean(),
+});
+export const invitationsSchema = z.array(invitationSchema);
+export type Workspace = z.infer<typeof workspaceSchema>;
+export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
+export type AssignableRole = z.infer<typeof invitationSchema>['role'];
+export type Member = z.infer<typeof workspaceMembersSchema>[number];
+export type Invitation = z.infer<typeof invitationSchema>;

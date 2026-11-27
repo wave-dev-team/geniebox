@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 
 import { useTasks } from '@/features/tasks/model/use-tasks';
 import { TaskEditor } from '@/features/tasks/ui/task-editor';
+import { businessApiAvailable } from '@/shared/api';
 import { routes } from '@/shared/config/routes';
 
 const statuses = {
@@ -199,6 +200,7 @@ function TaskDetails({
 
 export function TasksBoard() {
   const t = useTranslations('tasks');
+  const unavailable = useTranslations('app')('businessUnavailable');
   const tRoutines = useTranslations('routines');
   const router = useRouter();
   const pathname = usePathname();
@@ -234,7 +236,7 @@ export function TasksBoard() {
           </div>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button onClick={() => setCreating(true)}>
+        <Button disabled={!businessApiAvailable} onClick={() => setCreating(true)}>
           <Plus />
           {t('create')}
         </Button>
@@ -273,7 +275,8 @@ export function TasksBoard() {
         )}
       </div>
 
-      {board.list.isPending && <Spinner className="mx-auto my-10 text-muted-foreground" />}
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
+      {board.list.isLoading && <Spinner className="mx-auto my-10 text-muted-foreground" />}
       {board.list.isError && (
         <div className="flex items-center gap-3">
           <p role="alert" className="text-sm text-destructive">
@@ -333,7 +336,7 @@ export function TasksBoard() {
           {t('more')}
         </Button>
       )}
-      {taskId && !editing && !creating && (
+      {businessApiAvailable && taskId && !editing && !creating && (
         <TaskDetails
           task={board.detail.data}
           loading={board.detail.isPending}

@@ -12,21 +12,23 @@ import { Skeleton } from '@workspace/ui/components/skeleton';
 import { useMe } from '@/entities/session';
 import { useWorkspaces } from '@/entities/workspace';
 import { metricsApi } from '@/shared/api';
+import { businessApiAvailable } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
 export default function MetricsPage() {
   const t = useTranslations('analytics');
+  const unavailable = useTranslations('app')('businessUnavailable');
   const { data: me } = useMe();
   const { data: workspaces } = useWorkspaces();
   const owner = workspaces?.workspaces.find(({ id }) => id === workspaces.activeId)?.role === 'owner';
   const client = useQueryClient();
   const errorMessage = useErrorMessage();
-  const key = ['metric-definitions', me?.tenantId, me?.id];
+  const key = ['metric-definitions', workspaces?.activeId, me?.id];
   const query = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => metricsApi.list(signal),
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
   });
   const save = useMutation({
     mutationFn: ({ metric, label }: { metric: MetricKey; label: string }) => metricsApi.rename(metric, label),
@@ -40,7 +42,8 @@ export default function MetricsPage() {
   return (
     <main className="mx-auto flex w-full max-w-200 flex-col gap-6 px-6 py-10">
       <h1 className="text-xl font-semibold">{t('metrics')}</h1>
-      {query.isPending ? (
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
+      {query.isLoading ? (
         <Skeleton className="h-40" />
       ) : query.isError ? (
         <Button className="self-start" variant="outline" onClick={() => void query.refetch()}>
@@ -48,7 +51,7 @@ export default function MetricsPage() {
         </Button>
       ) : (
         <SettingsCard title={t('metricSource')}>
-          {query.data.map(({ key: metric, label }) => (
+          {query.data?.map(({ key: metric, label }) => (
             <form
               className="border-b last:border-b-0"
               key={metric}

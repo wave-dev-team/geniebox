@@ -50,7 +50,7 @@ export function SignupForm() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      const result = await authApi.register({ ...values, locale });
+      const result = await authApi.register(values);
       await completeSignIn(result, routes.verifyEmail(next ?? routes.root()));
     } catch (error) {
       form.setError('root', { message: errorMessage(error) });

@@ -13,7 +13,9 @@ import { Skeleton } from '@workspace/ui/components/skeleton';
 import { Textarea } from '@workspace/ui/components/textarea';
 
 import { useMe } from '@/entities/session';
+import { useWorkspaces } from '@/entities/workspace';
 import { agentsApi } from '@/shared/api';
+import { businessApiAvailable } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { SettingsCard, SettingsRow } from '@/shared/ui/settings-card';
 
@@ -65,7 +67,7 @@ function AgentCard({
     },
     onError,
   });
-  const busy = save.isPending || restore.isPending;
+  const busy = !businessApiAvailable || save.isPending || restore.isPending;
 
   return (
     <SettingsCard
@@ -182,25 +184,28 @@ function AgentCard({
 
 export default function AgentsPage() {
   const t = useTranslations('agentCatalog');
+  const { data: workspaces } = useWorkspaces();
+  const unavailable = useTranslations('app')('businessUnavailable');
   const { data: me } = useMe();
-  const scope = [me?.tenantId, me?.id] as const;
+  const scope = [workspaces?.activeId, me?.id] as const;
   const agents = useQuery({
     queryKey: ['agents', ...scope],
     queryFn: ({ signal }) => agentsApi.list(signal),
-    enabled: Boolean(me),
+    enabled: businessApiAvailable && Boolean(me),
   });
 
   return (
     <main className="mx-auto flex w-full max-w-230 flex-col gap-6 px-6 py-10">
       <h1 className="text-xl font-semibold">{t('title')}</h1>
-      {agents.isPending ? (
+      {!businessApiAvailable && <p className="text-sm text-muted-foreground">{unavailable}</p>}
+      {agents.isLoading ? (
         <Skeleton className="h-36" />
       ) : agents.isError ? (
         <Button variant="outline" className="self-start" onClick={() => void agents.refetch()}>
           {t('retry')}
         </Button>
       ) : (
-        agents.data.map((agent) => <AgentCard key={agent.id} scope={scope} agent={agent} />)
+        agents.data?.map((agent) => <AgentCard key={agent.id} scope={scope} agent={agent} />)
       )}
     </main>
   );

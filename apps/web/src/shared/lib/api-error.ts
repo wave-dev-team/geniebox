@@ -11,7 +11,7 @@ export function useErrorMessage() {
   return useCallback(
     (error: unknown) => {
       const code = error instanceof ApiError ? error.code : undefined;
-      return code && t.has(code) ? t(code) : t('generic');
+      return code && t.has(code) ? t(code) : (error instanceof ApiError && error.detail) || t('generic');
     },
     [t],
   );

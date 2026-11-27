@@ -37,7 +37,7 @@ const LOCALE_NAMES: Record<(typeof LOCALES)[number], string> = { ru: 'Русск
 const THEMES = ['light', 'dark', 'system'] as const;
 
 const schema = z.object({
-  name: nameSchema,
+  name: nameSchema.or(z.literal('')),
   locale: z.enum(LOCALES),
   timezone: z.string().nullable(),
 });
@@ -54,18 +54,18 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     values: {
-      name: profile.name,
+      name: profile.displayName ?? '',
       locale: profile.locale,
-      timezone: profile.timeZone,
+      timezone: profile.timezone,
     },
   });
 
   const save = useMutation({
     mutationFn: (values: Values) =>
       profileApi.update({
-        name: values.name,
+        displayName: values.name || null,
         locale: values.locale,
-        timeZone: values.timezone,
+        timezone: values.timezone,
       }),
     onSuccess: async (updated) => {
       queryClient.setQueryData(queryKeys.me(), updated);

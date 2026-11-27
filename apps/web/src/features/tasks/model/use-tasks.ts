@@ -5,8 +5,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import type { CreateWorkTask, TaskAction, TaskTab, UpdateWorkTask, WorkTask } from '@workspace/types';
 
 import { useMe } from '@/entities/session';
+import { useWorkspaces } from '@/entities/workspace';
 import { tasksApi } from '@/shared/api';
-import { useWorkStream } from '@/shared/api/use-work-stream';
+import { businessApiAvailable } from '@/shared/api';
 
 function isGenerating(task: WorkTask) {
   return Boolean(task.agentId && ['planned', 'running'].includes(task.status));
@@ -14,10 +15,10 @@ function isGenerating(task: WorkTask) {
 
 export function useTasks(tab: TaskTab, agentId?: string, taskId?: string) {
   const { data: me } = useMe();
-  const key = ['tasks', me?.tenantId, me?.id] as const;
-  const enabled = Boolean(me);
+  const { active } = useWorkspaces();
+  const key = ['tasks', active?.id, me?.id] as const;
+  const enabled = businessApiAvailable && Boolean(active && me);
   const client = useQueryClient();
-  const streaming = useWorkStream('tasks', me?.tenantId, me?.id);
   const list = useInfiniteQuery({
     queryKey: [...key, 'list', tab, agentId],
     enabled,
@@ -26,14 +27,14 @@ export function useTasks(tab: TaskTab, agentId?: string, taskId?: string) {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     staleTime: 0,
     refetchInterval: ({ state }) =>
-      state.data?.pages.some((page) => page.tasks.some(isGenerating)) ? (streaming ? 8000 : 1200) : false,
+      state.data?.pages.some((page) => page.tasks.some(isGenerating)) ? 1200 : false,
   });
   const counts = useQuery({
     queryKey: [...key, 'counts', agentId],
     queryFn: ({ signal }) => tasksApi.counts(agentId, signal),
     enabled,
     staleTime: 0,
-    refetchInterval: streaming ? 15_000 : 4000,
+    refetchInterval: 4000,
   });
   const agents = useQuery({
     queryKey: [...key, 'agents'],
@@ -46,8 +47,7 @@ export function useTasks(tab: TaskTab, agentId?: string, taskId?: string) {
     queryFn: ({ signal }) => tasksApi.get(taskId ?? '', signal),
     enabled: enabled && Boolean(taskId),
     staleTime: 0,
-    refetchInterval: ({ state }) =>
-      state.data && isGenerating(state.data) ? (streaming ? 8000 : 1200) : false,
+    refetchInterval: ({ state }) => (state.data && isGenerating(state.data) ? 1200 : false),
   });
   function refresh(task: WorkTask) {
     client.setQueryData([...key, 'detail', task.id], task);
