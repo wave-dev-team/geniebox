@@ -470,7 +470,7 @@ export class KnowledgeService {
         this.repo.searchTitles(tx.db, projectId, text, scope, 10),
       ]);
 
-      const merged = new Map<string, { item: SearchItem; best: SearchChunk | null }>();
+      const merged = new Map<string, { item: SearchItem; best: SearchChunk | null; bestRank: number }>();
       const add = (chunk: SearchChunk, rank: number) => {
         const current = merged.get(chunk.nodeId);
         if (!current) {
@@ -485,12 +485,17 @@ export class KnowledgeService {
               sources: [],
             },
             best: chunk,
+            bestRank: rank,
           });
           return;
         }
         current.item.score += rrf(rank);
-        if (rank < 5 && current.best?.chunkId !== chunk.chunkId)
+        // The snippet follows the best-ranked chunk, whichever list it came from.
+        if (rank < current.bestRank && current.best?.chunkId !== chunk.chunkId) {
           current.item.snippet = snippetOf(chunk.text, text);
+          current.best = chunk;
+          current.bestRank = rank;
+        }
       };
       fullText.forEach((chunk, rank) => add(chunk, rank));
       semantic.forEach((chunk, rank) => add(chunk, rank));

@@ -8,6 +8,11 @@ import { z } from 'zod';
 import { createKysely } from '../src/database/create-kysely.js';
 import type { DB } from '../src/database/types.js';
 import { chunkPage } from '../src/modules/knowledge/chunker.js';
+import {
+  type EmbeddingProvider,
+  FakeEmbeddingProvider,
+  OpenAiEmbeddingProvider,
+} from '../src/modules/knowledge/embeddings.js';
 import { detectFormat, extractDocument, mimeFor } from '../src/modules/knowledge/extract.js';
 import { KNOWLEDGE_FILE_FORMATS } from '../src/modules/knowledge/knowledge.constants.js';
 import { KnowledgeRepository } from '../src/modules/knowledge/repositories/knowledge.repository.js';
@@ -25,11 +30,31 @@ import { KnowledgeRepository } from '../src/modules/knowledge/repositories/knowl
 
 const sha256 = (value: Buffer | string): string => createHash('sha256').update(value).digest('hex');
 
-/** Only what the seed needs: the app role connection and where sources are stored. */
+/** Only what the seed needs: the app role connection, where sources are stored and embeddings. */
 const seedEnv = z.object({
   DATABASE_URL: z.string().min(1),
   KNOWLEDGE_BLOB_DIR: z.string().min(1).default('./data/knowledge'),
+  EMBEDDING_PROVIDER: z.enum(['none', 'fake', 'openai']).default('none'),
+  EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().max(2000).default(1536),
+  EMBEDDING_BASE_URL: z.string().min(1).default('https://api.openai.com/v1'),
+  EMBEDDING_API_KEY: z.string().min(20).optional(),
+  OPENAI_API_KEY: z.string().min(20).optional(),
 });
+
+/** Same providers the worker uses, so seeded pages are searchable by vector right away. */
+function embeddingProvider(env: z.infer<typeof seedEnv>): EmbeddingProvider | null {
+  if (env.EMBEDDING_PROVIDER === 'none') return null;
+  if (env.EMBEDDING_PROVIDER === 'fake') return new FakeEmbeddingProvider(env.EMBEDDING_DIMENSIONS);
+  const key = env.EMBEDDING_API_KEY ?? env.OPENAI_API_KEY;
+  if (!key) throw new Error('EMBEDDING_API_KEY or OPENAI_API_KEY is required for openai embeddings');
+  return new OpenAiEmbeddingProvider(
+    key,
+    env.EMBEDDING_BASE_URL,
+    env.EMBEDDING_MODEL,
+    env.EMBEDDING_DIMENSIONS,
+  );
+}
 
 function argument(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
@@ -44,6 +69,7 @@ async function main(): Promise<void> {
     throw new Error('usage: seed-knowledge --account <uuid> --project <uuid> --dir <path>');
   }
   const env = seedEnv.parse(process.env);
+  const embeddings = embeddingProvider(env);
   const files = (await readdir(resolve(dir))).filter((name) =>
     KNOWLEDGE_FILE_FORMATS.includes(extname(name).slice(1).toLowerCase() as never),
   );
@@ -103,17 +129,17 @@ async function main(): Promise<void> {
           kind: 'page',
           title: nodeTitle,
           body,
-          status: 'published',
+          // Inserted as a draft and published below: the check requires published_at with it.
+          status: 'draft',
           position,
           content_hash: sha256(`${nodeTitle}\n${body}`),
-          indexed_hash: null,
           source_id: source.id,
           created_by: null,
           updated_by: null,
         });
         await tx
           .updateTable('knowledge_nodes')
-          .set({ published_at: new Date() })
+          .set({ status: 'published', published_at: new Date() })
           .where('id', '=', node.id)
           .execute();
         await repo.appendRevision(tx, {
@@ -136,6 +162,11 @@ async function main(): Promise<void> {
           })),
         );
         const drafts = chunkPage(nodeTitle, body);
+        // Same input shape as the indexer: heading path plus the chunk text.
+        const vectors = embeddings
+          ? (await embeddings.embed(drafts.map((draft) => `${draft.headingPath.join(' > ')}\n${draft.text}`)))
+              .vectors
+          : [];
         await repo.replaceChunks(
           tx,
           node.id,
@@ -148,8 +179,10 @@ async function main(): Promise<void> {
             text: draft.text,
             token_count: draft.tokenCount,
             content_hash: sha256(draft.text),
-            embedding: null,
-            embedding_model: null,
+            embedding: vectors[index]
+              ? `[${vectors[index]!.map((value) => value.toFixed(6)).join(',')}]`
+              : null,
+            embedding_model: vectors[index] ? embeddings!.model : null,
           })),
         );
         await tx
@@ -157,10 +190,10 @@ async function main(): Promise<void> {
           .set({ indexed_hash: sha256(`${nodeTitle}\n${body}`) })
           .where('id', '=', node.id)
           .execute();
-        console.log(`loaded ${name}: ${drafts.length} chunks`);
+        console.log(`loaded ${name}: ${drafts.length} chunks, ${vectors.length} vectors`);
       }
     });
-    console.log('done. Publish fixes and embeddings are computed by the worker on the next edit.');
+    console.log('done.');
   } finally {
     await db.destroy();
   }
