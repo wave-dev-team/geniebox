@@ -436,9 +436,11 @@ describe('metrics, results and checks (HTTP)', () => {
       return row;
     }, 20_000);
     expect(done.verdict).toBe('worked');
-    const checkTask = (await api.get(`${base()}/tasks/${done.task_id}`, owner.accessToken).expect(200))
-      .body as { origin: string; status: string };
-    expect(checkTask).toMatchObject({ origin: 'check', status: 'done' });
+    await eventually(async () => {
+      const checkTask = (await api.get(`${base()}/tasks/${done.task_id}`, owner.accessToken).expect(200))
+        .body as { origin: string; status: string };
+      expect(checkTask).toMatchObject({ origin: 'check', status: 'done' });
+    });
 
     const results = (await api.get(`${base()}/results?days=30`, owner.accessToken).expect(200)).body as {
       metric: { key: string };
