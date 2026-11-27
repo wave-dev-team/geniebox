@@ -24,6 +24,10 @@ x-app-environment: &app-environment
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
   LLM_MODEL_FAST: ${LLM_MODEL_FAST:-gpt-4.1-mini}
+  KNOWLEDGE_BLOB_DIR: /var/lib/geniebox/knowledge
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+  EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
 
 x-app: &app
   image: ghcr.io/wave-dev-team/geniebox-api:${RELEASE_SHA:?required}
@@ -31,6 +35,7 @@ x-app: &app
   environment: *app-environment
   volumes:
     - ${RUNTIME_SECRETS_DIR:?required}/kek.pub.pem:/run/geniebox/kek.pub.pem:ro
+    - knowledge-data:/var/lib/geniebox/knowledge
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -42,7 +47,7 @@ x-app: &app
 services:
   # Use a separate cluster and volumes so the previous release remains recoverable.
   runtime-db:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${RUNTIME_POSTGRES_PASSWORD:?required}
@@ -112,6 +117,7 @@ services:
     volumes:
       - ${RUNTIME_SECRETS_DIR:?required}/kek.pub.pem:/run/geniebox/kek.pub.pem:ro
       - ${RUNTIME_SECRETS_DIR:?required}/kek.key.pem:/run/geniebox/kek.key.pem:ro
+      - knowledge-data:/var/lib/geniebox/knowledge
 
   internal:
     <<: *app
@@ -153,3 +159,4 @@ services:
 volumes:
   runtime-postgres-data:
   runtime-redis-data:
+  knowledge-data:

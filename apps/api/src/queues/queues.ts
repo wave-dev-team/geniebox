@@ -14,6 +14,7 @@ export const QUEUES = {
   METRICS_MAINTENANCE: 'metrics-maintenance',
   CATALOG_SCENARIOS: 'catalog-scenarios',
   CATALOG_ROLLOUT: 'catalog-rollout',
+  KNOWLEDGE_INDEX: 'knowledge-index',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -78,6 +79,13 @@ export const QUEUE_JOB_OPTIONS: Record<QueueName, DefaultJobOptions> = {
   // A failed run is written on the version («проверка не завершилась»); it can be started again.
   [QUEUES.CATALOG_SCENARIOS]: {
     attempts: 1,
+    removeOnComplete: { age: DAY_SECONDS },
+    removeOnFail: { age: 7 * DAY_SECONDS },
+  },
+  // Extraction and embeddings retry with backoff; the source keeps its error for a manual retry.
+  [QUEUES.KNOWLEDGE_INDEX]: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5_000 },
     removeOnComplete: { age: DAY_SECONDS },
     removeOnFail: { age: 7 * DAY_SECONDS },
   },

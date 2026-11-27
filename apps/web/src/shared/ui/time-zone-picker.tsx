@@ -64,11 +64,11 @@ export function TimeZonePicker({
         <ChevronDown className="text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent
-        className="max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) rounded-2xl p-0"
+        className="max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) p-0"
         align="start"
         collisionAvoidance={{ fallbackAxisSide: 'none' }}
       >
-        <Command className="h-auto min-h-0 rounded-2xl">
+        <Command className="h-auto min-h-0">
           <CommandInput aria-label={t('search')} placeholder={t('search')} className="min-w-0" />
           <CommandList className="min-h-0">
             <CommandEmpty>{t('empty')}</CommandEmpty>

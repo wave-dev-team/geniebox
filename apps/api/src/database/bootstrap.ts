@@ -82,6 +82,10 @@ export async function bootstrapDatabase(options: BootstrapOptions): Promise<void
     await target.query(`GRANT CONNECT, TEMPORARY ON DATABASE ${db} TO ${ownerId}, ${appId}, ${systemId}`);
     await target.query(`ALTER SCHEMA public OWNER TO ${ownerId}`);
     await target.query(`REVOKE ALL ON SCHEMA public FROM PUBLIC`);
+    // vector is not a trusted extension: only a superuser can install it. Migrations then
+    // see it already present and never need these privileges.
+    await target.query('CREATE EXTENSION IF NOT EXISTS vector');
+    await target.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
     await target.query(`GRANT USAGE ON SCHEMA public TO ${appId}, ${systemId}`);
     // Request-path limits: a runaway query or a forgotten transaction must not hold the DB.
     await target.query(`ALTER ROLE ${appId} IN DATABASE ${db} SET statement_timeout = '15s'`);

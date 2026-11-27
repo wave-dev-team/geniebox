@@ -17,7 +17,9 @@ export type ProjectStreamEvent =
   | { type: 'decision.updated'; decisionId: string }
   | { type: 'routine.updated'; routineId: string }
   | { type: 'agent.updated'; agentId: string }
-  | { type: 'metrics.updated' };
+  | { type: 'metrics.updated' }
+  | { type: 'knowledge.updated'; nodeId: string }
+  | { type: 'knowledge.source'; sourceId: string };
 
 export const streamChannel = (projectId: string): string => `geniebox:stream:project:${projectId}`;
 export const STREAM_CHANNEL_PATTERN = 'geniebox:stream:project:*';

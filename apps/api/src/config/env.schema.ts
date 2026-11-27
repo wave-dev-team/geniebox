@@ -96,6 +96,22 @@ export const envSchema = z
     LLM_MODEL: z.string().min(1).default('gpt-4.1-mini'),
     // Catalog agents with the «fast» model purpose; LLM_MODEL when unset.
     LLM_MODEL_FAST: z.string().min(1).optional(),
+    // Knowledge base. Uploaded sources live outside the web root and are shared with the worker.
+    KNOWLEDGE_BLOB_DIR: z.string().min(1).default('./data/knowledge'),
+    KNOWLEDGE_MAX_UPLOAD_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(20 * 1024 * 1024),
+    // Embeddings: `fake` is deterministic and offline (dev, tests); `none` keeps FTS-only search.
+    EMBEDDING_PROVIDER: z.enum(['none', 'fake', 'openai']).default('none'),
+    EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
+    EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().max(2000).default(1536),
+    EMBEDDING_BASE_URL: z.url().default('https://api.openai.com/v1'),
+    EMBEDDING_API_KEY: z.string().min(20).optional(),
+    // USD per million embedding tokens; the cost is journaled per project.
+    EMBEDDING_PRICE_PER_MTOK: z.coerce.number().nonnegative().default(0.02),
+
     // USD per million tokens of LLM_MODEL; the cost of every call goes to llm_calls.
     LLM_PRICE_IN_PER_MTOK: z.coerce.number().nonnegative().default(0.4),
     LLM_PRICE_OUT_PER_MTOK: z.coerce.number().nonnegative().default(1.6),
@@ -132,6 +148,20 @@ export const envSchema = z
     }
     if (env.LLM_PROVIDER === 'openai' && !env.OPENAI_API_KEY) {
       ctx.addIssue({ code: 'custom', path: ['OPENAI_API_KEY'], message: 'required for openai' });
+    }
+    if (env.EMBEDDING_PROVIDER === 'openai' && !env.EMBEDDING_API_KEY && !env.OPENAI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_API_KEY'],
+        message: 'EMBEDDING_API_KEY or OPENAI_API_KEY is required for the openai provider',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.EMBEDDING_PROVIDER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_PROVIDER'],
+        message: 'must not be fake in production',
+      });
     }
     if (env.NODE_ENV === 'production' && env.LLM_PROVIDER === 'fake') {
       ctx.addIssue({
