@@ -18,13 +18,15 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DEFAULT_LOCALE } from '../../common/i18n/locales.js';
 import type { Env } from '../../config/env.schema.js';
 import { UserDb } from '../../database/scoped-db.js';
+import { SystemDb } from '../../database/system-db.js';
 import { OnOutboxEvent } from '../../outbox/on-outbox-event.decorator.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import type { OutboxEnvelope } from '../../outbox/outbox.types.js';
-import { MailService, type SendMailInput } from '../mail/mail.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { PROJECT_ERRORS, ProjectException } from './projects.errors.js';
 
 const SUPPORT_REQUESTED = 'support.requested';
+type SupportRequested = { requestId: string };
 
 class SupportRequestDto {
   @IsIn(['support', 'turnkey'])
@@ -71,7 +73,6 @@ export class SupportRequestsService {
   constructor(
     private readonly userDb: UserDb,
     private readonly outbox: OutboxService,
-    private readonly config: ConfigService<Env, true>,
   ) {}
 
   create(input: SupportRequestDto) {
@@ -87,11 +88,6 @@ export class SupportRequestsService {
             .executeTakeFirst()
         : undefined;
       if (input.projectId && !project) throw new ProjectException(PROJECT_ERRORS.PROJECT_NOT_FOUND);
-      const user = await db
-        .selectFrom('users')
-        .select('email')
-        .where('id', '=', userId)
-        .executeTakeFirstOrThrow();
       const request = await db
         .insertInto('support_requests')
         .values({
@@ -107,26 +103,11 @@ export class SupportRequestsService {
         })
         .returning('id')
         .executeTakeFirstOrThrow();
-      await this.outbox.add<SendMailInput>(
+      await this.outbox.add<SupportRequested>(
         { db, traceId, accountId: null },
         {
           type: SUPPORT_REQUESTED,
-          payload: {
-            to: this.config.get('SUPPORT_EMAIL', { infer: true }),
-            template: input.kind === 'support' ? 'support_request' : 'support_turnkey',
-            locale: DEFAULT_LOCALE,
-            params: {
-              requestId: request.id,
-              from: user.email,
-              project: project?.name ?? '—',
-              topic: input.topic ?? '—',
-              message: input.message,
-              attachJournal: input.attachJournal ? 'да' : 'нет',
-              services: input.services?.join(', ') ?? '—',
-              contact: input.contact ?? '—',
-              preferredTime: input.preferredTime ?? '—',
-            },
-          },
+          payload: { requestId: request.id },
         },
       );
       return request;
@@ -148,10 +129,42 @@ export class SupportRequestsController {
 
 @Injectable()
 export class SupportRequestsMailer {
-  constructor(private readonly mail: MailService) {}
+  constructor(
+    // Account-less support requests are delivered to the shared support inbox.
+    private readonly systemDb: SystemDb,
+    private readonly mail: MailService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   @OnOutboxEvent(SUPPORT_REQUESTED)
-  send(event: OutboxEnvelope<SendMailInput>) {
-    return this.mail.send(event.payload, event.eventId);
+  async send(event: OutboxEnvelope<SupportRequested>): Promise<void> {
+    const request = await this.systemDb.db
+      .selectFrom('support_requests')
+      .innerJoin('users', 'users.id', 'support_requests.user_id')
+      .leftJoin('projects', 'projects.id', 'support_requests.project_id')
+      .selectAll('support_requests')
+      .select(['users.email', 'projects.name as project_name'])
+      .where('support_requests.id', '=', event.payload.requestId)
+      .executeTakeFirst();
+    if (!request) return;
+    await this.mail.send(
+      {
+        to: this.config.get('SUPPORT_EMAIL', { infer: true }),
+        template: request.kind === 'support' ? 'support_request' : 'support_turnkey',
+        locale: DEFAULT_LOCALE,
+        params: {
+          requestId: request.id,
+          from: request.email,
+          project: request.project_name ?? '—',
+          topic: request.topic ?? '—',
+          message: request.message,
+          attachJournal: request.attach_journal ? 'да' : 'нет',
+          services: request.services.join(', ') || '—',
+          contact: request.contact ?? '—',
+          preferredTime: request.preferred_time ?? '—',
+        },
+      },
+      event.eventId,
+    );
   }
 }
