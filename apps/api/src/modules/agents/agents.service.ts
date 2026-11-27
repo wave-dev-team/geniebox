@@ -18,6 +18,7 @@ import {
   type RiskClass,
   TOOLS,
 } from './catalog/catalog.js';
+import { type AgentSummaryDto, AgentTemplateSummaryDto } from './dto/agent.dto.js';
 import { AGENT_EVENTS, AGENT_TASKS, type AgentEvent } from './events/agent.events.js';
 import {
   type AgentConnectionView,
@@ -41,6 +42,7 @@ export interface AgentDetails {
   permissions: EffectivePermission[];
   notes: Array<{ id: string; text: string; created_at: Date }>;
   enforcedAsks: string[];
+  template: AgentTemplateSummaryDto | null;
 }
 
 const QUIET_HOURS = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
@@ -60,19 +62,80 @@ export class AgentsService {
     private readonly catalog: CatalogService,
   ) {}
 
-  /** Team of the project with each agent's connections (sidebar, F06, J01). */
-  list(): Promise<Array<{ agent: AgentRow; connections: AgentConnectionView[] }>> {
+  /** Team of the project with each agent's connections and 7-day summary (sidebar, /agents, /tasks). */
+  list(): Promise<Array<{ agent: AgentRow; connections: AgentConnectionView[]; summary: AgentSummaryDto }>> {
     const { projectId } = this.projectContext.actor();
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return this.accountDb.transaction(async (tx) => {
       const agents = await this.agents.list(tx.db, projectId);
-      const links = await this.agents.listConnections(
-        tx.db,
-        agents.map((a) => a.id),
+      const agentIds = agents.map((a) => a.id);
+      const [links, toolRows, taskRows, decisionRows] = await Promise.all([
+        this.agents.listConnections(tx.db, agentIds),
+        tx.db
+          .selectFrom('tool_calls')
+          .select([
+            'agent_id',
+            (eb) => eb.fn.countAll<string>().as('cnt'),
+            (eb) => eb.fn.max('created_at').as('last_at'),
+          ])
+          .where('project_id', '=', projectId)
+          .where('tool_id', 'like', '%.%')
+          .where('created_at', '>', weekAgo)
+          .groupBy('agent_id')
+          .execute(),
+        tx.db
+          .selectFrom('tasks')
+          .select(['agent_id', 'status', 'updated_at'])
+          .where('project_id', '=', projectId)
+          .execute(),
+        tx.db
+          .selectFrom('decisions')
+          .select(['agent_id', 'status'])
+          .where('project_id', '=', projectId)
+          .where('status', 'in', ['accepted', 'modified', 'rejected', 'expired'])
+          .execute(),
+      ]);
+
+      const toolByAgent = new Map(
+        toolRows.map((r) => [r.agent_id, { count: Number(r.cnt), lastAt: r.last_at as Date | null }]),
       );
-      return agents.map((agent) => ({
-        agent,
-        connections: links.filter((link) => link.agentId === agent.id),
-      }));
+
+      const tasksByAgent = new Map<string, { active: number; done: number; lastAt: Date | null }>();
+      for (const t of taskRows) {
+        const entry = tasksByAgent.get(t.agent_id) ?? { active: 0, done: 0, lastAt: null };
+        if (t.status === 'done') entry.done++;
+        else if (t.status !== 'cancelled') entry.active++;
+        if (!entry.lastAt || t.updated_at > entry.lastAt) entry.lastAt = t.updated_at;
+        tasksByAgent.set(t.agent_id, entry);
+      }
+
+      const decByAgent = new Map<string, { accepted: number; total: number }>();
+      for (const d of decisionRows) {
+        const entry = decByAgent.get(d.agent_id) ?? { accepted: 0, total: 0 };
+        entry.total++;
+        if (d.status === 'accepted' || d.status === 'modified') entry.accepted++;
+        decByAgent.set(d.agent_id, entry);
+      }
+
+      return agents.map((agent) => {
+        const tools = toolByAgent.get(agent.id);
+        const tasks = tasksByAgent.get(agent.id);
+        const decs = decByAgent.get(agent.id);
+        const lastCandidates = [tools?.lastAt, tasks?.lastAt].filter((d): d is Date => Boolean(d));
+        const lastActionAt =
+          lastCandidates.length > 0 ? lastCandidates.reduce((a, b) => (a > b ? a : b)) : null;
+        return {
+          agent,
+          connections: links.filter((link) => link.agentId === agent.id),
+          summary: {
+            actionsWeek: tools?.count ?? 0,
+            tasksActive: tasks?.active ?? 0,
+            tasksDone: tasks?.done ?? 0,
+            lastActionAt,
+            acceptedPct: decs && decs.total > 0 ? Math.round((decs.accepted / decs.total) * 100) : null,
+          },
+        };
+      });
     });
   }
 
@@ -305,12 +368,14 @@ export class AgentsService {
         },
       ];
     });
+    const version = agent.kind === 'manager' ? undefined : this.versionOf(agent);
     return {
       agent,
       connections,
       permissions,
       notes,
       enforcedAsks: project.always_ask.filter((ask) => (ASKS as readonly string[]).includes(ask)),
+      template: version ? AgentTemplateSummaryDto.fromVersion(version) : null,
     };
   }
 

@@ -8,7 +8,6 @@ export type {
 } from '@workspace/api-client';
 export {
   accountsApi,
-  agentsApi,
   ApiError,
   authApi,
   connectionsApi,
@@ -21,9 +20,8 @@ export {
   projectChat,
   projectOperations,
   projectsApi,
+  projectWork,
   reportsApi,
-  routinesApi,
-  tasksApi,
 } from '@workspace/api-client';
 
 export const queryKeys = {

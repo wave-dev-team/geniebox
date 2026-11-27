@@ -118,12 +118,24 @@ function agentSection(agent: AgentBrief, project: ProjectBrief): string {
     .join('\n');
 }
 
-export function agentTaskPrompt(project: ProjectBrief, agent: AgentBrief, mode: string | null): string {
+export function agentTaskPrompt(
+  project: ProjectBrief,
+  agent: AgentBrief,
+  mode: string | null,
+  team: TeamMember[] = [],
+): string {
+  const teamBlock = team.length
+    ? [
+        'Team (use these ids with assign_task or assign_routine if you need to delegate work or schedule a follow-up):',
+        `<team>\n${JSON.stringify(team.map((m) => ({ id: m.id, name: m.name, template: m.template, status: m.status })))}\n</team>`,
+      ]
+    : [];
   return [
     agentSection(agent, project),
     projectSection(project),
+    ...teamBlock,
     modeLine(mode),
-    "You are working on the task from the next message. Work in this order: plan 2–5 steps with report_progress (steps), use the data tools you have, move through steps with report_progress (currentStep), then either finish_task with a short result for the owner, or propose_decision if something needs the owner's yes. Anything that changes the outside world goes through a decision or is refused by the system — do not claim you did it.",
+    "You are working on the task from the next message. Work in this order: plan 2–5 steps with report_progress (steps), use the data tools you have, move through steps with report_progress (currentStep), then either finish_task with a short result for the owner, or propose_decision if something needs the owner's yes. If you need another agent's help, call assign_task (and wait for their result). Anything that changes the outside world goes through a decision or is refused by the system — do not claim you did it.",
     'A proposal whose effect can be measured gets an experiment (an official metric key from metrics_read, control group share, duration, minimum sample, guardrail metrics) and a check, so the effect is confirmed against a control group before anyone counts it. If you found something the owner should know today, publish it with publish_insight together with the numbers it rests on.',
     'When the task is a check of an earlier proposal: read the official metrics, compare the group with the control group and end with record_check. Say worked only with a comparison and a sample not below the minimum; no clear difference is inconclusive.',
     ...COMMON,

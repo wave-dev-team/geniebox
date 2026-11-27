@@ -1,85 +1,140 @@
 'use client';
 
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { CreateWorkTask, TaskAction, TaskTab, UpdateWorkTask, WorkTask } from '@workspace/types';
+import type {
+  CreateProjectRoutine,
+  CreateProjectTask,
+  ProjectRoutine,
+  TaskTab,
+  UpdateProjectRoutine,
+} from '@workspace/types';
 
-import { useMe } from '@/entities/session';
-import { useWorkspaces } from '@/entities/workspace';
-import { tasksApi } from '@/shared/api';
-import { businessApiAvailable } from '@/shared/api';
+import { useActiveProject } from '@/entities/project/use-active-project';
+import { projectWork } from '@/shared/api';
+import { useWorkStream } from '@/shared/api/use-work-stream';
 
-function isGenerating(task: WorkTask) {
-  return Boolean(task.agentId && ['planned', 'running'].includes(task.status));
-}
-
-export function useTasks(tab: TaskTab, agentId?: string, taskId?: string) {
-  const { data: me } = useMe();
-  const { active } = useWorkspaces();
-  const key = ['tasks', active?.id, me?.id] as const;
-  const enabled = businessApiAvailable && Boolean(active && me);
+export function useTasksBoard(tab: 'active' | 'routines' | 'done', agentId?: string, taskId?: string) {
+  const { account, project, projectRef, isLoading: projectLoading, canTech } = useActiveProject();
   const client = useQueryClient();
-  const list = useInfiniteQuery({
-    queryKey: [...key, 'list', tab, agentId],
-    enabled,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) => tasksApi.list({ tab, agentId, before: pageParam }, signal),
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
-    staleTime: 0,
-    refetchInterval: ({ state }) =>
-      state.data?.pages.some((page) => page.tasks.some(isGenerating)) ? 1200 : false,
+
+  useWorkStream(account?.id ?? '', project?.id ?? '');
+
+  const enabled = Boolean(projectRef);
+  const api = projectRef ? projectWork(projectRef.accountId, projectRef.id) : null;
+
+  const listTab: TaskTab = tab === 'done' ? 'done' : 'active';
+
+  const tasksQuery = useQuery({
+    queryKey: ['project-tasks', projectRef?.accountId, projectRef?.id, listTab, agentId ?? 'all'],
+    enabled: enabled && tab !== 'routines',
+    queryFn: ({ signal }) => api!.tasks(listTab, agentId, signal),
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => t.status === 'running' || t.status === 'planned') ? 5000 : false,
   });
-  const counts = useQuery({
-    queryKey: [...key, 'counts', agentId],
-    queryFn: ({ signal }) => tasksApi.counts(agentId, signal),
-    enabled,
-    staleTime: 0,
-    refetchInterval: 4000,
+
+  const routinesQuery = useQuery({
+    queryKey: ['project-routines', projectRef?.accountId, projectRef?.id, agentId ?? 'all'],
+    enabled: enabled && tab === 'routines',
+    queryFn: ({ signal }) => api!.routines(agentId, signal),
   });
-  const agents = useQuery({
-    queryKey: [...key, 'agents'],
-    queryFn: ({ signal }) => tasksApi.agents(signal),
+
+  const countsQuery = useQuery({
+    queryKey: ['project-task-counts', projectRef?.accountId, projectRef?.id],
     enabled,
-    staleTime: 0,
+    queryFn: ({ signal }) => api!.taskCounts(signal),
   });
-  const detail = useQuery({
-    queryKey: [...key, 'detail', taskId],
-    queryFn: ({ signal }) => tasksApi.get(taskId ?? '', signal),
+
+  const taskQuery = useQuery({
+    queryKey: ['project-task', projectRef?.accountId, projectRef?.id, taskId ?? ''],
     enabled: enabled && Boolean(taskId),
-    staleTime: 0,
-    refetchInterval: ({ state }) => (state.data && isGenerating(state.data) ? 1200 : false),
+    queryFn: ({ signal }) => api!.task(taskId!, signal),
+    refetchInterval: (query) =>
+      query.state.data && (query.state.data.status === 'running' || query.state.data.status === 'planned')
+        ? 4000
+        : false,
   });
-  function refresh(task: WorkTask) {
-    client.setQueryData([...key, 'detail', task.id], task);
-    void client.invalidateQueries({ queryKey: key });
-  }
-  const create = useMutation({ mutationFn: tasksApi.create, onSuccess: refresh });
-  const update = useMutation({
-    mutationFn: ({ id, values }: { id: string; values: UpdateWorkTask }) => tasksApi.update(id, values),
-    onSuccess: refresh,
-  });
-  const action = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: TaskAction }) => tasksApi.action(id, action),
-    onSuccess: refresh,
-  });
-  const tasks = [
-    ...new Map(list.data?.pages.flatMap((page) => page.tasks.map((task) => [task.id, task]))).values(),
-  ];
-  return {
-    list,
-    counts,
-    agents,
-    detail,
-    tasks,
-    create,
-    update,
-    action,
-    save: (values: CreateWorkTask, id?: string) => {
-      if (!id) return create.mutateAsync(values);
-      return update.mutateAsync({
-        id,
-        values: { title: values.title, description: values.description, dueOn: values.dueOn },
+
+  const invalidateTasks = () => {
+    if (!projectRef) return;
+    void client.invalidateQueries({ queryKey: ['project-tasks', projectRef.accountId, projectRef.id] });
+    void client.invalidateQueries({ queryKey: ['project-task-counts', projectRef.accountId, projectRef.id] });
+    if (taskId) {
+      void client.invalidateQueries({
+        queryKey: ['project-task', projectRef.accountId, projectRef.id, taskId],
       });
+    }
+  };
+
+  const invalidateRoutines = () => {
+    if (!projectRef) return;
+    void client.invalidateQueries({ queryKey: ['project-routines', projectRef.accountId, projectRef.id] });
+    void client.invalidateQueries({ queryKey: ['project-task-counts', projectRef.accountId, projectRef.id] });
+  };
+
+  const createTask = useMutation({
+    mutationFn: (input: CreateProjectTask) => api!.createTask(input),
+    onSuccess: invalidateTasks,
+  });
+
+  const runTask = useMutation({
+    mutationFn: (id: string) => api!.runTask(id),
+    onSuccess: invalidateTasks,
+  });
+
+  const cancelTask = useMutation({
+    mutationFn: (id: string) => api!.cancelTask(id),
+    onSuccess: invalidateTasks,
+  });
+
+  const createRoutine = useMutation({
+    mutationFn: (input: CreateProjectRoutine) => api!.createRoutine(input),
+    onSuccess: invalidateRoutines,
+  });
+
+  const updateRoutine = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateProjectRoutine }) => api!.updateRoutine(id, input),
+    onMutate: async ({ id, input }) => {
+      if (!projectRef) return;
+      const key = ['project-routines', projectRef.accountId, projectRef.id, agentId ?? 'all'];
+      await client.cancelQueries({ queryKey: key });
+      const prev = client.getQueryData<ProjectRoutine[]>(key);
+      if (prev) {
+        client.setQueryData<ProjectRoutine[]>(
+          key,
+          prev.map((r) => (r.id === id ? { ...r, ...input } : r)),
+        );
+      }
+      return { prev, key };
     },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) client.setQueryData(ctx.key, ctx.prev);
+    },
+    onSettled: invalidateRoutines,
+  });
+
+  const runRoutine = useMutation({
+    mutationFn: (id: string) => api!.runRoutine(id),
+    onSuccess: () => {
+      invalidateTasks();
+      invalidateRoutines();
+    },
+  });
+
+  return {
+    project,
+    projectRef,
+    projectLoading,
+    canTech,
+    tasksQuery,
+    routinesQuery,
+    countsQuery,
+    taskQuery,
+    createTask,
+    runTask,
+    cancelTask,
+    createRoutine,
+    updateRoutine,
+    runRoutine,
   };
 }

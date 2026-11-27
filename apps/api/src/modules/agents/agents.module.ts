@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AccountsModule } from '../accounts/accounts.module.js';
 import { ProjectsModule } from '../projects/projects.module.js';
+import { AgentActionsService } from './agent-actions.service.js';
 import { AgentCatalogView } from './agent-catalog.view.js';
 import { AgentHiring } from './agent-hiring.js';
 import { AgentCatalogController, AgentsController } from './agents.controller.js';
@@ -12,7 +13,7 @@ import { AgentsRepository } from './repositories/agents.repository.js';
 @Module({
   imports: [AccountsModule, ProjectsModule],
   controllers: [AgentCatalogController, AgentsController],
-  providers: [AgentsService, AgentHiring, AgentsRepository, AgentCatalogView],
+  providers: [AgentsService, AgentActionsService, AgentHiring, AgentsRepository, AgentCatalogView],
   exports: [AgentsService],
 })
 export class AgentsModule {}

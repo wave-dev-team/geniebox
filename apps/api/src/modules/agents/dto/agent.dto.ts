@@ -512,6 +512,31 @@ export class InstructionResponseDto {
   rule: string;
 }
 
+export class AgentSummaryDto {
+  @ApiProperty()
+  actionsWeek: number;
+
+  @ApiProperty()
+  tasksActive: number;
+
+  @ApiProperty()
+  tasksDone: number;
+
+  @ApiProperty({ nullable: true, type: Date })
+  lastActionAt: Date | null;
+
+  @ApiProperty({ nullable: true, type: Number })
+  acceptedPct: number | null;
+}
+
+const EMPTY_SUMMARY: AgentSummaryDto = {
+  actionsWeek: 0,
+  tasksActive: 0,
+  tasksDone: 0,
+  lastActionAt: null,
+  acceptedPct: null,
+};
+
 export class AgentResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -561,7 +586,14 @@ export class AgentResponseDto {
   @ApiProperty()
   hiredAt: Date;
 
-  static from(agent: AgentRow, connections: AgentConnectionView[]): AgentResponseDto {
+  @ApiProperty({ type: AgentSummaryDto })
+  summary: AgentSummaryDto;
+
+  static from(
+    agent: AgentRow,
+    connections: AgentConnectionView[],
+    summary: AgentSummaryDto = EMPTY_SUMMARY,
+  ): AgentResponseDto {
     return {
       id: agent.id,
       kind: agent.kind as AgentResponseDto['kind'],
@@ -582,6 +614,7 @@ export class AgentResponseDto {
       asks: agent.asks,
       connections: connections.map((c) => AgentConnectionResponseDto.from(c)),
       hiredAt: agent.hired_at,
+      summary,
     };
   }
 }
@@ -618,6 +651,58 @@ export class AgentNoteDto {
   createdAt: Date;
 }
 
+export class AgentTemplateSummaryDto {
+  @ApiProperty()
+  key: string;
+
+  @ApiProperty()
+  version: number;
+
+  @ApiProperty({ enum: TEMPLATE_CATEGORIES })
+  category: TemplateCategory;
+
+  @ApiProperty()
+  icon: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  role: string;
+
+  @ApiProperty()
+  short: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty({ type: [TemplateAbilityDto] })
+  abilities: TemplateAbilityDto[];
+
+  @ApiProperty({ type: [RequirementDto] })
+  requirements: RequirementDto[];
+
+  @ApiProperty({ isArray: true, type: String })
+  tools: string[];
+
+  static fromVersion(version: CatalogVersion, locale = 'ru'): AgentTemplateSummaryDto {
+    const dto = AgentTemplateDto.from(version, { locale, listed: true, beta: false });
+    return {
+      key: dto.key,
+      version: dto.version,
+      category: dto.category,
+      icon: dto.icon,
+      name: dto.name,
+      role: dto.role,
+      short: dto.short,
+      description: dto.description,
+      abilities: dto.abilities,
+      requirements: dto.requirements,
+      tools: dto.tools,
+    };
+  }
+}
+
 export class AgentDetailsDto extends AgentResponseDto {
   @ApiProperty({ type: [EffectivePermissionDto] })
   permissions: EffectivePermissionDto[];
@@ -628,12 +713,71 @@ export class AgentDetailsDto extends AgentResponseDto {
   @ApiProperty({ isArray: true, type: String, description: 'Project rules: always on' })
   enforcedAsks: string[];
 
+  @ApiProperty({ nullable: true, type: AgentTemplateSummaryDto })
+  template: AgentTemplateSummaryDto | null;
+
   static fromDetails(details: AgentDetails): AgentDetailsDto {
     return {
       ...AgentResponseDto.from(details.agent, details.connections),
       permissions: details.permissions.map((p) => EffectivePermissionDto.from(p)),
       notes: details.notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.created_at })),
       enforcedAsks: details.enforcedAsks,
+      template: details.template,
     };
   }
+}
+
+export const AGENT_ACTION_TYPES = ['tool', 'task', 'decision', 'insight', 'note', 'admin'] as const;
+export type AgentActionType = (typeof AGENT_ACTION_TYPES)[number];
+
+export class AgentActionsQueryDto {
+  @ApiPropertyOptional({ enum: ['7d', '30d'], default: '7d' })
+  @IsOptional()
+  @IsIn(['7d', '30d'])
+  period?: '7d' | '30d';
+
+  @ApiPropertyOptional({ description: 'Comma-separated action types' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  types?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9_-]{8,160}$/)
+  cursor?: string;
+}
+
+export class AgentActionItemDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ enum: AGENT_ACTION_TYPES })
+  type: AgentActionType;
+
+  @ApiProperty({ format: 'date-time' })
+  at: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  details: string;
+
+  @ApiProperty()
+  status: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  targetId: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  taskId: string | null;
+}
+
+export class AgentActionPageDto {
+  @ApiProperty({ type: [AgentActionItemDto] })
+  items: AgentActionItemDto[];
+
+  @ApiProperty({ nullable: true, type: String })
+  nextCursor: string | null;
 }

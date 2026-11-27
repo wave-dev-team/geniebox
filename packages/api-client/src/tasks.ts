@@ -1,51 +1,65 @@
-import { z } from 'zod';
-
 import {
-  type CreateWorkTask,
-  type TaskAction,
+  type CreateProjectRoutine,
+  type CreateProjectTask,
+  routineSchema,
   taskCountsSchema,
-  taskPageSchema,
+  taskResponseSchema,
   type TaskTab,
-  type UpdateWorkTask,
-  workTaskSchema,
+  type UpdateProjectRoutine,
 } from '@workspace/types';
 
+import { projectPath } from './accounts.js';
 import { authenticated } from './authenticated.js';
 
-const agentsSchema = z.array(z.object({ id: z.uuid(), name: z.string(), enabled: z.boolean() }));
-const path = (id: string) => `/v1/tasks/${encodeURIComponent(id)}`;
-
-function filterQuery(values: { tab?: TaskTab; agentId?: string; before?: string }) {
-  const params = new URLSearchParams();
-  if (values.tab) params.set('tab', values.tab);
-  if (values.agentId) params.set('agentId', values.agentId);
-  if (values.before) params.set('before', values.before);
-  return params.size ? `?${params.toString()}` : '';
+export function projectWork(accountId: string, projectId: string) {
+  const path = projectPath(accountId, projectId);
+  const taskPath = (id: string) => `${path}/tasks/${encodeURIComponent(id)}`;
+  const routinePath = (id: string) => `${path}/routines/${encodeURIComponent(id)}`;
+  return {
+    tasks: async (tab: TaskTab, agentId?: string, signal?: AbortSignal) => {
+      const query = new URLSearchParams({ tab });
+      if (agentId) query.set('agentId', agentId);
+      return taskResponseSchema
+        .array()
+        .parse(await (await authenticated(`${path}/tasks?${query.toString()}`, { signal })).json());
+    },
+    taskCounts: async (signal?: AbortSignal) =>
+      taskCountsSchema.parse(await (await authenticated(`${path}/task-counts`, { signal })).json()),
+    task: async (id: string, signal?: AbortSignal) =>
+      taskResponseSchema.parse(await (await authenticated(taskPath(id), { signal })).json()),
+    createTask: async (input: CreateProjectTask) =>
+      taskResponseSchema.parse(
+        await (await authenticated(`${path}/tasks`, { method: 'POST', body: JSON.stringify(input) })).json(),
+      ),
+    runTask: async (id: string) =>
+      taskResponseSchema.parse(await (await authenticated(`${taskPath(id)}/run`, { method: 'POST' })).json()),
+    cancelTask: async (id: string) =>
+      taskResponseSchema.parse(
+        await (await authenticated(`${taskPath(id)}/cancel`, { method: 'POST' })).json(),
+      ),
+    routines: async (agentId?: string, signal?: AbortSignal) => {
+      const query = new URLSearchParams();
+      if (agentId) query.set('agentId', agentId);
+      const qs = query.toString();
+      return routineSchema
+        .array()
+        .parse(await (await authenticated(`${path}/routines${qs ? `?${qs}` : ''}`, { signal })).json());
+    },
+    routine: async (id: string, signal?: AbortSignal) =>
+      routineSchema.parse(await (await authenticated(routinePath(id), { signal })).json()),
+    createRoutine: async (input: CreateProjectRoutine) =>
+      routineSchema.parse(
+        await (
+          await authenticated(`${path}/routines`, { method: 'POST', body: JSON.stringify(input) })
+        ).json(),
+      ),
+    updateRoutine: async (id: string, input: UpdateProjectRoutine) =>
+      routineSchema.parse(
+        await (await authenticated(routinePath(id), { method: 'PATCH', body: JSON.stringify(input) })).json(),
+      ),
+    runRoutine: async (id: string) =>
+      taskResponseSchema.parse(
+        await (await authenticated(`${routinePath(id)}/run`, { method: 'POST' })).json(),
+      ),
+  };
 }
-
-export const tasksApi = {
-  agents: async (signal?: AbortSignal) =>
-    agentsSchema.parse(await (await authenticated('/v1/agents', { signal })).json()),
-  list: async (filters: { tab: TaskTab; agentId?: string; before?: string }, signal?: AbortSignal) =>
-    taskPageSchema.parse(await (await authenticated(`/v1/tasks${filterQuery(filters)}`, { signal })).json()),
-  counts: async (agentId?: string, signal?: AbortSignal) =>
-    taskCountsSchema.parse(
-      await (await authenticated(`/v1/tasks/counts${filterQuery({ agentId })}`, { signal })).json(),
-    ),
-  get: async (id: string, signal?: AbortSignal) =>
-    workTaskSchema.parse(await (await authenticated(path(id), { signal })).json()),
-  create: async (input: CreateWorkTask) =>
-    workTaskSchema.parse(
-      await (await authenticated('/v1/tasks', { method: 'POST', body: JSON.stringify(input) })).json(),
-    ),
-  update: async (id: string, input: UpdateWorkTask) =>
-    workTaskSchema.parse(
-      await (await authenticated(path(id), { method: 'PATCH', body: JSON.stringify(input) })).json(),
-    ),
-  action: async (id: string, action: TaskAction) =>
-    workTaskSchema.parse(
-      await (
-        await authenticated(`${path(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) })
-      ).json(),
-    ),
-};

@@ -20,9 +20,12 @@ import { ApiAccountParam } from '../accounts/guards/api-account-param.decorator.
 import { RequireAccountRole } from '../accounts/guards/require-account-role.decorator.js';
 import { ApiProjectParam } from '../projects/guards/api-project-param.decorator.js';
 import { ProjectAccessGuard } from '../projects/guards/project-access.guard.js';
+import { AgentActionsService } from './agent-actions.service.js';
 import { AgentCatalogView } from './agent-catalog.view.js';
 import { AgentsService } from './agents.service.js';
 import {
+  AgentActionPageDto,
+  AgentActionsQueryDto,
   AgentCatalogDto,
   AgentDetailsDto,
   AgentResponseDto,
@@ -59,13 +62,16 @@ export class AgentCatalogController {
 @UseGuards(AccountAccessGuard, ProjectAccessGuard)
 @Controller('accounts/:accountId/projects/:projectId/agents')
 export class AgentsController {
-  constructor(private readonly agents: AgentsService) {}
+  constructor(
+    private readonly agents: AgentsService,
+    private readonly actions: AgentActionsService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Agents of the project, the manager included (kind = manager)' })
   async list(): Promise<AgentResponseDto[]> {
-    return (await this.agents.list()).map(({ agent, connections }) =>
-      AgentResponseDto.from(agent, connections),
+    return (await this.agents.list()).map(({ agent, connections, summary }) =>
+      AgentResponseDto.from(agent, connections, summary),
     );
   }
 
@@ -80,6 +86,15 @@ export class AgentsController {
   @ApiOperation({ summary: 'Agent with connections, effective permissions and notes' })
   async get(@Param('agentId', ParseUUIDPipe) id: string): Promise<AgentDetailsDto> {
     return AgentDetailsDto.fromDetails(await this.agents.get(id));
+  }
+
+  @Get(':agentId/actions')
+  @ApiOperation({ summary: 'Unified agent timeline (7d/30d), accessible to all project members' })
+  async actionsPage(
+    @Param('agentId', ParseUUIDPipe) id: string,
+    @Query() query: AgentActionsQueryDto,
+  ): Promise<AgentActionPageDto> {
+    return this.actions.page(id, query);
   }
 
   @Patch(':agentId')

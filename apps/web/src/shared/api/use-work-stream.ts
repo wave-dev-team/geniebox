@@ -10,6 +10,8 @@ import { projectChat } from './index';
 
 const eventSchema = z.union([
   z.object({ type: z.literal('manager.context_reset') }),
+  z.object({ type: z.literal('task.updated'), taskId: z.uuid() }),
+  z.object({ type: z.literal('routine.updated'), routineId: z.uuid() }),
   z.object({
     type: z.enum(['message.created', 'message.updated', 'message.delta']),
     conversationId: z.uuid(),
@@ -71,6 +73,19 @@ export function useWorkStream(account: string, project: string) {
           if (event.data.type === 'manager.context_reset') {
             setPartial({});
             void client.resetQueries({ queryKey: scope });
+            return;
+          }
+          if (event.data.type === 'task.updated') {
+            void client.invalidateQueries({ queryKey: ['project-tasks', account, project] });
+            void client.invalidateQueries({ queryKey: ['project-task-counts', account, project] });
+            void client.invalidateQueries({
+              queryKey: ['project-task', account, project, event.data.taskId],
+            });
+            return;
+          }
+          if (event.data.type === 'routine.updated') {
+            void client.invalidateQueries({ queryKey: ['project-routines', account, project] });
+            void client.invalidateQueries({ queryKey: ['project-task-counts', account, project] });
             return;
           }
           const { type, conversationId, messageId, delta } = event.data;
