@@ -38,6 +38,16 @@ import {
   SubmitConnectionLinkResponseDto,
   UpdateConnectionDto,
 } from './dto/connection.dto.js';
+import {
+  ClarifyImportDto,
+  ImportConnectionsDto,
+  ImportGroupResultDto,
+  ImportJobAcceptedDto,
+  ImportJobStatusDto,
+  ImportResponseDto,
+  ImportSkeletonDto,
+} from './dto/connection-import.dto.js';
+import { ConnectionsImportService } from './import/connections-import.service.js';
 import { PROVIDERS } from './providers/registry.js';
 
 const toDto = (view: ConnectionView) => ConnectionResponseDto.from(view.connection, view.credential);
@@ -65,7 +75,10 @@ export class ConnectionProvidersController {
 @UseGuards(AccountAccessGuard, ProjectAccessGuard)
 @Controller('accounts/:accountId/projects/:projectId/connections')
 export class ConnectionsController {
-  constructor(private readonly connections: ConnectionsService) {}
+  constructor(
+    private readonly connections: ConnectionsService,
+    private readonly imports: ConnectionsImportService,
+  ) {}
 
   @Get('summary')
   @ApiOperation({ summary: '«The team sees N% of the project» and status counts' })
@@ -85,6 +98,40 @@ export class ConnectionsController {
   @ApiOperation({ summary: 'Connect a service; the secret is sealed and checked at once' })
   async create(@Body() dto: CreateConnectionDto): Promise<ConnectionWithCheckDto> {
     return withCheck(await this.connections.create(dto));
+  }
+
+  @Post('import/analyze')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequireAccountRole('tech')
+  @StrictThrottle()
+  @ApiOperation({ summary: 'Start the AI pass over the buffer skeleton; answers with a job id' })
+  analyzeImport(@Body() dto: ImportSkeletonDto): Promise<ImportJobAcceptedDto> {
+    return this.imports.analyze(dto.skeleton);
+  }
+
+  @Get('import/analyze/:jobId')
+  @RequireAccountRole('tech')
+  @ApiOperation({ summary: 'Status and result of the analysis (polled by the popup)' })
+  importStatus(@Param('jobId', ParseUUIDPipe) jobId: string): Promise<ImportJobStatusDto> {
+    return this.imports.status(jobId);
+  }
+
+  @Post('import/clarify')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequireAccountRole('tech')
+  @StrictThrottle()
+  @ApiOperation({ summary: 'Answer a clarifying question: the model proposes again' })
+  clarifyImport(@Body() dto: ClarifyImportDto): Promise<ImportJobAcceptedDto> {
+    return this.imports.clarify(dto);
+  }
+
+  @Post('import')
+  @RequireAccountRole('tech')
+  @StrictThrottle()
+  @ApiOperation({ summary: 'Save the groups; checks are enqueued and run in the background' })
+  async importConnections(@Body() dto: ImportConnectionsDto): Promise<ImportResponseDto> {
+    const items = await this.imports.import(dto);
+    return { items: items.map((item) => ImportGroupResultDto.from(item)) };
   }
 
   @Post('links')

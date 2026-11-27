@@ -20,6 +20,7 @@ import {
 } from './connections.controller.js';
 import { ConnectionsService } from './connections.service.js';
 import { ConnectionsMaintenance } from './connections-maintenance.js';
+import { ConnectionsImportService } from './import/connections-import.service.js';
 import { ProviderHttp } from './providers/provider-http.js';
 import { ConnectionsRepository } from './repositories/connections.repository.js';
 
@@ -28,11 +29,22 @@ const checkQueue = BullModule.registerQueue({
   defaultJobOptions: QUEUE_JOB_OPTIONS[QUEUES.CONNECTIONS_CHECK],
 });
 
+const importQueue = BullModule.registerQueue({
+  name: QUEUES.CONNECTIONS_IMPORT,
+  defaultJobOptions: QUEUE_JOB_OPTIONS[QUEUES.CONNECTIONS_IMPORT],
+});
+
 /** API side: stores sealed secrets (public KEK only) and asks the worker to check them. */
 @Module({
-  imports: [AccountsModule, ProjectsModule, SecretsModule, checkQueue],
+  imports: [AccountsModule, ProjectsModule, SecretsModule, checkQueue, importQueue],
   controllers: [ConnectionProvidersController, ConnectionsController, ConnectionLinkController],
-  providers: [ConnectionsService, ConnectionsRepository, ConnectionCheckRunner, checkQueueEventsProvider],
+  providers: [
+    ConnectionsService,
+    ConnectionsRepository,
+    ConnectionCheckRunner,
+    ConnectionsImportService,
+    checkQueueEventsProvider,
+  ],
   exports: [CHECK_QUEUE_EVENTS, ConnectionsService],
 })
 export class ConnectionsModule {}

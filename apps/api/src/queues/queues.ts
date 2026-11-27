@@ -7,6 +7,7 @@ export const QUEUES = {
   SCHEDULED_TASKS_RUN: 'scheduled-tasks-run',
   MAIL_SEND: 'mail-send',
   CONNECTIONS_CHECK: 'connections-check',
+  CONNECTIONS_IMPORT: 'connections-import',
   CONNECTIONS_MAINTENANCE: 'connections-maintenance',
   AGENT_TURNS: 'agent-turns',
   AGENT_TASKS: 'agent-tasks',
@@ -46,6 +47,13 @@ export const QUEUE_JOB_OPTIONS: Record<QueueName, DefaultJobOptions> = {
     attempts: 1,
     removeOnComplete: { age: 60 * 60 },
     removeOnFail: { age: DAY_SECONDS },
+  },
+  // Retries live inside the LLM client; the popup needs a fast, honest answer instead.
+  [QUEUES.CONNECTIONS_IMPORT]: {
+    attempts: 1,
+    // The result is the answer the popup polls for; it is read for an hour at most.
+    removeOnComplete: { age: 60 * 60 },
+    removeOnFail: { age: 60 * 60 },
   },
   [QUEUES.CONNECTIONS_MAINTENANCE]: {
     attempts: 1,

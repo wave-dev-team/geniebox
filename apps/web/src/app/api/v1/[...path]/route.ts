@@ -18,7 +18,7 @@ const uuid = '[0-9a-fA-F-]{36}';
 const account = `accounts/${uuid}`;
 const project = `${account}/projects/${uuid}`;
 const resources = new RegExp(
-  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/manager|/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
+  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/manager|/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/import(?:/(?:analyze(?:/${uuid})?|clarify))?|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
 );
 const chatReadResources = new RegExp(
   `^${project}/(?:tasks/${uuid}|decisions/${uuid}|metrics(?:/${uuid}/series)?)$`,

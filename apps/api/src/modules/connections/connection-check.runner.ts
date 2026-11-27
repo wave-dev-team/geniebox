@@ -44,6 +44,16 @@ export class ConnectionCheckRunner implements OnApplicationShutdown {
     this.waitMs = config.get('CONNECTION_CHECK_TIMEOUT_MS', { infer: true }) + 5_000;
   }
 
+  /** Import answer at once: the check runs in the background and updates the status later. */
+  async enqueue(connection: { id: string; account_id: string }, userId: string | null): Promise<void> {
+    await this.queue.add('check', {
+      connectionId: connection.id,
+      accountId: connection.account_id,
+      userId,
+      traceId: this.cls.getId() ?? connection.id,
+    });
+  }
+
   async runAndWait(
     connection: { id: string; account_id: string },
     userId: string | null,
