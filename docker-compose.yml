@@ -27,6 +27,9 @@ x-app-environment: &app-environment
   SECRETS_PRIVATE_KEY_FILES: .secrets/kek.key.pem
   CONNECTIONS_ALLOW_PRIVATE_HOSTS: 'true'
   LLM_PROVIDER: fake
+  # Uploaded knowledge sources; shared by api and worker, outside the web root.
+  KNOWLEDGE_BLOB_DIR: /app/data/knowledge
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-none}
 
 x-app: &app
   image: geniebox-api:local
@@ -36,6 +39,7 @@ x-app: &app
   environment: *app-environment
   volumes:
     - ./apps/api/.secrets:/app/.secrets:ro
+    - knowledge-data:/app/data/knowledge
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -46,7 +50,8 @@ x-app: &app
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # pgvector builds on the same 17 image; the extension is created by a migration.
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -145,3 +150,4 @@ services:
 volumes:
   postgres-data:
   redis-state:
+  knowledge-data:

@@ -13,7 +13,7 @@ export const mainNavigation = [{ id: 'home', href: '/', icon: WandSparkles }, ..
 export const footerNavigation = [{ id: 'settings', href: '/settings', icon: Settings }] as const;
 
 export const placeholderSections = [
-  ...workspaceSections.map(({ id }) => id).filter((id) => id !== 'tasks'),
+  ...workspaceSections.map(({ id }) => id).filter((id) => id !== 'tasks' && id !== 'knowledge'),
   ...footerNavigation.map(({ id }) => id),
   'help',
   'search',

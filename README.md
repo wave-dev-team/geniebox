@@ -82,6 +82,35 @@ pnpm --filter @workspace/api test
 pnpm --filter @workspace/api test:integration   # Testcontainers, нужен Docker
 ```
 
+## База знаний
+
+Проект имеет дерево знаний: источники (файлы и вставленный текст) → черновые страницы,
+которые человек правит и публикует → поисковый индекс. Агенты видят только опубликованные
+страницы и предлагают изменения, которые подтверждает человек. Решение и схема —
+`docs/adr/0001-knowledge-base.md` и `docs/prd/knowledge-base.md`.
+
+PostgreSQL работает на образе `pgvector/pgvector:pg17`: расширения `vector` и `pg_trgm`
+создаются при bootstrap базы. Поиск гибридный — полнотекстовый (русская конфигурация),
+векторный и точные совпадения по названию, слияние по Reciprocal Rank Fusion.
+
+Импорт: `.md`, `.txt`, `.csv`, `.xlsx` (до 20 МБ). PDF и DOCX — следующий шаг. Разбор XLSX
+выполняет [ExcelJS](https://github.com/exceljs/exceljs) (MIT), остальные форматы — код
+проекта. Файлы лежат вне корня веб-сервера в `KNOWLEDGE_BLOB_DIR` (том `knowledge-data`).
+
+Эмбеддинги — OpenAI `text-embedding-3-small` (1536 измерений) через `EMBEDDING_*`.
+`EMBEDDING_PROVIDER=none` оставляет поиск на полнотекстовом, `fake` — офлайн-режим для
+разработки и тестов. Провайдер не обучается на переданных данных; загруженные источники
+никогда не публикуются в этом репозитории.
+
+Демо-данные загружаются локально, датасет организаторов в репозиторий не входит:
+
+```bash
+cd apps/api
+KNOWLEDGE_BLOB_DIR=./data/knowledge \
+  pnpm exec tsx scripts/seed-knowledge.ts \
+  --account <uuid> --project <uuid> --dir ../../context/tz/materials
+```
+
 ## Структура
 
 ```text
@@ -94,8 +123,8 @@ apps/api/src
   outbox/        transactional outbox + relay/processor в worker
   scheduling/    scheduled_tasks в Postgres + sweeper и run processor
   queues/        имена очередей и политики ретраев
-  modules/       accounts, projects, agents, work, connections, metrics, runtime, stream,
-                 mail, catalog, actions, health, users, auth
+  modules/       accounts, projects, agents, work, connections, metrics, knowledge,
+                 runtime, stream, mail, catalog, actions, health, users, auth
 apps/api/test    e2e-тесты (Testcontainers)
 ```
 

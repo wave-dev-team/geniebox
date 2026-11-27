@@ -4,6 +4,7 @@ import { CoreModule } from './core.module.js';
 import { AgentsWorkerModule } from './modules/agents/agents.module.js';
 import { CatalogWorkerModule } from './modules/catalog/catalog-worker.module.js';
 import { ConnectionsWorkerModule } from './modules/connections/connections.module.js';
+import { KnowledgeWorkerModule } from './modules/knowledge/knowledge.module.js';
 import { MailModule, MailWorkerModule } from './modules/mail/mail.module.js';
 import { MetricsWorkerModule } from './modules/metrics/metrics.module.js';
 import { ProjectsWorkerModule } from './modules/projects/projects.module.js';
@@ -28,6 +29,7 @@ import { SchedulingWorkerModule } from './scheduling/scheduling-worker.module.js
     StreamPublisherModule,
     RuntimeWorkerModule,
     MetricsWorkerModule,
+    KnowledgeWorkerModule,
     CatalogWorkerModule,
   ],
 })

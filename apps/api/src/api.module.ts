@@ -18,6 +18,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { AccessTokenGuard } from './modules/auth/guards/access-token.guard.js';
 import { ConnectionsModule } from './modules/connections/connections.module.js';
 import { PublicHealthModule } from './modules/health/health.module.js';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { ProjectsModule } from './modules/projects/projects.module.js';
@@ -63,6 +64,7 @@ import { QueueRootModule } from './queues/queue-root.module.js';
     StreamModule,
     WorkModule,
     MetricsModule,
+    KnowledgeModule,
     ActionsApiModule,
   ],
   // Order matters: throttle first, then authenticate.
