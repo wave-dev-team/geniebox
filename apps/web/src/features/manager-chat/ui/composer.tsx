@@ -44,13 +44,13 @@ export function Composer({
   const [mode, setMode] = useState<ChatRequestMode>('approve_all');
   const [mentionId, setMentionId] = useState<string>();
   const [mentionOpen, setMentionOpen] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<string>();
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [attaching, setAttaching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
   const placeholder = t(home ? 'placeholderHome' : 'placeholderManager');
-  const canSend = (!!text.trim() || !!attachedFile) && !disabled && !sending && !attaching;
+  const canSend = (!!text.trim() || attachedFiles.length > 0) && !disabled && !sending && !attaching;
   const mention = agents.find(({ id }) => id === mentionId);
 
   useLayoutEffect(() => {
@@ -68,32 +68,41 @@ export function Composer({
         if (!canSend || submitting.current) return;
         submitting.current = true;
         try {
-          const prefix = attachedFile ? `${t('attachedPrefix', { name: attachedFile })}\n` : '';
+          const prefix = attachedFiles.length
+            ? `${attachedFiles.map((name) => t('attachedPrefix', { name })).join('\n')}\n`
+            : '';
           const payloadText = `${prefix}${text.trim()}`.trim();
           if (await onSend({ text: payloadText, mode, mentionAgentId: mention?.id })) {
             setText((value) => (value === text ? '' : value));
             setMentionId(undefined);
-            setAttachedFile(undefined);
+            setAttachedFiles([]);
           }
         } finally {
           submitting.current = false;
         }
       }}
     >
-      {attachedFile && (
-        <div className="flex items-center gap-1.5 self-start rounded-full border bg-muted/50 px-2.5 py-1 text-xs">
-          <FileText className="size-3.5 text-muted-foreground" />
-          <span className="max-w-56 truncate">{attachedFile}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t('attachRemove')}
-            onClick={() => setAttachedFile(undefined)}
-            className="size-4 rounded-full p-0 text-muted-foreground hover:text-foreground"
-          >
-            <X className="size-3" />
-          </Button>
+      {attachedFiles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {attachedFiles.map((name, index) => (
+            <div
+              key={`${name}-${index}`}
+              className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs"
+            >
+              <FileText className="size-3.5 text-muted-foreground" />
+              <span className="max-w-56 truncate">{name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t('attachRemove')}
+                onClick={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== index))}
+                className="size-4 rounded-full p-0 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ))}
         </div>
       )}
       <textarea
@@ -120,18 +129,27 @@ export function Composer({
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept=".md,.txt,.csv,.xlsx"
               className="hidden"
               onChange={async (event) => {
-                const file = event.target.files?.[0];
+                const files = Array.from(event.target.files ?? []);
                 event.target.value = '';
-                if (!file) return;
+                if (!files.length) return;
                 setAttaching(true);
+                const uploadedNames: string[] = [];
                 try {
-                  const uploaded = await onAttachFile(file);
-                  setAttachedFile(uploaded.name);
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : t('attachError'));
+                  for (const file of files) {
+                    try {
+                      const uploaded = await onAttachFile(file);
+                      uploadedNames.push(uploaded.name);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : t('attachError'));
+                    }
+                  }
+                  if (uploadedNames.length) {
+                    setAttachedFiles((prev) => [...prev, ...uploadedNames]);
+                  }
                 } finally {
                   setAttaching(false);
                 }
