@@ -39,11 +39,27 @@ export class TasksService {
         agentId,
         limit: LIST_LIMIT,
       });
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      if (tab === 'active' && rows.length > 0) {
+        let frontier = rows.map((r) => r.id);
+        for (let depth = 0; depth < 3 && frontier.length > 0; depth++) {
+          const children = await this.tasks.listByParents(tx.db, projectId, frontier);
+          const next: string[] = [];
+          for (const child of children) {
+            if (!byId.has(child.id)) {
+              byId.set(child.id, child);
+              next.push(child.id);
+            }
+          }
+          frontier = next;
+        }
+      }
+      const allRows = [...byId.values()];
       const steps = await this.tasks.listSteps(
         tx.db,
-        rows.map((row) => row.id),
+        allRows.map((row) => row.id),
       );
-      return rows.map((row) => TaskResponseDto.from(row, steps));
+      return allRows.map((row) => TaskResponseDto.from(row, steps));
     });
   }
 
@@ -62,12 +78,12 @@ export class TasksService {
     return this.accountDb.transaction((tx) => this.view(tx, projectId, id));
   }
 
-  /** «Поставить задачу»: the owner gives a task straight to an agent. */
+  /** «Поставить задачу»: the owner gives a task straight to an agent or the manager. */
   async create(dto: CreateTaskDto): Promise<TaskResponseDto> {
     const actor = this.projectContext.actor();
     return this.accountDb.transaction(async (tx) => {
       const agent = await findProjectAgent(tx.db, actor.projectId, dto.agentId);
-      if (!agent || agent.kind === 'manager') throw new WorkException(WORK_ERRORS.WORK_AGENT_INVALID);
+      if (!agent) throw new WorkException(WORK_ERRORS.WORK_AGENT_INVALID);
       const task = await this.tasks.insert(tx.db, {
         account_id: tx.accountId,
         project_id: actor.projectId,
@@ -113,6 +129,7 @@ export class TasksService {
         summary: null,
       });
       if (!moved) throw new WorkException(WORK_ERRORS.TASK_STATE_INVALID);
+      await this.cancelDescendants(tx, actor.projectId, id);
       await this.tasks.closeSteps(tx.db, id, 'failed');
       const pending = await this.decisions.findPendingByTask(tx.db, id);
       if (pending) {
@@ -134,6 +151,33 @@ export class TasksService {
       payload: { projectId: actor.projectId, taskId, byUserId: actor.userId },
     });
     tx.afterCommit(() => this.stream.publish(actor.projectId, { type: 'task.updated', taskId }));
+  }
+
+  private async cancelDescendants(tx: AccountTx, projectId: string, rootId: string): Promise<void> {
+    let frontier = [rootId];
+    for (let depth = 0; depth < 5 && frontier.length > 0; depth++) {
+      const children = await this.tasks.listByParents(tx.db, projectId, frontier);
+      const next: string[] = [];
+      for (const child of children) {
+        next.push(child.id);
+        const cancelled = await this.tasks.transition(tx.db, child.id, ['planned', 'running', 'waiting'], {
+          status: 'cancelled',
+          finished_at: new Date(),
+          summary: null,
+        });
+        if (!cancelled) continue;
+        await this.tasks.closeSteps(tx.db, child.id, 'failed');
+        const pending = await this.decisions.findPendingByTask(tx.db, child.id);
+        if (pending) {
+          await this.decisions.decide(tx.db, pending.id, { status: 'expired' });
+          tx.afterCommit(() =>
+            this.stream.publish(projectId, { type: 'decision.updated', decisionId: pending.id }),
+          );
+        }
+        tx.afterCommit(() => this.stream.publish(projectId, { type: 'task.updated', taskId: child.id }));
+      }
+      frontier = next;
+    }
   }
 
   private async view(tx: AccountTx, projectId: string, id: string): Promise<TaskResponseDto> {

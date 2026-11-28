@@ -95,5 +95,19 @@
   "CATALOG_ALREADY_LISTED": "The agent is already in the marketplace",
   "CATALOG_SCENARIOS_EMPTY": "Add at least one scenario",
   "CATALOG_SCENARIOS_RUNNING": "Scenarios are already running",
-  "CATALOG_BETA_EMPTY": "Choose accounts for the beta"
+  "CATALOG_BETA_EMPTY": "Choose accounts for the beta",
+  "KNOWLEDGE_NOT_FOUND": "Knowledge page or folder not found",
+  "KNOWLEDGE_NOT_PUBLISHED": "The page is not published yet",
+  "KNOWLEDGE_CYCLE": "A folder cannot be moved inside itself",
+  "KNOWLEDGE_PARENT_INVALID": "The parent folder is not suitable",
+  "KNOWLEDGE_TITLE_TAKEN": "A page with this title already exists in the folder",
+  "KNOWLEDGE_BODY_REQUIRED": "An empty page cannot be published",
+  "KNOWLEDGE_SOURCE_FAILED": "The source could not be processed",
+  "KNOWLEDGE_SOURCE_TOO_LARGE": "The file exceeds the allowed size",
+  "KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED": "This file format is not supported",
+  "KNOWLEDGE_SOURCE_NOT_FOUND": "Source not found",
+  "KNOWLEDGE_PROPOSAL_NOT_FOUND": "Proposal not found",
+  "KNOWLEDGE_PROPOSAL_CLOSED": "The proposal is already resolved",
+  "KNOWLEDGE_FORBIDDEN": "You are not allowed to do this with the knowledge base",
+  "KNOWLEDGE_TITLE_REQUIRED": "A proposal needs a title"
 }

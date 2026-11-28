@@ -20,6 +20,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /runtime/ .
+RUN mkdir -p /app/data/knowledge && chown -R node:node /app/data
 USER node
 # api: 3000, internal: 3100 (worker has no port).
 EXPOSE 3000 3100

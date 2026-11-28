@@ -23,4 +23,6 @@ export type TaskJob = z.infer<typeof taskJobSchema>;
 export const RUNTIME_TASKS = {
   /** Expires a decision nobody answered in DECISION_TTL_DAYS. */
   DECISION_EXPIRE: 'runtime.decision_expire',
+  /** Runs a delayed task at its scheduled_at time. */
+  TASK_RUN: 'runtime.task_run',
 } as const;

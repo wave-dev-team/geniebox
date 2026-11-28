@@ -1,23 +1,25 @@
-import { BookOpen, Bot, CircleHelp, FileText, House, ListTodo, Plug, Settings } from 'lucide-react';
+import { BookOpen, Bot, ListTodo, type LucideIcon, Settings, WandSparkles } from 'lucide-react';
 
 const workspaceSections = [
   { id: 'tasks', href: '/tasks', icon: ListTodo },
   { id: 'agents', href: '/agents', icon: Bot },
   { id: 'knowledge', href: '/knowledge', icon: BookOpen },
-  { id: 'connections', href: '/connections', icon: Plug },
-  { id: 'reports', href: '/reports', icon: FileText },
 ] as const;
 
-export const mainNavigation = [{ id: 'home', href: '/', icon: House }, ...workspaceSections] as const;
-
-export const footerNavigation = [
+export const mainNavigation = [
+  { id: 'home', href: '/', icon: WandSparkles },
+  ...workspaceSections,
   { id: 'settings', href: '/settings', icon: Settings },
-  { id: 'help', href: '/help', icon: CircleHelp },
 ] as const;
+
+export const footerNavigation: readonly { id: 'settings'; href: string; icon: LucideIcon }[] = [];
 
 export const placeholderSections = [
-  ...workspaceSections.map(({ id }) => id).filter((id) => id !== 'tasks'),
-  ...footerNavigation.map(({ id }) => id),
+  ...workspaceSections
+    .map(({ id }) => id)
+    .filter((id) => id !== 'tasks' && id !== 'knowledge' && id !== 'agents'),
+  'settings',
+  'help',
   'search',
   'hypotheses',
   'releases',

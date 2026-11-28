@@ -18,13 +18,16 @@ const uuid = '[0-9a-fA-F-]{36}';
 const account = `accounts/${uuid}`;
 const project = `${account}/projects/${uuid}`;
 const resources = new RegExp(
-  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/manager|/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/permissions)?)?|connections(?:/disconnect-all|/${uuid}/rotate)?|journal(?:\\.csv)?))?)$`,
+  `^(?:me(?:/sessions(?:/${uuid})?|/projects)?|accounts|${account}(?:/members(?:/${uuid})?|/invitations(?:/${uuid})?|/ownership|/projects)?|invitations/accept|connection-providers|agent-catalog|${project}(?:/(?:stream|conversations(?:/manager|/${uuid}/messages)?|rules|pause|resume|onboarding/complete|agents(?:/${uuid}(?:/(?:permissions|actions|stats|pause|resume|rules|connections))?)?|tasks(?:/${uuid}(?:/(?:run|cancel))?)?|task-counts|routines(?:/${uuid}(?:/run)?)?|connections(?:/disconnect-all|/import(?:/(?:analyze(?:/${uuid})?|clarify))?|/${uuid}/rotate)?|journal(?:\\.csv)?|knowledge(?:/(?:nodes(?:/${uuid}(?:/(?:publish|archive|restore|revisions(?:/\\d{1,4}/restore)?))?)?|sources(?:/${uuid}/retry)?|search|proposals(?:/${uuid}/(?:accept|reject))?|stats))?))?)$`,
 );
 const chatReadResources = new RegExp(
   `^${project}/(?:tasks/${uuid}|decisions/${uuid}|metrics(?:/${uuid}/series)?)$`,
 );
 const contextReset = new RegExp(`^${account}/manager-context/(?:me/)?reset$`);
-const chatActions = new RegExp(`^${project}/message-actions/${uuid}/press$`);
+const chatActions = new RegExp(
+  `^${project}/(?:message-actions/${uuid}/press|decisions/${uuid}/(?:accept|reject))$`,
+);
+const connectLink = /^connect\/[A-Za-z0-9_-]{8,128}$/;
 const accessCookie = 'geniebox-access';
 const refreshCookie = 'geniebox-refresh';
 
@@ -33,7 +36,13 @@ async function proxy(req: NextRequest, context: RouteContext<'/api/v1/[...path]'
   const chatResource =
     (req.method === 'GET' && chatReadResources.test(path)) ||
     (req.method === 'POST' && (chatActions.test(path) || contextReset.test(path)));
-  if (!(resources.test(path) || chatResource || publicActions.has(path) || privateActions.has(path))) {
+  if (!(
+    resources.test(path) ||
+    chatResource ||
+    connectLink.test(path) ||
+    publicActions.has(path) ||
+    privateActions.has(path)
+  )) {
     return new Response(null, { status: 404 });
   }
   if (

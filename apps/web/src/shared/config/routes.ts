@@ -11,6 +11,7 @@ export function safeNextPath(value: string | null | undefined): string | undefin
     '/invitations/accept',
     '/routines',
     '/tasks',
+    '/agents',
     ...placeholderSections.map((section) => `/${section}`),
   ];
   return target.origin === base &&
@@ -36,6 +37,7 @@ export const routes = {
   invitation: (token?: string) =>
     token ? '/invitations/accept?token=' + encodeURIComponent(token) : '/invitations/accept',
   tasks: (id?: string) => (id ? `/tasks?task=${encodeURIComponent(id)}` : '/tasks'),
+  agents: (id?: string) => (id ? `/agents/${encodeURIComponent(id)}` : '/agents'),
   login: (next?: string) => withNext('/login', next),
   signup: (next?: string) => withNext('/signup', next),
   resetPassword: (next?: string) => withNext('/reset-password', next),

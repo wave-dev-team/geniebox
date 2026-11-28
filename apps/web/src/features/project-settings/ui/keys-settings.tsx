@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Plus } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +18,8 @@ import {
 import { Input } from '@workspace/ui/components/input';
 import { cn } from '@workspace/ui/lib/utils';
 
+import { ConnectionImportDialog } from './connection-import-dialog';
+
 import { projectConnectionsKey, type ProjectRef, useProjectConnections } from '@/entities/project/operations';
 import { listConnectionProviders, projectOperations } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
@@ -28,15 +30,23 @@ export function KeysSettings({ project }: { project: ProjectRef }) {
   const format = useFormatter();
   const connections = useProjectConnections(project);
   const [rotating, setRotating] = useState<ProjectConnection>();
+  const [importing, setImporting] = useState(false);
+  const importT = useTranslations('projectSettings.importDialog');
   const keys = (connections.data ?? []).flatMap((connection) =>
     connection.credential ? [{ connection, key: connection.credential }] : [],
   );
 
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex flex-col gap-0.5">
-        <h2 className="font-semibold">{t('tabs.keys')}</h2>
-        <p className="text-sm text-muted-foreground">{t('keysDescription')}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="font-semibold">{t('tabs.keys')}</h2>
+          <p className="text-sm text-muted-foreground">{t('keysDescription')}</p>
+        </div>
+        <Button onClick={() => setImporting(true)}>
+          <Plus className="size-4" />
+          {importT('title')}
+        </Button>
       </header>
       {connections.isPending || connections.isError ? (
         <SettingsQueryStatus query={connections} />
@@ -104,6 +114,7 @@ export function KeysSettings({ project }: { project: ProjectRef }) {
       {rotating && (
         <RotateKey project={project} connection={rotating} onClose={() => setRotating(undefined)} />
       )}
+      {importing && <ConnectionImportDialog project={project} open onOpenChange={setImporting} />}
     </section>
   );
 }

@@ -51,25 +51,31 @@ export function TimeZonePicker({
           <Button
             id={id}
             disabled={disabled}
-            variant="outline"
+            variant="ghost"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between font-normal sm:w-60"
+            className="w-full min-w-0 max-w-full justify-between gap-1.5 bg-input/50 px-3 text-left font-normal hover:bg-input/50 aria-expanded:bg-input/50 dark:hover:bg-input/50 sm:w-60"
           />
         }
       >
-        <span className="truncate">{value ? describeTimeZone(value, locale) : (nullLabel ?? '')}</span>
-        <ChevronDown className="opacity-50" />
+        <span className="min-w-0 flex-1 truncate">
+          {value ? describeTimeZone(value, locale) : (nullLabel ?? '')}
+        </span>
+        <ChevronDown className="text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0" align="end">
-        <Command>
-          <CommandInput placeholder={t('search')} />
-          <CommandList>
+      <PopoverContent
+        className="max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) p-0"
+        align="start"
+        collisionAvoidance={{ fallbackAxisSide: 'none' }}
+      >
+        <Command className="h-auto min-h-0">
+          <CommandInput aria-label={t('search')} placeholder={t('search')} className="min-w-0" />
+          <CommandList className="min-h-0">
             <CommandEmpty>{t('empty')}</CommandEmpty>
             <CommandGroup>
               {nullLabel ? (
                 <CommandItem value="project" onSelect={() => pick(null)} data-checked={value === null}>
-                  {nullLabel}
+                  <span className="min-w-0 flex-1 truncate">{nullLabel}</span>
                 </CommandItem>
               ) : null}
               {options.map((option) => (
@@ -79,8 +85,10 @@ export function TimeZonePicker({
                   onSelect={() => pick(option.id)}
                   data-checked={value === option.id}
                 >
-                  <span className="truncate">{option.city}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{option.offset}</span>
+                  <span className="min-w-0 flex-1 truncate">{option.city}</span>
+                  <span className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+                    {option.offset}
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

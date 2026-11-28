@@ -111,6 +111,7 @@ function PasswordLogin({
           <PasswordInput
             id="login-password"
             autoComplete="current-password"
+            placeholder={t('passwordPlaceholder')}
             aria-invalid={Boolean(errors.password) || undefined}
             {...form.register('password')}
           />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -11,6 +11,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@workspace/ui/components/dropdown-menu';
 import {
@@ -22,19 +23,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from '@workspace/ui/components/sidebar';
 
 import { useWorkspaces } from '@/entities/workspace';
 import { AccountMenu } from '@/features/account-menu';
 import { footerNavigation, mainNavigation } from '@/shared/config/nav';
+import { routes } from '@/shared/config/routes';
 
 function WorkspaceLogo() {
   return (
     <span
       aria-hidden="true"
-      className="flex size-5.5 shrink-0 items-center justify-center rounded-md border bg-background text-xs font-semibold"
+      className="flex size-5 shrink-0 items-center justify-center rounded-md border bg-background text-xs font-semibold"
     >
       G
     </span>
@@ -49,8 +50,7 @@ function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('workspace.switch')}
-        className="min-w-0 flex-1 px-1.5 font-semibold"
-        render={<SidebarMenuButton />}
+        render={<SidebarMenuButton className="gap-1.5 px-1.5 text-base font-semibold" />}
       >
         <WorkspaceLogo />
         <span className="truncate">{selected?.name ?? t('app.brand')}</span>
@@ -76,10 +76,17 @@ function WorkspaceSwitcher({ onSelect }: { onSelect: () => void }) {
               {workspace.id === data.activeId ? <Check /> : null}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuItem render={<Link href="/settings" onClick={onSelect} />}>
-            {t('workspace.settings')}
-          </DropdownMenuItem>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="p-2" render={<Link href={routes.onboarding()} onClick={onSelect} />}>
+          <span
+            aria-hidden="true"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md border"
+          >
+            <Plus />
+          </span>
+          <span className="font-medium text-muted-foreground">{t('workspace.addProject')}</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -100,17 +107,21 @@ export function AppSidebar() {
       mobileLabel={t('nav.sections')}
       mobileDescription={t('app.description')}
     >
-      <SidebarHeader className="flex-row items-center gap-0.5 px-0.5">
-        <WorkspaceSwitcher onSelect={closeOnMobile} />
-        <SidebarTrigger aria-label={t('nav.hideSidebar')} className="size-7 shrink-0" />
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <WorkspaceSwitcher onSelect={closeOnMobile} />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <nav aria-label={t('nav.sections')}>
           <SidebarGroup>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-1">
               {mainNavigation.map(({ id, href, icon: Icon }) => (
                 <SidebarMenuItem key={id}>
                   <SidebarMenuButton
+                    className="px-2 has-[>svg:first-child]:pl-2"
                     render={
                       <Link
                         href={href}
@@ -128,27 +139,32 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         </nav>
+        {footerNavigation.length > 0 && (
+          <SidebarGroup className="mt-auto">
+            <SidebarMenu>
+              {footerNavigation.map(({ id, href, icon: Icon }) => (
+                <SidebarMenuItem key={id}>
+                  <SidebarMenuButton
+                    className="px-2 has-[>svg:first-child]:pl-2"
+                    render={
+                      <Link
+                        href={href}
+                        onClick={closeOnMobile}
+                        aria-current={pathname === href ? 'page' : undefined}
+                      />
+                    }
+                    isActive={pathname === href}
+                  >
+                    <Icon />
+                    <span>{t(`sections.${id}`)}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
-      <SidebarFooter className="gap-3">
-        <SidebarMenu className="gap-0.5">
-          {footerNavigation.map(({ id, href, icon: Icon }) => (
-            <SidebarMenuItem key={id}>
-              <SidebarMenuButton
-                render={
-                  <Link
-                    href={href}
-                    onClick={closeOnMobile}
-                    aria-current={pathname === href ? 'page' : undefined}
-                  />
-                }
-                isActive={pathname === href}
-              >
-                <Icon />
-                <span>{t(`sections.${id}`)}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <AccountMenu />

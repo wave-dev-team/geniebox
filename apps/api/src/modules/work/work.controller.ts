@@ -40,6 +40,7 @@ import {
 } from './dto/decision.dto.js';
 import {
   CountersResponseDto,
+  CreateRoutineDto,
   CreateTaskDto,
   RoutineResponseDto,
   TaskCountsDto,
@@ -119,6 +120,13 @@ export class TasksController {
   @ApiOperation({ summary: 'Routines' })
   listRoutines(@Query() query: ConversationListQueryDto): Promise<RoutineResponseDto[]> {
     return this.routines.list(query.agentId);
+  }
+
+  @Post('routines')
+  @RequireAccountRole('tech')
+  @ApiOperation({ summary: 'Create a recurring routine for an agent' })
+  createRoutine(@Body() dto: CreateRoutineDto): Promise<RoutineResponseDto> {
+    return this.routines.create(dto);
   }
 
   @Get('routines/:routineId')

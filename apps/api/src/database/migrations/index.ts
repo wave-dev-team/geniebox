@@ -13,6 +13,8 @@ import * as catalogOnboarding from './202610310000_catalog_onboarding.js';
 import * as personalManagerChat from './202611270000_personal_manager_chat.js';
 import * as managerContextReset from './202611270001_manager_context_reset.js';
 import * as supportMailOutbox from './202611270002_support_mail_outbox.js';
+import * as knowledge from './202611270003_knowledge.js';
+import * as taskTreeAndDelegation from './202611280000_task_tree_and_delegation.js';
 
 /**
  * Explicit registry instead of directory scanning: works identically in ts-jest, tsx and
@@ -32,4 +34,6 @@ export const migrations: Record<string, Migration> = {
   '202611270000_personal_manager_chat': personalManagerChat,
   '202611270001_manager_context_reset': managerContextReset,
   '202611270002_support_mail_outbox': supportMailOutbox,
+  '202611270003_knowledge': knowledge,
+  '202611280000_task_tree_and_delegation': taskTreeAndDelegation,
 };

@@ -38,23 +38,19 @@ export function NewProject() {
         directory.activate(account);
       }
       const project = await accountsApi.createProject(account.id, values);
-      // If advancing fails, step 1 can be resumed on the saved project without creating another.
-      const advanced = await projectsApi
-        .update(account.id, project.id, { onboardingStep: 2 })
-        .catch(() => project);
-      return { account, project: advanced };
+      const completed = await projectsApi.completeOnboarding(account.id, project.id).catch(() => project);
+      return { account, project: completed };
     },
     onSuccess: async ({ account, project }) => {
       sessionStorage.setItem(`geniebox:project:${account.id}`, project.id);
       directory.select(account.id);
       await refresh(project);
-      router.replace(routes.onboarding(project.slug));
+      router.replace(routes.root());
     },
   });
 
   return (
     <OnboardingFrame
-      step={1}
       title={t('createTitle')}
       laterHref={projects.data?.some(({ accountBlocked }) => !accountBlocked) ? routes.root() : undefined}
     >

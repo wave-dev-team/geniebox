@@ -32,7 +32,7 @@ export default async function globalSetup(): Promise<void> {
 
   let adminUrl = process.env.TEST_DATABASE_ADMIN_URL;
   if (!adminUrl) {
-    const pg = await new PostgreSqlContainer('postgres:17-alpine').start();
+    const pg = await new PostgreSqlContainer('pgvector/pgvector:pg17').start();
     containers.push(pg);
     adminUrl = pg.getConnectionUri();
   }
@@ -87,6 +87,9 @@ export default async function globalSetup(): Promise<void> {
       SCHEDULED_TASKS_SWEEP_INTERVAL_MS: '3600000',
       SECRETS_PUBLIC_KEY_FILE: publicKeyFile,
       SECRETS_PRIVATE_KEY_FILES: privateKeyFile,
+      KNOWLEDGE_BLOB_DIR: join(keyDir, 'knowledge'),
+      // No embedding provider in tests: the fake one keeps search offline and deterministic.
+      EMBEDDING_PROVIDER: 'fake',
       // Checks in tests talk to local stand-ins and the test database.
       CONNECTIONS_ALLOW_PRIVATE_HOSTS: 'true',
       CONNECTION_CHECK_TIMEOUT_MS: '3000',

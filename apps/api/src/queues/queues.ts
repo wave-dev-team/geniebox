@@ -7,6 +7,7 @@ export const QUEUES = {
   SCHEDULED_TASKS_RUN: 'scheduled-tasks-run',
   MAIL_SEND: 'mail-send',
   CONNECTIONS_CHECK: 'connections-check',
+  CONNECTIONS_IMPORT: 'connections-import',
   CONNECTIONS_MAINTENANCE: 'connections-maintenance',
   AGENT_TURNS: 'agent-turns',
   AGENT_TASKS: 'agent-tasks',
@@ -14,6 +15,7 @@ export const QUEUES = {
   METRICS_MAINTENANCE: 'metrics-maintenance',
   CATALOG_SCENARIOS: 'catalog-scenarios',
   CATALOG_ROLLOUT: 'catalog-rollout',
+  KNOWLEDGE_INDEX: 'knowledge-index',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -47,6 +49,13 @@ export const QUEUE_JOB_OPTIONS: Record<QueueName, DefaultJobOptions> = {
     removeOnComplete: { age: 60 * 60 },
     removeOnFail: { age: DAY_SECONDS },
   },
+  // Retries live inside the LLM client; the popup needs a fast, honest answer instead.
+  [QUEUES.CONNECTIONS_IMPORT]: {
+    attempts: 1,
+    // The result is the answer the popup polls for; it is read for an hour at most.
+    removeOnComplete: { age: 60 * 60 },
+    removeOnFail: { age: 60 * 60 },
+  },
   [QUEUES.CONNECTIONS_MAINTENANCE]: {
     attempts: 1,
     removeOnComplete: { count: 100 },
@@ -78,6 +87,13 @@ export const QUEUE_JOB_OPTIONS: Record<QueueName, DefaultJobOptions> = {
   // A failed run is written on the version («проверка не завершилась»); it can be started again.
   [QUEUES.CATALOG_SCENARIOS]: {
     attempts: 1,
+    removeOnComplete: { age: DAY_SECONDS },
+    removeOnFail: { age: 7 * DAY_SECONDS },
+  },
+  // Extraction and embeddings retry with backoff; the source keeps its error for a manual retry.
+  [QUEUES.KNOWLEDGE_INDEX]: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5_000 },
     removeOnComplete: { age: DAY_SECONDS },
     removeOnFail: { age: 7 * DAY_SECONDS },
   },

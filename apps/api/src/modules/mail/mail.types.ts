@@ -13,6 +13,7 @@ export const MAIL_TEMPLATES = [
   'connection_ready',
   'account_blocked',
   'account_unblocked',
+  'agent_alert',
 ] as const;
 export type MailTemplate = (typeof MAIL_TEMPLATES)[number];
 

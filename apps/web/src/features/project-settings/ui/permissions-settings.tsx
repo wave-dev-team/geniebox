@@ -35,13 +35,16 @@ export function PermissionsSettings({ project, editable }: { project: ProjectRef
             {options.map(({ id, displayName }) => (
               <Button
                 key={id}
+                className="max-w-full"
                 size="sm"
                 variant={agent.id === id ? 'secondary' : 'outline'}
                 aria-pressed={agent.id === id}
                 onClick={() => setSelected(id)}
               >
                 <Bot />
-                {displayName}
+                <span className="min-w-0 truncate" title={displayName}>
+                  {displayName}
+                </span>
               </Button>
             ))}
           </div>

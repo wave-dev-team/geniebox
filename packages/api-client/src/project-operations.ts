@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
 import {
+  agentActionPageSchema,
+  type AgentActionType,
+  agentStatsSchema,
   connectionProviderSchema,
+  importJobResponseSchema,
+  importJobSchema,
+  importResponseSchema,
+  type ImportResult,
+  type ImportSkeleton,
   type JournalFilters,
   onboardingAgentCatalogSchema,
   type PermissionMode,
@@ -13,6 +21,7 @@ import {
 
 import { projectPath } from './accounts.js';
 import { authenticated } from './authenticated.js';
+import { request } from './request.js';
 
 export function projectOperations(accountId: string, projectId: string) {
   const path = projectPath(accountId, projectId);
@@ -30,6 +39,35 @@ export function projectOperations(accountId: string, projectId: string) {
       projectAgentSchema.array().parse(await (await authenticated(path + '/agents', { signal })).json()),
     agent: async (id: string, signal?: AbortSignal) =>
       projectAgentDetailsSchema.parse(await (await authenticated(agentPath(id), { signal })).json()),
+    pauseAgent: async (id: string, until?: string) =>
+      projectAgentDetailsSchema.parse(
+        await (
+          await authenticated(agentPath(id) + '/pause', {
+            method: 'POST',
+            body: JSON.stringify(until ? { until } : {}),
+          })
+        ).json(),
+      ),
+    resumeAgent: async (id: string) =>
+      projectAgentDetailsSchema.parse(
+        await (await authenticated(agentPath(id) + '/resume', { method: 'POST' })).json(),
+      ),
+    agentStats: async (id: string, signal?: AbortSignal) =>
+      agentStatsSchema.parse(await (await authenticated(agentPath(id) + '/stats', { signal })).json()),
+    agentActions: async (
+      id: string,
+      filters: { period?: '7d' | '30d'; types?: AgentActionType[]; cursor?: string } = {},
+      signal?: AbortSignal,
+    ) => {
+      const query = new URLSearchParams();
+      if (filters.period) query.set('period', filters.period);
+      if (filters.types?.length) query.set('types', filters.types.join(','));
+      if (filters.cursor) query.set('cursor', filters.cursor);
+      const qs = query.toString();
+      return agentActionPageSchema.parse(
+        await (await authenticated(agentPath(id) + '/actions' + (qs ? `?${qs}` : ''), { signal })).json(),
+      );
+    },
     setPermission: async (id: string, actionId: string, mode: PermissionMode | null) =>
       projectAgentDetailsSchema.parse(
         await (
@@ -54,6 +92,49 @@ export function projectOperations(accountId: string, projectId: string) {
       });
       return z.object({ connection: projectConnectionSchema }).parse(await response.json());
     },
+    analyzeImport: async (skeleton: ImportSkeleton) =>
+      importJobResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ skeleton }),
+          })
+        ).json(),
+      ),
+    clarifyImport: async (input: {
+      skeleton: ImportSkeleton;
+      answer: string;
+      question?: string;
+      previous?: ImportResult;
+    }) =>
+      importJobResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import/clarify', {
+            method: 'POST',
+            body: JSON.stringify(input),
+          })
+        ).json(),
+      ),
+    importStatus: async (jobId: string) =>
+      importJobSchema.parse(
+        await (await authenticated(path + '/connections/import/analyze/' + encodeURIComponent(jobId))).json(),
+      ),
+    importConnections: async (
+      groups: Array<{
+        providerKey: string;
+        accessLevel: 'read' | 'read_write';
+        fields: Record<string, string>;
+      }>,
+      mode: 'skip' | 'replace' = 'skip',
+    ) =>
+      importResponseSchema.parse(
+        await (
+          await authenticated(path + '/connections/import', {
+            method: 'POST',
+            body: JSON.stringify({ groups, mode }),
+          })
+        ).json(),
+      ),
     disconnectAll: async () => {
       await authenticated(path + '/connections/disconnect-all', { method: 'POST' });
     },
@@ -88,4 +169,33 @@ export async function listOnboardingAgents(accountId: string, signal?: AbortSign
   const query = new URLSearchParams({ accountId });
   const response = await authenticated('/v1/agent-catalog?' + query, { signal });
   return onboardingAgentCatalogSchema.parse(await response.json());
+}
+
+export async function describeConnectionLink(token: string, signal?: AbortSignal) {
+  const response = await request('/v1/connect/' + encodeURIComponent(token), { signal });
+  return z
+    .object({
+      projectName: z.string(),
+      provider: connectionProviderSchema,
+      expiresAt: z.string(),
+    })
+    .parse(await response.json());
+}
+
+export async function submitConnectionLink(token: string, fields: Record<string, string>) {
+  const response = await request('/v1/connect/' + encodeURIComponent(token), {
+    method: 'POST',
+    body: JSON.stringify({ fields }),
+  });
+  return z
+    .object({
+      check: z
+        .object({
+          status: z.enum(['ok', 'warn', 'error']),
+          reason: z.string().nullable().optional(),
+          detail: z.string().nullable().optional(),
+        })
+        .nullable(),
+    })
+    .parse(await response.json());
 }

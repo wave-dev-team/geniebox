@@ -335,6 +335,99 @@ export interface Insights {
   text: string;
 }
 
+export interface KnowledgeChunks {
+  account_id: string;
+  content_hash: string;
+  created_at: Generated<Timestamp>;
+  embedding: string | null;
+  embedding_model: string | null;
+  heading_path: Generated<string[]>;
+  id: Generated<string>;
+  node_id: string;
+  position: number;
+  project_id: string;
+  text: string;
+  token_count: Generated<number>;
+  tsv: Generated<string | null>;
+}
+
+export interface KnowledgeCitations {
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  locator: Generated<Json>;
+  node_id: string;
+  quote: string | null;
+  source_id: string;
+}
+
+export interface KnowledgeNodes {
+  account_id: string;
+  body: Generated<string>;
+  content_hash: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  indexed_hash: string | null;
+  kind: Generated<string>;
+  parent_id: string | null;
+  position: Generated<number>;
+  project_id: string;
+  published_at: Timestamp | null;
+  published_by: string | null;
+  source_id: string | null;
+  status: Generated<string>;
+  title: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface KnowledgeProposals {
+  account_id: string;
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  payload: Generated<Json>;
+  project_id: string;
+  resolved_at: Timestamp | null;
+  resolved_by: string | null;
+  status: Generated<string>;
+}
+
+export interface KnowledgeRevisions {
+  account_id: string;
+  author_id: string | null;
+  author_kind: Generated<string>;
+  body: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  node_id: string;
+  revision: number;
+  status: string;
+  title: string;
+}
+
+export interface KnowledgeSources {
+  account_id: string;
+  blob_key: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  error: string | null;
+  id: Generated<string>;
+  kind: string;
+  metadata: Generated<Json>;
+  mime: string | null;
+  period_end: Timestamp | null;
+  period_start: Timestamp | null;
+  project_id: string;
+  sha256: string;
+  size_bytes: Generated<Int8>;
+  status: Generated<string>;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface LlmCalls {
   account_id: string;
   agent_id: string | null;
@@ -479,6 +572,7 @@ export interface Projects {
 export interface Routines {
   account_id: string;
   agent_id: string;
+  assigned_by_agent_id: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   description: string | null;
@@ -526,6 +620,7 @@ export interface SupportRequests {
 export interface Tasks {
   account_id: string;
   agent_id: string;
+  assigned_by_agent_id: string | null;
   attempts: Generated<number>;
   conversation_id: string | null;
   created_at: Generated<Timestamp>;
@@ -537,6 +632,7 @@ export interface Tasks {
   id: Generated<string>;
   mode: string | null;
   origin: string;
+  parent_task_id: string | null;
   progress_pct: number | null;
   progress_text: string | null;
   project_id: string;
@@ -548,6 +644,7 @@ export interface Tasks {
   summary: string | null;
   title: string;
   updated_at: Generated<Timestamp>;
+  waiting_reason: string | null;
 }
 
 export interface TaskSteps {
@@ -628,6 +725,12 @@ export interface DB {
   ideas: Ideas;
   idempotency_keys: IdempotencyKeys;
   insights: Insights;
+  knowledge_chunks: KnowledgeChunks;
+  knowledge_citations: KnowledgeCitations;
+  knowledge_nodes: KnowledgeNodes;
+  knowledge_proposals: KnowledgeProposals;
+  knowledge_revisions: KnowledgeRevisions;
+  knowledge_sources: KnowledgeSources;
   llm_calls: LlmCalls;
   message_actions: MessageActions;
   messages: Messages;

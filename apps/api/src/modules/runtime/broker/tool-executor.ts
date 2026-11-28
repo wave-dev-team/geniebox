@@ -110,7 +110,8 @@ export class ToolExecutor {
     if (limitError) return this.refuse(context, toolId, 'rejected', limitError, args);
     let connectionId: string | null = null;
     if (tool.providers?.length) {
-      connectionId = await this.connectionFor(context.agent.id, tool.providers);
+      const preferred = typeof args.connectionId === 'string' ? args.connectionId : undefined;
+      connectionId = await this.connectionFor(context.agent.id, tool.providers, preferred);
       if (!connectionId) return this.refuse(context, toolId, 'rejected', 'NO_CONNECTION', args);
     }
     if (policy.mode === 'approve' && !options.approvedBy) {
@@ -150,10 +151,11 @@ export class ToolExecutor {
         return { status: 'executed', toolId, result: value, terminal: tool.terminal ?? false };
       } catch (error) {
         const code = error instanceof ToolError ? error.code : 'EXECUTION_FAILED';
+        const detail = error instanceof ToolError ? error.detail : undefined;
         if (!(error instanceof ToolError)) {
           this.logger.error({ err: error, toolId }, 'Tool execution failed');
         }
-        return this.refuse(context, toolId, 'failed', code, args);
+        return this.refuse(context, toolId, 'failed', code, args, detail);
       }
     }
     if (!tool.execute) return this.refuse(context, toolId, 'rejected', 'UNKNOWN_TOOL', args);
@@ -191,10 +193,18 @@ export class ToolExecutor {
       return { status: 'executed', toolId, result, terminal: tool.terminal ?? false };
     } catch (error) {
       const code = error instanceof ToolError ? error.code : 'EXECUTION_FAILED';
+      const detail = error instanceof ToolError ? error.detail : undefined;
       if (!(error instanceof ToolError)) {
         this.logger.error({ err: error, toolId }, 'Tool execution failed');
       }
-      return this.refuse(context, toolId, code === 'KILL_SWITCH_PROJECT' ? 'blocked' : 'failed', code, args);
+      return this.refuse(
+        context,
+        toolId,
+        code === 'KILL_SWITCH_PROJECT' ? 'blocked' : 'failed',
+        code,
+        args,
+        detail,
+      );
     }
   }
 
@@ -247,18 +257,22 @@ export class ToolExecutor {
     return row?.always_ask ?? [];
   }
 
-  private async connectionFor(agentId: string, providers: string[]): Promise<string | null> {
-    const row = await this.accountDb.transaction((tx) =>
-      tx.db
+  private async connectionFor(
+    agentId: string,
+    providers: string[],
+    preferredId?: string,
+  ): Promise<string | null> {
+    const row = await this.accountDb.transaction((tx) => {
+      let query = tx.db
         .selectFrom('agent_connections')
         .innerJoin('connections', 'connections.id', 'agent_connections.connection_id')
         .select('connections.id')
         .where('agent_connections.agent_id', '=', agentId)
         .where('connections.provider_key', 'in', providers)
-        .where('connections.deleted_at', 'is', null)
-        .orderBy('connections.status')
-        .executeTakeFirst(),
-    );
+        .where('connections.deleted_at', 'is', null);
+      if (preferredId) query = query.where('connections.id', '=', preferredId);
+      return query.orderBy('connections.status').executeTakeFirst();
+    });
     return row?.id ?? null;
   }
 
@@ -380,9 +394,12 @@ export class ToolExecutor {
   }
 }
 
-/** Raised by tools for expected failures; the code goes back to the model. */
+/** Raised by tools for expected failures; the code and optional detail go back to the model. */
 export class ToolError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly detail?: unknown,
+  ) {
     super(code);
   }
 }

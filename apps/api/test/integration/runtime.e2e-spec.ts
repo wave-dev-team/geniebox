@@ -446,7 +446,14 @@ describe('agent runtime (HTTP, fake model)', () => {
         status: 'rejected',
         errorCode: 'UNKNOWN_TOOL',
       });
-      expect(await run({ agentId: intelId, title: 'x', why: 'y' }, {}, 'assign_task')).toMatchObject({
+      expect(
+        await run(
+          { agentId: intelId, title: 'x', why: 'y' },
+          {},
+          'assign_task',
+          offered.filter((id) => id !== 'assign_task'),
+        ),
+      ).toMatchObject({
         errorCode: 'UNKNOWN_TOOL',
       });
       expect(await run({ recipients: 1, text: 'x' }, {}, 'bot.broadcast', ['finish_task'])).toMatchObject({

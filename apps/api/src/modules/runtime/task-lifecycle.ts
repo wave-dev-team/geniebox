@@ -4,7 +4,12 @@ import { AccountDb, type AccountTx } from '../../database/scoped-db.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { StreamPublisher } from '../stream/stream.publisher.js';
-import { type MessageReadyEvent, type TaskFinishedEvent, WORK_EVENTS } from '../work/events/work.events.js';
+import {
+  type MessageReadyEvent,
+  type TaskFinishedEvent,
+  type TaskRunRequestedEvent,
+  WORK_EVENTS,
+} from '../work/events/work.events.js';
 import { ConversationsRepository } from '../work/repositories/conversations.repository.js';
 import { RoutinesRepository } from '../work/repositories/routines.repository.js';
 import { type TaskRow, TasksRepository } from '../work/repositories/tasks.repository.js';
@@ -46,6 +51,7 @@ export class TaskLifecycle {
       await this.say(tx, moved, outcome.result, [{ type: 'task', id: task.id }, ...cards]);
       await this.record(tx, moved, `tasks.${outcome.status}`);
       if (outcome.status === 'done') await this.finished(tx, moved, 'done');
+      await this.maybeWakeParent(tx, moved);
       return true;
     });
   }
@@ -63,6 +69,7 @@ export class TaskLifecycle {
       await this.afterRun(tx, moved, error.what);
       await this.record(tx, moved, 'tasks.fail', { code: error.code });
       await this.finished(tx, moved, 'failed');
+      await this.maybeWakeParent(tx, moved);
     });
   }
 
@@ -71,6 +78,7 @@ export class TaskLifecycle {
     await this.accountDb.transaction(async (tx) => {
       const moved = await this.tasks.transition(tx.db, task.id, ['running'], {
         status: 'waiting',
+        waiting_reason: 'decision',
         summary,
       });
       if (!moved) return;
@@ -87,6 +95,57 @@ export class TaskLifecycle {
       ]);
       await this.record(tx, moved, 'tasks.wait', { decisionId });
     });
+  }
+
+  /** Task waits for delegated subtasks to finish. */
+  async waitForSubtasks(task: TaskRow, summary: string): Promise<void> {
+    await this.accountDb.transaction(async (tx) => {
+      const moved = await this.tasks.transition(tx.db, task.id, ['running'], {
+        status: 'waiting',
+        waiting_reason: 'subtasks',
+        summary: summary.slice(0, 200),
+      });
+      if (!moved) return;
+      await this.record(tx, moved, 'tasks.wait_subtasks');
+      tx.afterCommit(() => this.stream.publish(task.project_id, { type: 'task.updated', taskId: task.id }));
+    });
+  }
+
+  /** Task waits for a missing connection to be added. */
+  async waitForConnection(task: TaskRow, summary: string): Promise<void> {
+    await this.accountDb.transaction(async (tx) => {
+      const moved = await this.tasks.transition(tx.db, task.id, ['running'], {
+        status: 'waiting',
+        waiting_reason: 'connection',
+        summary: summary.slice(0, 200),
+      });
+      if (!moved) return;
+      await this.record(tx, moved, 'tasks.wait_connection');
+      tx.afterCommit(() => this.stream.publish(task.project_id, { type: 'task.updated', taskId: task.id }));
+    });
+  }
+
+  private async maybeWakeParent(tx: AccountTx, child: TaskRow): Promise<void> {
+    if (!child.parent_task_id) return;
+    const parent = await this.tasks.findById(tx.db, child.parent_task_id, true);
+    if (!parent || parent.status !== 'waiting' || parent.waiting_reason !== 'subtasks') return;
+    const siblings = await this.tasks.listByParent(tx.db, parent.id);
+    const hasActive = siblings.some(
+      (s) => s.status === 'planned' || s.status === 'running' || s.status === 'waiting',
+    );
+    if (hasActive) return;
+    const woken = await this.tasks.transition(tx.db, parent.id, ['waiting'], {
+      status: 'planned',
+      waiting_reason: null,
+      scheduled_at: new Date(),
+      summary: null,
+    });
+    if (!woken) return;
+    await this.outbox.add<TaskRunRequestedEvent>(tx, {
+      type: WORK_EVENTS.TASK_RUN_REQUESTED,
+      payload: { projectId: parent.project_id, taskId: parent.id, byUserId: parent.created_by },
+    });
+    tx.afterCommit(() => this.stream.publish(parent.project_id, { type: 'task.updated', taskId: parent.id }));
   }
 
   private async afterRun(tx: AccountTx, task: TaskRow, summary: string): Promise<void> {

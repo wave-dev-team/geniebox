@@ -60,18 +60,20 @@
   "home": {
     "title": "How can I help the project today?",
     "suggestions": {
-      "churn": "Why did conversion fall?",
-      "winBack": "Which hypotheses should we test?",
-      "day": "What impact did the release have?",
-      "servers": "What should we prioritize in the backlog?"
+      "churn": "Audit the project and suggest first steps",
+      "winBack": "Help connect Metrika, backlog, and knowledge base",
+      "day": "Set up Telegram notifications",
+      "servers": "Show agent team and connections"
     },
     "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}"
   },
   "auth": {
-    "tagline": "Sign in to Geniebox",
+    "tagline": "Enter your email address and password to sign in",
     "email": "Email",
-    "emailPlaceholder": "name@company.com",
+    "emailPlaceholder": "captain@geniebox.ru",
     "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "newPasswordPlaceholder": "Create a strong password",
     "name": "Name",
     "namePlaceholder": "How should we call you",
     "forgot": "Forgot password?",
@@ -84,7 +86,7 @@
     "haveAccount": "Already have an account?",
     "signInLink": "Sign in",
     "login": {
-      "title": "Sign in"
+      "title": "Sign in to your account"
     },
     "code": {
       "title": "Sign in with a code",
@@ -98,7 +100,7 @@
     },
     "signup": {
       "title": "Sign up",
-      "subtitle": "Create an account to open your workspace",
+      "subtitle": "Enter your name, email address, and password to create an account",
       "submit": "Create account",
       "passwordHint": "At least {min} characters"
     },
@@ -129,7 +131,8 @@
       "code": "Enter the 6 digits from the email"
     },
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "hackathonNotice": "Competition entry by WAVE DEV for the IIkuznitsa Hackathon (Softline) · Digital Avatar track · E-commerce Product Manager AI Assistant"
   },
   "roles": {
     "owner": "Owner",
@@ -147,7 +150,7 @@
   },
   "profile": {
     "title": "My profile",
-    "subtitle": "Personal settings — apply to all your projects and are visible only to you",
+    "subtitle": "Personal settings for all your projects. Visible only to you.",
     "tabs": {
       "general": "Profile",
       "notifications": "Notifications",
@@ -162,7 +165,7 @@
     "verify": "Confirm",
     "language": "Interface language",
     "timezone": "Time zone",
-    "timezoneHint": "time in the interface and notifications — members in other cities have their own",
+    "timezoneHint": "Time used in the interface and notifications",
     "timezoneProject": "Same as the project",
     "theme": "Theme",
     "save": "Save",
@@ -173,7 +176,7 @@
       "signIn": "Sign-in",
       "password": "Password",
       "passwordChanged": "changed {when}",
-      "passwordNotSet": "not set — sign in with an email code",
+      "passwordNotSet": "No password is set. Sign in with a code sent by email.",
       "change": "Change",
       "set": "Set",
       "sessions": "Sessions",
@@ -216,7 +219,7 @@
     "EMAIL_NOT_VERIFIED": "Please verify your email.",
     "SESSION_EXPIRED": "Your session has expired.",
     "REFRESH_CONCURRENT": "The session is being refreshed. Try again.",
-    "CROSS_ORIGIN_REQUEST": "The request must come from Geniebox.",
+    "CROSS_ORIGIN_REQUEST": "The request must come from the application.",
     "PASSWORD_CHANGED": "The password was changed. Try again."
   },
   "timezone": {
@@ -345,11 +348,15 @@
     "send": "Send",
     "mention": "Give to a specific agent",
     "mentionRemove": "Remove the agent",
+    "attachFile": "Attach file to knowledge base",
+    "attachRemove": "Remove attached file",
+    "attachError": "Could not upload file",
+    "attachedPrefix": "[Uploaded file to knowledge base: {name}]",
     "mode": "Mode",
     "modes": {
       "approve_all": {
         "label": "Approve everything",
-        "note": "agents propose, you decide — as now"
+        "note": "All agent actions require approval."
       },
       "approve_important": {
         "label": "Approve important",
@@ -360,18 +367,43 @@
         "note": "do nothing, just answer and suggest"
       }
     },
-    "viewer": "You are a viewer — owners, admins and tech members can write to agents"
+    "viewer": "Owners, administrators, and technical specialists can message agents."
   },
   "app": {
-    "brand": "Geniebox",
-    "description": "Geniebox workspace",
+    "brand": "Workspace",
+    "description": "AI agent team management workspace",
     "placeholder": "This section will be available later.",
     "retry": "Try again",
     "connectionError": "Could not load data. Check your connection.",
     "businessUnavailable": "Data for this section is not connected yet."
   },
+  "eventToasts": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirm": "Confirm",
+    "decisionApproved": "Decision approved",
+    "decisionRejected": "Decision rejected",
+    "taskDone": "Task completed",
+    "taskFailed": "Task failed",
+    "newInsight": "New metric insight published"
+  },
+  "connectLink": {
+    "loadingTitle": "Loading connection form",
+    "loadingSubtitle": "Checking one-time link…",
+    "invalidTitle": "Link is invalid or expired",
+    "invalidSubtitle": "Ask the manager for a new service connection link.",
+    "title": "Connect {provider}",
+    "subtitle": "Project \"{project}\". Credentials are sent directly to encrypted storage.",
+    "submit": "Save and verify",
+    "doneTitle": "Service connected",
+    "doneSubtitle": "{provider} has been connected to \"{project}\".",
+    "checkOk": "Connection check succeeded.",
+    "checkWarn": "Credentials saved, but the service returned a warning.",
+    "backHome": "Back to workspace",
+    "close": "Done"
+  },
   "sections": {
-    "home": "Home",
+    "home": "Manager",
     "tasks": "Tasks",
     "agents": "Agents",
     "knowledge": "Knowledge base",
@@ -393,7 +425,7 @@
   "workspace": {
     "switch": "Switch workspace",
     "list": "Workspaces",
-    "settings": "Workspace settings",
+    "addProject": "Add project",
     "owner": "Owner",
     "member": "Member",
     "name": "Name",
@@ -462,6 +494,7 @@
     "title": "Report title",
     "baseline": "Before changes",
     "comparison": "After changes",
+    "dateRange": "From {from} to {to}",
     "from": "start",
     "to": "end",
     "criterion": "Success criterion",
@@ -632,7 +665,7 @@
       "deny": "Deny"
     },
     "resetPermission": "Reset",
-    "noKeys": "No keys yet — they appear once you connect something",
+    "noKeys": "Keys appear after you connect services.",
     "keyHealth": {
       "ok": "Active",
       "expiring": "Expiring soon",
@@ -684,7 +717,7 @@
     "probationHint": "everything only with your “yes”",
     "streakHint": "after how many correct proposals in a row",
     "asksHint": "Applies to all agents. A single agent can be stricter, never looser",
-    "limitsHint": "Hard limits — an agent cannot bypass them",
+    "limitsHint": "Mandatory limits for all agents",
     "budgetHint": "per month for the whole team",
     "agentRulesHint": "Every agent receives this list with each task",
     "agentRulePlaceholder": "For example, never mention competitors",
@@ -703,9 +736,44 @@
     "teamPause": "Pause the whole team",
     "teamPauseHint": "agents only watch and change nothing",
     "permissionsDescription": "What an agent does on its own, with a notification, only with your approval or never",
-    "permissionsEmptyHint": "Add agents from the marketplace — their permissions can be set here",
+    "permissionsEmptyHint": "Add agents from the marketplace to configure their permissions.",
     "keysDescription": "Keys and tokens agents use to work with connected services",
     "keysNote": "Keys live in encrypted storage and are injected by the system on every request. Agents never see their values and cannot change their rights.",
+    "importDialog": {
+      "title": "Add credentials",
+      "description": "Paste text or attach a .txt, .env or .md file. AI works out which service each value belongs to and asks when something is unclear.",
+      "placeholder": "For example:\nYOOKASSA_SHOP_ID=123456\nYOOKASSA_SECRET_KEY=live_…\n\nor simply:\nLogin: admin\nPassword: qwerty",
+      "notePlaceholder": "What these credentials are for (optional)",
+      "attach": "Attach a file",
+      "analyze": "Parse",
+      "analyzing": "AI is parsing…",
+      "limits": "Values found: {count} of {max}.",
+      "saved": "Connections saved: {count}",
+      "skipped": "Skipped, already connected: {count}",
+      "someFailed": "Could not save: {count}",
+      "fileTooLarge": "The file is larger than 64 KB. Split it into parts.",
+      "budget": "The project AI budget is exhausted.",
+      "unavailable": "AI is unavailable — parsing by rules.",
+      "unavailableHint": "You can assign fields by hand: pick a service for each value.",
+      "manual": "Assign by hand",
+      "manualQuestion": "Which service do these values belong to?",
+      "groups": "Parsed connections: {count}",
+      "noGroups": "Nothing parsed yet.",
+      "guess": "guess",
+      "remove": "Remove",
+      "field": "Field",
+      "skipField": "Do not save",
+      "missing": "Missing: {fields}",
+      "questions": "Needs clarification",
+      "back": "Back",
+      "save": "Save connections: {count}",
+      "line": "Line {line}",
+      "value": "value",
+      "service": "Service",
+      "assign": "Add",
+      "answerPlaceholder": "Or say it in words: «this is the YooKassa key»",
+      "askAi": "Ask AI"
+    },
     "keysDenied": "Access keys are visible to administrators and technical specialists.",
     "journalDescription": "Every agent call to a service: who, what, in which mode and with which result",
     "journalTime": "Time",
@@ -829,6 +897,7 @@
     "createTitle": "Create a project",
     "setupTitle": "Tell us about your project",
     "projectName": "For example, Online store",
+    "projectAboutPlaceholder": "Briefly describe the product, audience, and key goals",
     "nameRequired": "Enter a project name.",
     "haveInvite": "Have a team invitation?",
     "later": "Finish later",
@@ -905,6 +974,308 @@
       "action": "Reset account context",
       "confirm": "Every member’s active chat in this account will be cleared. The manager will use new messages and decisions, current rules, and ongoing tasks.",
       "success": "Account context has been reset"
+    }
+  },
+  "knowledge": {
+    "title": "Knowledge base",
+    "sections": "Knowledge base sections",
+    "pages": "Pages",
+    "filter": "Filter pages",
+    "filters": {
+      "active": "All",
+      "draft": "Drafts",
+      "archived": "Archive"
+    },
+    "emptyFilter": {
+      "active": "No active pages or folders",
+      "draft": "No draft pages",
+      "archived": "The archive is empty"
+    },
+    "emptyLibrary": "No pages in the knowledge base yet",
+    "emptyLibraryHint": "Create a page or upload a file to generate a draft for review.",
+    "emptyReadOnlyHint": "Published project pages will appear here.",
+    "emptyFolder": "This folder is empty",
+    "emptyFolderHint": "Create a page in this folder.",
+    "noProject": "Select a project to open its knowledge base",
+    "location": "Location in the knowledge base",
+    "pageDetails": "Page details",
+    "updated": "Updated {date}",
+    "newPage": "New page",
+    "newFolder": "New folder",
+    "name": "Title",
+    "create": "Create",
+    "creating": "Creating…",
+    "insideFolder": "The item will be added to “{title}”.",
+    "inLibrary": "The item will be added to the top level of the knowledge base.",
+    "titleRequired": "Enter a title.",
+    "duplicateTitle": "An item in this folder already has this title.",
+    "edit": "Edit",
+    "content": "Content",
+    "body": "Page content",
+    "bodyPlaceholder": "Enter page content",
+    "markdownHint": "Use Markdown for headings, lists, links, and tables.",
+    "editorMode": "Editor mode",
+    "write": "Editor",
+    "preview": "Preview",
+    "emptyBody": "This page has no content yet.",
+    "bodyTooLong": "Shorten the text to 200,000 characters.",
+    "publishedEditHint": "After you save, the updated page will be available in the knowledge base.",
+    "reviewEditHint": "Saving makes the page a draft. An administrator can publish it again.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "unsaved": "Unsaved changes",
+    "discard": "Discard changes",
+    "done": "Done",
+    "cancel": "Cancel",
+    "close": "Close",
+    "actions": "Page or folder actions",
+    "publish": "Publish",
+    "published": "Page published",
+    "publishHint": "Publishing makes the page available to agents and searchable.",
+    "publishEmptyHint": "Add content to publish the page.",
+    "archive": "Move to archive",
+    "archived": "Moved to archive",
+    "archiveHint": "The page will be removed from search. You can restore it from the archive.",
+    "archiveFolderHint": "The folder will move to the archive. Its pages will keep their statuses.",
+    "restore": "Restore",
+    "restored": "Restored as a draft",
+    "move": "Move",
+    "destination": "Destination folder",
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "history": "History",
+    "noHistory": "No versions yet",
+    "version": "Version {number}",
+    "restoreVersion": "Restore version",
+    "restoreVersionHint": "This version will become the current draft. Earlier versions will remain in history.",
+    "sources": "Sources",
+    "sourcesHint": "Files and text generate draft pages for review and publishing.",
+    "noSources": "No sources yet",
+    "noLinkedSource": "This page has no linked source",
+    "sourceUnavailable": "The linked source is unavailable",
+    "upload": "Upload file",
+    "uploadHint": "MD, TXT, CSV, and XLSX. Up to 20 MB per file.",
+    "paste": "Paste text",
+    "file": "File",
+    "fileEmpty": "The file is empty. Choose another file.",
+    "fileTooLarge": "Choose a file up to 20 MB.",
+    "fileTypeError": "Choose a valid MD, TXT, CSV, or XLSX file.",
+    "fileSource": "File",
+    "textSource": "Text",
+    "pastedSource": "Pasted text",
+    "sourceTitle": "Source title (optional)",
+    "sourceText": "Source text",
+    "sourcePeriod": "Data period {start}–{end}",
+    "sourceStatus": {
+      "processing": "Processing",
+      "ready": "Processed",
+      "failed": "Processing failed",
+      "archived": "Archived"
+    },
+    "submitSource": "Add source",
+    "submittingSource": "Adding…",
+    "sourceSubmitted": "Source added and processing",
+    "sourceExists": "This source is already in the knowledge base",
+    "sourceReady": "Source “{title}” has been processed",
+    "sourceFailed": "Could not process source “{title}”",
+    "processingError": "Could not extract text. Retry processing or add another file.",
+    "workbookError": "Could not read the workbook. Check the XLSX file.",
+    "importedPages": "Pages from this source",
+    "noImportedPages": "No pages were created from this source.",
+    "proposals": "Agent proposals",
+    "proposalsShort": "Proposals",
+    "noProposals": "No proposals awaiting review",
+    "proposalKind": {
+      "create": "New page",
+      "edit": "Page update",
+      "gap": "Information request"
+    },
+    "proposalContent": "Proposed content",
+    "openPage": "Open page",
+    "accept": "Accept as draft",
+    "accepted": "Proposal accepted. The draft is available in the knowledge base.",
+    "acceptGap": "Acknowledge",
+    "gapAccepted": "Request acknowledged",
+    "reject": "Reject",
+    "rejected": "Proposal rejected",
+    "search": "Search the knowledge base",
+    "searchButton": "Search",
+    "searchPlaceholder": "Title, topic, or keyword",
+    "searchHint": "Search titles and the content of published pages.",
+    "searching": "Searching…",
+    "nothingFound": "No matches found",
+    "nothingFoundHint": "Try another title or keyword.",
+    "loading": "Loading…",
+    "loadError": "Could not load the data.",
+    "retry": "Retry",
+    "requestError": "Could not complete the action. Try again.",
+    "accessError": "You do not have permission to do this."
+  },
+  "agentsSection": {
+    "title": "Agents",
+    "subtitle": "Your project AI team: activity stats, action timeline, and configuration",
+    "askManager": "Ask manager",
+    "filters": {
+      "all": "All",
+      "active": "Active",
+      "paused": "Paused"
+    },
+    "found": "Found: {count}",
+    "loadError": "Failed to load agents.",
+    "emptyTitle": "No agents yet",
+    "emptyHint": "Ask the manager to hire the first agent for your project.",
+    "toggleLabel": "Toggle agent {name}",
+    "metrics": {
+      "actionsWeek": "Actions (7d): {count}",
+      "tasksActive": "Active: {count}",
+      "acceptedPct": "Accepted: {pct}%"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused"
+    },
+    "notFound": "Agent not found.",
+    "backToList": "Back to agents",
+    "pausedBanner": "Agent is paused — new tasks and routines will not run.",
+    "stats": {
+      "actionsWeek": "Actions this week",
+      "tasksActive": "Active tasks",
+      "acceptedPct": "Decisions accepted",
+      "streak": "Clean streak"
+    },
+    "detailTabs": {
+      "actions": "Actions",
+      "about": "About"
+    },
+    "periods": {
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "actionsEmpty": "No actions in this period.",
+    "loadMore": "Load more",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "about": {
+      "whatDoes": "Responsibilities",
+      "abilities": "Template capabilities",
+      "connections": "Connections",
+      "noConnections": "No connected services.",
+      "permissions": "Permissions & autonomy",
+      "permissionsHint": "Controls which actions the agent runs automatically vs asks for approval.",
+      "lockedBySystem": "Locked by system",
+      "limits": "Limits",
+      "instructions": "Instructions",
+      "alwaysAsk": "Always ask before acting",
+      "projectRule": "project rule",
+      "notes": "Agent notes",
+      "noNotes": "No notes yet.",
+      "skills": "Built-in skills"
+    },
+    "permModes": {
+      "auto": "Automatic",
+      "notify": "With notification",
+      "approve": "Requires approval",
+      "deny": "Denied"
+    }
+  },
+  "tasksSection": {
+    "title": "Tasks",
+    "subtitle": "Agent assignments, subtasks, and recurring schedules",
+    "loadError": "Failed to load tasks.",
+    "emptyActive": "No active tasks yet.",
+    "emptyRoutines": "No schedules yet.",
+    "emptyDone": "No completed tasks yet.",
+    "tabs": {
+      "active": "Active",
+      "routines": "Routines",
+      "done": "Done"
+    },
+    "filters": {
+      "allAgents": "All agents",
+      "agent": "Filter by agent"
+    },
+    "createTaskButton": "New task",
+    "createRoutineButton": "New routine",
+    "createTask": {
+      "title": "Assign task to agent",
+      "agent": "Agent",
+      "name": "Task title",
+      "namePlaceholder": "e.g., Analyze customer reviews for this week",
+      "why": "Context & expected outcome",
+      "whyPlaceholder": "Describe details, constraints, or desired report format",
+      "submit": "Create task"
+    },
+    "createRoutine": {
+      "title": "Create recurring routine",
+      "agent": "Agent",
+      "name": "Title",
+      "schedule": "Schedule",
+      "description": "What to do on each run",
+      "submit": "Create routine"
+    },
+    "schedules": {
+      "every_5m": "Every 5 minutes",
+      "hourly": "Hourly",
+      "daily_09": "Daily at 09:00",
+      "daily_18": "Daily at 18:00",
+      "daily_21": "Daily at 21:00",
+      "weekly_mon_10": "Mondays at 10:00",
+      "continuous": "Continuous"
+    },
+    "status": {
+      "planned": "Planned",
+      "running": "Running",
+      "waiting": "Waiting",
+      "failed": "Failed",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "waitingReason": {
+      "decision": "Waiting for your decision",
+      "subtasks": "Waiting for subtasks",
+      "connection": "Waiting for connection"
+    },
+    "origin": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "agent": "Agent",
+      "routine": "Routine",
+      "check": "Check"
+    },
+    "tree": {
+      "subtasksCount": "Subtasks: {count}",
+      "delegatedBy": "From: {name}",
+      "expand": "Expand subtasks",
+      "collapse": "Collapse subtasks"
+    },
+    "detail": {
+      "title": "Task details",
+      "steps": "Execution steps",
+      "facts": "Key facts",
+      "result": "Result",
+      "error": "Execution error",
+      "fix": "How to fix",
+      "openDecision": "View decision",
+      "noDescription": "No description provided.",
+      "runNow": "Run now",
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "close": "Close"
+    },
+    "routine": {
+      "enabled": "Enabled",
+      "paused": "Paused",
+      "nextRun": "Next run: {date}",
+      "lastRun": "Last run: {date}",
+      "runNow": "Run now",
+      "recentRuns": "Recent runs",
+      "noRuns": "No runs yet"
     }
   }
 }

@@ -5,13 +5,19 @@ import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { ProjectContext } from '../projects/project-context.js';
 import { StreamPublisher } from '../stream/stream.publisher.js';
-import { RoutineResponseDto, type TaskResponseDto, type UpdateRoutineDto } from './dto/task.dto.js';
+import {
+  type CreateRoutineDto,
+  RoutineResponseDto,
+  type TaskResponseDto,
+  type UpdateRoutineDto,
+} from './dto/task.dto.js';
 import { type RoutineChangedEvent, WORK_EVENTS } from './events/work.events.js';
 import { RoutinesRepository } from './repositories/routines.repository.js';
 import { TasksRepository } from './repositories/tasks.repository.js';
 import { isScheduleKey, nextRun, type ScheduleKey } from './schedule.js';
 import { TasksService } from './tasks.service.js';
 import { WORK_ERRORS, WorkException } from './work.errors.js';
+import { findProjectAgent } from './work-agents.js';
 
 const RECENT_RUNS = 5;
 
@@ -39,6 +45,47 @@ export class RoutinesService {
   async get(id: string): Promise<RoutineResponseDto> {
     const { projectId } = this.projectContext.actor();
     return this.accountDb.transaction((tx) => this.view(tx, projectId, id));
+  }
+
+  async create(dto: CreateRoutineDto): Promise<RoutineResponseDto> {
+    const actor = this.projectContext.actor();
+    if (!isScheduleKey(dto.schedule)) throw new WorkException(WORK_ERRORS.ROUTINE_NOT_FOUND);
+    return this.accountDb.transaction(async (tx) => {
+      const agent = await findProjectAgent(tx.db, actor.projectId, dto.agentId);
+      if (!agent || agent.kind === 'manager') throw new WorkException(WORK_ERRORS.WORK_AGENT_INVALID);
+      const project = await tx.db
+        .selectFrom('projects')
+        .select('timezone')
+        .where('id', '=', actor.projectId)
+        .executeTakeFirstOrThrow();
+      const routine = await this.routines.insert(tx.db, {
+        account_id: tx.accountId,
+        project_id: actor.projectId,
+        agent_id: agent.id,
+        title: dto.title,
+        description: dto.description ?? null,
+        schedule: dto.schedule,
+        enabled: true,
+        next_run_at: nextRun(dto.schedule, project.timezone),
+        created_by: actor.userId,
+      });
+      if (!routine) throw new WorkException(WORK_ERRORS.ROUTINE_NOT_FOUND);
+      await this.journal.record(tx, {
+        actor: { type: 'user', id: actor.userId, role: actor.role },
+        action: 'routines.create',
+        target: { type: 'routine', id: routine.id },
+        args: { agentId: agent.id, schedule: dto.schedule },
+        status: 'succeeded',
+      });
+      await this.outbox.add<RoutineChangedEvent>(tx, {
+        type: WORK_EVENTS.ROUTINE_CHANGED,
+        payload: { projectId: actor.projectId, routineId: routine.id, byUserId: actor.userId },
+      });
+      tx.afterCommit(() =>
+        this.stream.publish(actor.projectId, { type: 'routine.updated', routineId: routine.id }),
+      );
+      return this.view(tx, actor.projectId, routine.id);
+    });
   }
 
   async update(id: string, dto: UpdateRoutineDto): Promise<RoutineResponseDto> {

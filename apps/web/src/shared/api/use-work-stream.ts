@@ -1,7 +1,7 @@
 'use client';
 
 import { type InfiniteData, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import type { ChatMessage } from '@workspace/types';
@@ -10,6 +10,10 @@ import { projectChat } from './index';
 
 const eventSchema = z.union([
   z.object({ type: z.literal('manager.context_reset') }),
+  z.object({ type: z.literal('task.updated'), taskId: z.uuid() }),
+  z.object({ type: z.literal('routine.updated'), routineId: z.uuid() }),
+  z.object({ type: z.literal('decision.updated'), decisionId: z.uuid() }),
+  z.object({ type: z.literal('metrics.updated') }),
   z.object({
     type: z.enum(['message.created', 'message.updated', 'message.delta']),
     conversationId: z.uuid(),
@@ -17,6 +21,8 @@ const eventSchema = z.union([
     delta: z.string().optional(),
   }),
 ]);
+
+export type WorkStreamEvent = z.infer<typeof eventSchema>;
 
 async function readStream(response: Response, receive: (data: string) => void) {
   if (!response.body) throw new Error('Empty stream');
@@ -43,9 +49,11 @@ async function readStream(response: Response, receive: (data: string) => void) {
   }
 }
 
-export function useWorkStream(account: string, project: string) {
+export function useWorkStream(account: string, project: string, onEvent?: (event: WorkStreamEvent) => void) {
   const client = useQueryClient();
   const [partial, setPartial] = useState<Record<string, string>>({});
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
   useEffect(() => {
     const controller = new AbortController();
     const api = projectChat(account, project);
@@ -68,9 +76,33 @@ export function useWorkStream(account: string, project: string) {
           }
           const event = eventSchema.safeParse(parsed);
           if (!event.success) return;
+          onEventRef.current?.(event.data);
           if (event.data.type === 'manager.context_reset') {
             setPartial({});
             void client.resetQueries({ queryKey: scope });
+            return;
+          }
+          if (event.data.type === 'decision.updated') {
+            void client.invalidateQueries({
+              queryKey: ['chat-card', account, project, 'decision', event.data.decisionId],
+            });
+            void client.invalidateQueries({ queryKey: ['project-tasks', account, project] });
+            return;
+          }
+          if (event.data.type === 'metrics.updated') {
+            return;
+          }
+          if (event.data.type === 'task.updated') {
+            void client.invalidateQueries({ queryKey: ['project-tasks', account, project] });
+            void client.invalidateQueries({ queryKey: ['project-task-counts', account, project] });
+            void client.invalidateQueries({
+              queryKey: ['project-task', account, project, event.data.taskId],
+            });
+            return;
+          }
+          if (event.data.type === 'routine.updated') {
+            void client.invalidateQueries({ queryKey: ['project-routines', account, project] });
+            void client.invalidateQueries({ queryKey: ['project-task-counts', account, project] });
             return;
           }
           const { type, conversationId, messageId, delta } = event.data;

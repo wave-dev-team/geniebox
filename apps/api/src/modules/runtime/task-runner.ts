@@ -57,9 +57,11 @@ export class TaskRunner {
     );
     await this.stream.publish(task.project_id, { type: 'task.updated', taskId: task.id });
 
-    const [project, agent] = await Promise.all([
+    const [project, agent, team, children] = await Promise.all([
       this.loader.project(task.project_id),
       this.loader.agent(task.agent_id),
+      this.loader.team(task.project_id),
+      this.accountDb.transaction((tx) => this.tasks.listByParent(tx.db, task.id)),
     ]);
     if (!project || !agent || agent.deleted) {
       await this.lifecycle.fail(task, this.texts.error('AGENT_GONE', lang));
@@ -72,10 +74,33 @@ export class TaskRunner {
       return;
     }
 
+    const depth = await this.taskDepth(task.parent_task_id);
     const audience = agent.runtime.kind === 'manager' ? 'manager' : 'agent';
     const check = task.origin === 'check';
-    const tools = this.registry.available(agent.runtime, audience, ['assign_task'], { check });
+    const excluded = depth >= 3 ? ['assign_task'] : [];
+    const tools = this.registry.available(agent.runtime, audience, excluded, { check });
     const brief = [`${task.title}`, task.description ?? ''].filter(Boolean).join('\n');
+    const finishedChildren = children.filter(
+      (c) => c.status === 'done' || c.status === 'failed' || c.status === 'cancelled',
+    );
+    const subtasksBlock =
+      finishedChildren.length > 0
+        ? '\n\n' +
+          dataBlock(
+            'subtasks',
+            untrusted(
+              JSON.stringify(
+                finishedChildren.map((c) => ({
+                  id: c.id,
+                  title: c.title,
+                  status: c.status,
+                  result: c.result,
+                  error: c.error?.what ?? null,
+                })),
+              ),
+            ),
+          )
+        : '';
     try {
       const result = await this.loop.run({
         llm: {
@@ -100,8 +125,11 @@ export class TaskRunner {
           mode: task.mode as never,
         },
         messages: [
-          { role: 'system', content: agentTaskPrompt(project.brief, agent.brief, task.mode) },
-          { role: 'user', content: dataBlock('task', untrusted(maskPersonalData(brief))) },
+          { role: 'system', content: agentTaskPrompt(project.brief, agent.brief, task.mode, team) },
+          {
+            role: 'user',
+            content: dataBlock('task', untrusted(maskPersonalData(brief))) + subtasksBlock,
+          },
         ],
         tools,
       });
@@ -109,7 +137,11 @@ export class TaskRunner {
       const current = await this.accountDb.transaction((tx) => this.tasks.findById(tx.db, task.id));
       if (!current || current.status !== 'running') return;
       const terminal = result.terminal;
-      if (terminal && terminal.status === 'executed' && terminal.toolId === 'finish_task') {
+      if (
+        terminal &&
+        terminal.status === 'executed' &&
+        (terminal.toolId === 'finish_task' || terminal.toolId === 'continue_task')
+      ) {
         await this.lifecycle.complete(current, ['running'], {
           status: 'done',
           result: current.result ?? result.text ?? '',
@@ -140,11 +172,24 @@ export class TaskRunner {
       } else if (result.exhausted) {
         await this.lifecycle.fail(current, this.texts.error('STEP_LIMIT', lang));
       } else {
-        await this.lifecycle.complete(current, ['running'], {
-          status: 'done',
-          result: result.text || current.result || '',
-          summary: current.summary,
-        });
+        const latestChildren = await this.accountDb.transaction((tx) =>
+          this.tasks.listByParent(tx.db, task.id),
+        );
+        const hasPendingChildren = latestChildren.some(
+          (c) => c.status === 'planned' || c.status === 'running' || c.status === 'waiting',
+        );
+        if (hasPendingChildren) {
+          await this.lifecycle.waitForSubtasks(
+            current,
+            result.text?.slice(0, 200) || this.texts.t('waitingSummary', lang),
+          );
+        } else {
+          await this.lifecycle.complete(current, ['running'], {
+            status: 'done',
+            result: result.text || current.result || '',
+            summary: current.summary,
+          });
+        }
       }
     } catch (error) {
       const code =
@@ -159,6 +204,21 @@ export class TaskRunner {
     } finally {
       if (check) await this.closeCheck(task.id, lang);
     }
+  }
+
+  private async taskDepth(parentTaskId: string | null): Promise<number> {
+    if (!parentTaskId) return 0;
+    return this.accountDb.transaction(async (tx) => {
+      let depth = 1;
+      let cursorId: string | null = parentTaskId;
+      while (cursorId && depth < 4) {
+        const parent = await this.tasks.findById(tx.db, cursorId);
+        if (!parent?.parent_task_id) break;
+        depth++;
+        cursorId = parent.parent_task_id;
+      }
+      return depth;
+    });
   }
 
   /** A check task that ended without a verdict leaves the check failed, not hanging. */

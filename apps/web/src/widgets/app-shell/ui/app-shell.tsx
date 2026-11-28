@@ -9,16 +9,24 @@ import { cn } from '@workspace/ui/lib/utils';
 
 import { AgentRail } from './agent-rail';
 import { AppSidebar } from './app-sidebar';
+import { ProjectEventsToast } from './project-events-toast';
 
+import { AppHeaderTarget } from '@/shared/ui/app-header-slot';
 import { ManagerChatScreen } from '@/widgets/manager-chat/ui/manager-chat-screen';
 
-const sidebarStyle = { '--sidebar-width': '15.5rem' } as CSSProperties;
+const sidebarStyle = { '--sidebar-width': '18rem' } as CSSProperties;
 
-function ShowSidebarButton() {
+function SidebarToggle() {
   const t = useTranslations('nav');
-  const { state, isMobile } = useSidebar();
-  if (state === 'expanded' && !isMobile) return null;
-  return <SidebarTrigger aria-label={t('showSidebar')} className="absolute top-3 left-3 z-10 size-7" />;
+  const { open, openMobile, isMobile } = useSidebar();
+  const expanded = isMobile ? openMobile : open;
+  return (
+    <SidebarTrigger
+      aria-expanded={expanded}
+      aria-label={t(expanded ? 'hideSidebar' : 'showSidebar')}
+      className="pointer-events-auto size-7 shrink-0 aria-expanded:not-hover:bg-transparent aria-expanded:not-hover:text-inherit"
+    />
+  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -27,7 +35,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations('rail');
   const showRail = pathname !== '/' && pathname !== '/chat';
   const [panel, setPanel] = useState(false);
+  const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
   const showPanel = showRail && panel;
+  const isInChat = !showRail || showPanel;
 
   useEffect(() => {
     function openSearch(event: KeyboardEvent) {
@@ -46,13 +56,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider style={sidebarStyle} className="relative h-svh overflow-hidden bg-sidebar">
+      <ProjectEventsToast isInChat={isInChat} />
       <AppSidebar />
       <SidebarInset
         className={cn('min-w-0 overflow-hidden', showRail && 'md:peer-data-[variant=inset]:mr-0')}
       >
-        <ShowSidebarButton />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center gap-2 px-3 has-[div:not(:empty)]:bg-background">
+          <SidebarToggle />
+          <div ref={setHeaderTarget} className="min-w-0 flex-1" />
+        </div>
         <div className="flex-1 overflow-y-auto [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
-          {children}
+          <AppHeaderTarget.Provider value={headerTarget}>{children}</AppHeaderTarget.Provider>
         </div>
       </SidebarInset>
       {showPanel && (
