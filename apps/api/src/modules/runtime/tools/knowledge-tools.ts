@@ -204,11 +204,9 @@ export class KnowledgeTools implements OnModuleInit {
     const query = args.query?.toLowerCase();
     const contents = query
       ? node.body
-          .split('
-')
+          .split('\n')
           .filter((line) => line.toLowerCase().includes(query))
-          .join('
-')
+          .join('\n')
       : node.body;
     const end = args.offset + KNOWLEDGE_LIMITS.readBody;
     return {
