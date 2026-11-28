@@ -478,7 +478,7 @@ export class PanelActions {
       define({
         id: 'connection_link',
         description:
-          'A one-time link to the form where the owner or their developer enters the keys of a service (keys never go through chat). providerKey from the providers catalog, e.g. yookassa, yandex_metrika, postgres, http_api, telegram_bot.',
+          'A one-time link to the form where the owner or their developer enters the keys of a service (keys never go through chat). providerKey from the providers catalog: yookassa, yandex_metrika, postgres, http_api, telegram_bot, gitlab, grafana, ssh_server. Always use http_api for Jira or any other REST/HTTP service without a dedicated providerKey.',
         minRole: 'tech',
         kind: 'write',
         confirm: false,
