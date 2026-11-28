@@ -173,14 +173,16 @@ export function KnowledgeSources({
 }
 
 const extensions = /\.(md|txt|csv|xlsx)$/i;
+const fileSchema = z
+  .file()
+  .max(uploadLimit)
+  .refine((file) => file.size > 0)
+  .refine((file) => extensions.test(file.name));
+
 const schema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('upload'),
-    file: z
-      .file()
-      .max(uploadLimit)
-      .refine((file) => file.size > 0)
-      .refine((file) => extensions.test(file.name)),
+    files: z.array(fileSchema).min(1),
   }),
   z.object({
     kind: z.literal('text'),
@@ -218,38 +220,56 @@ export function ImportSourceDialog({
   const client = useQueryClient();
   const isFile = kind === 'upload';
   const form = useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>({
-    defaultValues: kind === 'upload' ? { kind } : { kind, title: '', text: '' },
+    defaultValues: kind === 'upload' ? { kind, files: [] } : { kind, title: '', text: '' },
     resolver: zodResolver(schema),
   });
   const add = useMutation({
-    mutationFn: async (values: z.output<typeof schema>) =>
-      values.kind === 'upload'
-        ? knowledge.api.createSource({
-            kind: 'upload',
-            filename: values.file.name,
-            contentBase64: await toBase64(values.file),
-          })
-        : knowledge.api.createSource({
-            kind: 'text',
-            title: values.title || t('pastedSource'),
-            text: values.text,
-          }),
-    onSuccess: (source) => {
+    mutationFn: async (values: z.output<typeof schema>) => {
+      if (values.kind === 'upload') {
+        const uploaded: KnowledgeSource[] = [];
+        for (const item of values.files) {
+          uploaded.push(
+            await knowledge.api.createSource({
+              kind: 'upload',
+              filename: item.name,
+              contentBase64: await toBase64(item),
+            }),
+          );
+        }
+        return uploaded;
+      }
+      return [
+        await knowledge.api.createSource({
+          kind: 'text',
+          title: values.title || t('pastedSource'),
+          text: values.text,
+        }),
+      ];
+    },
+    onSuccess: (sources) => {
       client.setQueryData<KnowledgeSource[]>(knowledge.keys.sources, (previous) =>
-        storeSource(previous, source),
+        sources.reduce((acc, source) => storeSource(acc, source), previous),
       );
       void client.invalidateQueries({ queryKey: knowledge.keys.sources });
       knowledge.refreshLibrary();
-      toast.success(t(source.status === 'processing' ? 'sourceSubmitted' : 'sourceExists'));
-      onImported(source.id);
+      const first = sources[0];
+      toast.success(
+        t(sources.length === 1 && first?.status !== 'processing' ? 'sourceExists' : 'sourceSubmitted'),
+      );
+      if (first) onImported(first.id);
     },
   });
-  const file = form.watch('file');
+  const files = form.watch('files') ?? [];
   const text = form.watch('text');
-  const invalidFile = Boolean(file && (!file.size || file.size > uploadLimit || !extensions.test(file.name)));
+  const badFile = files.find((item) => !item.size || item.size > uploadLimit || !extensions.test(item.name));
+  const invalidFile = Boolean(badFile);
   const invalidText = Boolean(text && text.length > bodyLimit);
   const fileError =
-    file?.size > uploadLimit ? 'fileTooLarge' : file?.size === 0 ? 'fileEmpty' : 'fileTypeError';
+    badFile && badFile.size > uploadLimit
+      ? 'fileTooLarge'
+      : badFile?.size === 0
+        ? 'fileEmpty'
+        : 'fileTypeError';
 
   return (
     <Dialog
@@ -267,7 +287,7 @@ export function ImportSourceDialog({
           {isFile ? (
             <Controller
               control={form.control}
-              name="file"
+              name="files"
               render={({ field }) => (
                 <Field data-invalid={invalidFile}>
                   <FieldLabel htmlFor={`${id}-file`}>{t('file')}</FieldLabel>
@@ -276,13 +296,23 @@ export function ImportSourceDialog({
                     ref={field.ref}
                     disabled={add.isPending}
                     type="file"
+                    multiple
                     accept=".md,.txt,.csv,.xlsx"
                     className="h-auto min-h-10 py-2"
                     aria-invalid={invalidFile}
                     aria-describedby={invalidFile ? `${id}-file-error` : `${id}-hint`}
                     onBlur={field.onBlur}
-                    onChange={(event) => field.onChange(event.target.files?.[0] ?? null)}
+                    onChange={(event) => field.onChange(Array.from(event.target.files ?? []))}
                   />
+                  {files.length > 1 && (
+                    <ul className="space-y-0.5 text-xs text-muted-foreground">
+                      {files.map((item, idx) => (
+                        <li key={`${item.name}-${idx}`} className="truncate">
+                          {item.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <FieldDescription id={`${id}-hint`}>{t('uploadHint')}</FieldDescription>
                   {invalidFile && <FieldError id={`${id}-file-error`}>{t(fileError)}</FieldError>}
                 </Field>
@@ -326,7 +356,9 @@ export function ImportSourceDialog({
             </Button>
             <Button
               type="submit"
-              disabled={add.isPending || (isFile ? !file || invalidFile : !text?.trim() || invalidText)}
+              disabled={
+                add.isPending || (isFile ? !files.length || invalidFile : !text?.trim() || invalidText)
+              }
             >
               {t(add.isPending ? 'submittingSource' : 'submitSource')}
             </Button>
