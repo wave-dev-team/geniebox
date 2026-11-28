@@ -18,7 +18,9 @@ const searchSchema = z
   })
   .strict();
 
-const readSchema = z.object({ nodeId: z.uuid() }).strict();
+const readSchema = z
+  .object({ nodeId: z.uuid(), query: text(200).optional(), offset: z.number().int().min(0).default(0) })
+  .strict();
 const nodeRefSchema = z.object({ nodeId: z.uuid() }).strict();
 const emptySchema = z.object({}).strict();
 
@@ -64,7 +66,7 @@ export class KnowledgeTools implements OnModuleInit {
         id: 'knowledge.read',
         title: 'Прочитать страницу знаний',
         description:
-          'Read one published knowledge page in full by its id. Use after a search when a fragment is not enough.',
+          'Read a published knowledge page using its UUID (nodeId). For an exact task, release or metric ID, pass it as query to read matching lines anywhere in the page. Read more with nextOffset while it is present. Cite the returned url.',
         kind: 'platform',
         audience: ['agent', 'manager'],
         risk: 'low',
@@ -199,11 +201,23 @@ export class KnowledgeTools implements OnModuleInit {
       throw new ToolError('KNOWLEDGE_NOT_PUBLISHED');
     }
     const citations = await this.repo.citationsFor(ctx.tx.db, [node.id]);
+    const query = args.query?.toLowerCase();
+    const contents = query
+      ? node.body
+          .split('
+')
+          .filter((line) => line.toLowerCase().includes(query))
+          .join('
+')
+      : node.body;
+    const end = args.offset + KNOWLEDGE_LIMITS.readBody;
     return {
       nodeId: node.id,
       title: node.title,
-      body: node.body.slice(0, KNOWLEDGE_LIMITS.readBody),
-      truncated: node.body.length > KNOWLEDGE_LIMITS.readBody,
+      url: `/knowledge?page=${node.id}`,
+      nextOffset: end < contents.length ? end : null,
+      truncated: end < contents.length,
+      body: contents.slice(args.offset, end),
       updatedAt: new Date(node.updated_at).toISOString(),
       sourceIds: [...new Set(citations.map((citation) => citation.source_id))],
     };
