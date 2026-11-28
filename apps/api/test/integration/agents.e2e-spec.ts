@@ -130,10 +130,11 @@ describe('agents (HTTP)', () => {
     expect(catalog.skills).toEqual(['surveys', 'promo', 'ab', 'digest', 'metrika_analysis', 'backlog_sync']);
   });
 
-  it('gives every new project its manager', async () => {
+  it('gives every new project a manager and an analyst without requiring a connection', async () => {
+    const project = await newProject('Новый проект без подключений');
     await eventually(async () => {
-      const team = await agents();
-      expect(team.filter((a) => a.kind === 'manager')).toHaveLength(1);
+      const team = await agents(project);
+      expect(team.map((a) => a.templateKey ?? a.kind).sort()).toEqual(['analyst', 'manager']);
     });
   });
 
@@ -353,12 +354,16 @@ describe('agents (HTTP)', () => {
   it('hires the onboarding team after onboarding is finished', async () => {
     const project = await newProject('Онбординг');
     await api
-      .patch(base(project), { plannedAgents: ['intel', 'reviewer', 'unknown_agent'] }, owner.accessToken)
+      .patch(
+        base(project),
+        { plannedAgents: ['analyst', 'intel', 'reviewer', 'unknown_agent'] },
+        owner.accessToken,
+      )
       .expect(200);
     await api.post(`${base(project)}/onboarding/complete`, {}, owner.accessToken).expect(200);
     await eventually(async () => {
       const keys = (await agents(project)).map((a) => a.templateKey ?? a.kind).sort();
-      expect(keys).toEqual(['intel', 'manager', 'reviewer']);
+      expect(keys).toEqual(['analyst', 'intel', 'manager', 'reviewer']);
     }, 15_000);
   });
 
