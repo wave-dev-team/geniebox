@@ -144,7 +144,10 @@ export class KnowledgeTools implements OnModuleInit {
     );
     const ranked = [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, args.limit);
     if (!ranked.length) {
-      return { items: [], note: 'по этому вопросу в опубликованной базе знаний ничего нет' };
+      return {
+        items: [],
+        note: 'по этому запросу в опубликованной базе знаний ничего не найдено; проверьте оглавление через knowledge.tree или используйте более короткие ключевые слова',
+      };
     }
 
     const citations = await this.repo.citationsFor(

@@ -19,7 +19,7 @@ import { RoutinesRepository } from '../../work/repositories/routines.repository.
 import { TasksRepository } from '../../work/repositories/tasks.repository.js';
 import { nextRun, SCHEDULE_KEYS } from '../../work/schedule.js';
 import { RISKS } from '../../work/work.constants.js';
-import { defineTool, type ToolExecution } from '../broker/broker.types.js';
+import { defineTool, llmToolName, type ToolExecution } from '../broker/broker.types.js';
 import { ToolError } from '../broker/tool-executor.js';
 import { ToolRegistry } from '../broker/tool-registry.js';
 import { RUNTIME_TASKS } from '../runtime.jobs.js';
@@ -418,11 +418,14 @@ export class PlatformTools implements OnModuleInit {
       }
       await this.tasks.setStep(ctx.tx.db, ctx.taskId, args.currentStep, 'current');
     }
-    await this.tasks.update(ctx.tx.db, ctx.taskId, {
+    const patch = {
       ...(args.progressText ? { progress_text: args.progressText } : {}),
       ...(args.progressPct !== undefined ? { progress_pct: args.progressPct } : {}),
       ...(args.summary ? { summary: args.summary } : {}),
-    });
+    };
+    if (Object.keys(patch).length > 0) {
+      await this.tasks.update(ctx.tx.db, ctx.taskId, patch);
+    }
     const taskId = ctx.taskId;
     ctx.tx.afterCommit(() => this.stream.publish(ctx.projectId, { type: 'task.updated', taskId }));
     return { ok: true };
@@ -439,12 +442,26 @@ export class PlatformTools implements OnModuleInit {
         .where('project_id', '=', ctx.projectId)
         .where('key', '=', args.experiment.metricKey)
         .executeTakeFirst();
-      if (!metric) throw new ToolError('METRIC_UNKNOWN');
+      if (!metric) {
+        const available = await ctx.tx.db
+          .selectFrom('metric_definitions')
+          .select('key')
+          .where('project_id', '=', ctx.projectId)
+          .execute();
+        throw new ToolError('METRIC_UNKNOWN', {
+          availableMetricKeys: available.map((m) => m.key),
+        });
+      }
     }
+    const normalizedActions: Array<{ toolId: string; args: Record<string, unknown> }> = [];
     for (const action of args.actions ?? []) {
-      const tool = this.registry.get(action.toolId);
+      const stripped = action.toolId.replace(/^functions\./, '');
+      const tool =
+        this.registry.get(stripped) ??
+        this.registry.all().find((candidate) => llmToolName(candidate.id) === stripped);
       if (!tool?.mutating || tool.kind !== 'catalog') throw new ToolError('ACTION_NOT_ALLOWED');
       if (!tool.schema.safeParse(action.args).success) throw new ToolError('ACTION_ARGUMENTS_INVALID');
+      normalizedActions.push({ toolId: tool.id, args: action.args });
     }
     const decision = await this.decisions.insert(ctx.tx.db, {
       account_id: ctx.accountId,
@@ -473,7 +490,7 @@ export class PlatformTools implements OnModuleInit {
         : null,
       yes_label: args.yesLabel ?? 'Да',
       yes_text: args.yesText ?? null,
-      pending_actions: args.actions ?? [],
+      pending_actions: normalizedActions,
       experiment: args.experiment ? JSON.stringify(args.experiment) : null,
       check_spec: args.check ? JSON.stringify(args.check) : null,
       expires_at: new Date(Date.now() + this.decisionTtlDays * DAY_MS),

@@ -12,7 +12,7 @@ export const SKILL_PLAYBOOKS: readonly SkillPlaybook[] = [
     key: 'surveys',
     title: 'Исследования и опросы',
     prompt:
-      'Compare signals from user research/interviews (knowledge.search with source citations) against quantitative metrics before proposing changes.',
+      'Compare signals from user research/interviews (knowledge.search, or knowledge.tree + knowledge.read if search returns empty, with source citations) against quantitative metrics before proposing changes.',
     recommendedTools: ['knowledge.search', 'knowledge.sources', 'metrics_read'],
     recommendedProviders: [],
   },
@@ -37,7 +37,7 @@ export const SKILL_PLAYBOOKS: readonly SkillPlaybook[] = [
     key: 'digest',
     title: 'Дайджест и уведомления',
     prompt:
-      'Summarize key anomalies, insights and pending decisions concisely; notify the owner via notify.owner when a significant metric deviation or release effect is detected.',
+      'Publish key anomalies with publish_insight and notify the owner via notify.owner BEFORE calling finish_task or propose_decision (which end your turn).',
     recommendedTools: ['metrics_read', 'publish_insight', 'notify.owner'],
     recommendedProviders: [],
   },
@@ -53,7 +53,7 @@ export const SKILL_PLAYBOOKS: readonly SkillPlaybook[] = [
     key: 'backlog_sync',
     title: 'Сверка и постановка задач в бэклог',
     prompt:
-      'Before proposing a new backlog item, read existing issues via api.read (/issues), check if an existing task (e.g. T-08) already covers the problem, and propose creating or updating an issue via api.call inside propose_decision with the tag «сгенерирована ИИ-помощником».',
+      'Before proposing a new backlog item, read existing issues via api.read (/issues), check if an existing task (e.g. T-08) already covers the problem, and include actions: [{ toolId: "api.call", args: { method: "POST", path: "/issues", body: { title, description, priority, tags: ["сгенерирована ИИ-помощником"] } } }] (or PATCH /issues/<id>) inside propose_decision.',
     recommendedTools: ['api.read', 'api.call', 'propose_decision'],
     recommendedProviders: ['http_api'],
     approvalHint: 'Always wrap backlog mutations (api.call) in propose_decision.',
