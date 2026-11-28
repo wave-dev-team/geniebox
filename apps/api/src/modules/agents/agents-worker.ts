@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 
-import { AccountDb } from '../../database/scoped-db.js';
+import { AccountDb, type AccountTx } from '../../database/scoped-db.js';
 import { JournalService } from '../../journal/journal.service.js';
 import { OnOutboxEvent } from '../../outbox/on-outbox-event.decorator.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
@@ -20,7 +20,7 @@ import { AGENT_EVENTS, AGENT_TASKS, type AgentEvent } from './events/agent.event
 import { AgentsRepository } from './repositories/agents.repository.js';
 
 /**
- * Worker side of agents: the manager of every new project, the team picked in onboarding,
+ * Worker side of agents: the default team for new projects, agents picked in onboarding,
  * end of probation and timed pauses. All handlers are idempotent (at-least-once delivery).
  */
 @Injectable()
@@ -64,6 +64,7 @@ export class AgentsWorker implements OnModuleInit {
         trust_level: 'approve_important',
         hired_by: envelope.payload.byUserId,
       });
+      await this.hireTemplate(tx, envelope.payload.projectId, 'analyst', null);
     });
   }
 
@@ -72,27 +73,25 @@ export class AgentsWorker implements OnModuleInit {
   async onOnboardingCompleted(envelope: OutboxEnvelope<ProjectOnboardingCompletedEvent>): Promise<void> {
     const { projectId, byUserId, plannedAgents } = envelope.payload;
     for (const key of plannedAgents) {
-      const template = this.catalog.published(key);
-      if (!template) continue;
-      try {
-        await this.accountDb.transaction(async (tx) => {
-          if (await this.agents.templateHired(tx.db, projectId, key)) return;
-          await this.hiring.hire(tx, {
-            projectId,
-            templateKey: key,
-            connections: await this.hiring.matchingConnections(tx, projectId, template),
-            strictRequirements: false,
-            actor: { userId: byUserId },
-          });
-        });
-      } catch (error) {
-        // A full team or a deleted project is a business outcome, not a reason to retry.
-        if (error instanceof AgentException) {
-          this.logger.warn({ projectId, template: key, code: error.code }, 'Planned agent not hired');
-          continue;
-        }
-        throw error;
-      }
+      await this.accountDb.transaction((tx) => this.hireTemplate(tx, projectId, key, byUserId));
+    }
+  }
+
+  private async hireTemplate(tx: AccountTx, projectId: string, key: string, userId: string | null) {
+    const template = this.catalog.published(key);
+    if (!template || (await this.agents.templateHired(tx.db, projectId, key))) return;
+    try {
+      await this.hiring.hire(tx, {
+        projectId,
+        templateKey: key,
+        connections: await this.hiring.matchingConnections(tx, projectId, template),
+        strictRequirements: false,
+        actor: { userId },
+      });
+    } catch (error) {
+      // Expected business outcomes do not need an outbox retry.
+      if (!(error instanceof AgentException)) throw error;
+      this.logger.warn({ projectId, template: key, code: error.code }, 'Project agent not hired');
     }
   }
 
