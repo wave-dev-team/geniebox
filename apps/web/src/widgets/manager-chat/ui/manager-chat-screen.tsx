@@ -1,16 +1,26 @@
 'use client';
 
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { Bot, ChevronDown, Maximize2, MessageSquare, WandSparkles, X } from 'lucide-react';
+import { useInfiniteQuery, useQueries } from '@tanstack/react-query';
+import { Bot, Maximize2, MessageSquare, WandSparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { ChatRequest, Workspace } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
+import { Marker, MarkerContent, MarkerIcon } from '@workspace/ui/components/marker';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 import { Spinner } from '@workspace/ui/components/spinner';
+import {
+  Trace,
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceIcon,
+  TraceLine,
+  TraceTitle,
+} from '@workspace/ui/components/trace';
 import { cn } from '@workspace/ui/lib/utils';
 
 import { MessageActions, MessageCard } from './message-extras';
@@ -53,7 +63,7 @@ function SetupLink({ project }: { project?: boolean }) {
   );
 }
 
-type AgentMessageItem = {
+type WorkMessageItem = {
   id: string;
   agentId: string | null;
   status: string;
@@ -62,7 +72,7 @@ type AgentMessageItem = {
   actions: Parameters<typeof MessageActions>[0]['actions'];
 };
 
-function AgentWorkGroup({
+function WorkTraceBlock({
   messages,
   agents,
   partial,
@@ -73,7 +83,7 @@ function AgentWorkGroup({
   busy,
   sending,
 }: {
-  messages: AgentMessageItem[];
+  messages: WorkMessageItem[];
   agents: Array<{ id: string; displayName: string; kind: string }>;
   partial: Record<string, string | undefined>;
   account: string;
@@ -84,88 +94,101 @@ function AgentWorkGroup({
   sending: boolean;
 }) {
   const t = useTranslations('managerChat');
-  const [open, setOpen] = useState(false);
-  const streaming = messages.some((m) => m.status === 'streaming');
-  const names = Array.from(
-    new Set(
-      messages
-        .map((m) => agents.find(({ id }) => id === m.agentId)?.displayName)
-        .filter((name): name is string => Boolean(name)),
-    ),
+  const taskIds = Array.from(
+    new Set(messages.flatMap((m) => m.cards.filter((c) => c.type === 'task').map((c) => c.id))),
   );
+  const taskQueries = useQueries({
+    queries: taskIds.map((taskId) => ({
+      queryKey: ['chat-card', account, project, 'task', taskId],
+      queryFn: ({ signal }: { signal: AbortSignal }) => projectChat(account, project).task(taskId, signal),
+      refetchInterval: (query: { state: { data?: { status?: string } } }) =>
+        query.state.data?.status && ['planned', 'running', 'waiting'].includes(query.state.data.status)
+          ? 3000
+          : false,
+    })),
+  });
+  const streaming = messages.some((m) => m.status === 'streaming');
+  const taskRunning = taskQueries.some((q) => q.data?.status === 'planned' || q.data?.status === 'running');
+  const inProgress = streaming || taskRunning;
+  const surfaceCards = messages.flatMap((m) =>
+    m.cards.filter((c) => c.type === 'decision' || c.type === 'chart'),
+  );
+  const surfaceActions = messages.flatMap((m) => m.actions);
+
   return (
-    <div className="rounded-xl border bg-muted/30">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <span
-          className={cn(
-            'size-2 shrink-0 rounded-full',
-            streaming ? 'animate-pulse bg-amber-500' : 'bg-emerald-500',
-          )}
+    <div className="flex flex-col gap-3">
+      <TraceCollapsible defaultOpen={false}>
+        <Marker variant="border">
+          <MarkerIcon>
+            {inProgress ? (
+              <Spinner className="size-3" />
+            ) : (
+              <span className="size-2 rounded-full bg-emerald-500" />
+            )}
+          </MarkerIcon>
+          <MarkerContent>
+            {inProgress ? 'Анализирую данные…' : `Выполнено · ${messages.length}`}
+          </MarkerContent>
+          <TraceCollapsibleTrigger className="ml-auto">Детали</TraceCollapsibleTrigger>
+        </Marker>
+        <TraceCollapsibleContent>
+          <Trace>
+            {messages.map((message) => {
+              const liveText = partial[message.id];
+              const isStreaming = message.status === 'streaming';
+              const value = isStreaming && liveText?.startsWith(message.text) ? liveText : message.text;
+              const author = agents.find(({ id }) => id === message.agentId);
+              const taskCards = message.cards.filter((c) => c.type === 'task');
+              return (
+                <TraceLine key={message.id}>
+                  <TraceIcon>
+                    {author?.kind === 'agent' ? (
+                      <Bot className="size-3.5" />
+                    ) : (
+                      <WandSparkles className="size-3.5" />
+                    )}
+                  </TraceIcon>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <TraceTitle className="font-medium text-foreground/80">
+                      {author?.displayName ?? t('manager')}
+                    </TraceTitle>
+                    {(value || isStreaming) && (
+                      <StreamingText
+                        text={value}
+                        streaming={isStreaming}
+                        waiting={t('generating')}
+                        className={cn(
+                          'text-xs leading-relaxed wrap-anywhere whitespace-pre-wrap text-muted-foreground',
+                          message.status === 'failed' && 'text-destructive',
+                        )}
+                      />
+                    )}
+                    {taskCards.map((card) => (
+                      <MessageCard
+                        key={`${card.type}-${card.id}`}
+                        account={account}
+                        project={project}
+                        card={card}
+                      />
+                    ))}
+                  </div>
+                </TraceLine>
+              );
+            })}
+          </Trace>
+        </TraceCollapsibleContent>
+      </TraceCollapsible>
+      {surfaceCards.map((card) => (
+        <MessageCard key={`${card.type}-${card.id}`} account={account} project={project} card={card} />
+      ))}
+      {conversation && surfaceActions.length > 0 && (
+        <MessageActions
+          account={account}
+          project={project}
+          conversation={conversation}
+          actions={surfaceActions}
+          disabled={!canWrite || busy || sending}
         />
-        <Bot className="size-3.5 shrink-0" />
-        <span className="truncate font-medium">{names.length ? names.join(', ') : t('manager')}</span>
-        <span className="shrink-0 text-muted-foreground/70">· {messages.length}</span>
-        <ChevronDown className={cn('ml-auto size-3.5 shrink-0 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="flex flex-col gap-4 border-t px-3.5 py-3">
-          {messages.map((message) => {
-            const liveText = partial[message.id];
-            const isStreaming = message.status === 'streaming';
-            const value = isStreaming && liveText?.startsWith(message.text) ? liveText : message.text;
-            const author = agents.find(({ id }) => id === message.agentId);
-            return (
-              <article key={message.id} className="flex gap-2.5">
-                <span
-                  className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border bg-background"
-                  title={author?.displayName ?? t('manager')}
-                >
-                  <Bot className="size-3" />
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  {(value || isStreaming) && (
-                    <StreamingText
-                      text={value}
-                      streaming={isStreaming}
-                      waiting={t('generating')}
-                      className={cn(
-                        'text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap',
-                        message.status === 'failed' && 'text-muted-foreground',
-                      )}
-                    />
-                  )}
-                  {message.status === 'failed' && (
-                    <p role="status" className="text-xs text-destructive">
-                      {t('failed')}
-                    </p>
-                  )}
-                  {message.cards.map((card) => (
-                    <MessageCard
-                      key={`${card.type}-${card.id}`}
-                      account={account}
-                      project={project}
-                      card={card}
-                    />
-                  ))}
-                  {conversation && message.actions.length > 0 && (
-                    <MessageActions
-                      account={account}
-                      project={project}
-                      conversation={conversation}
-                      actions={message.actions}
-                      disabled={!canWrite || busy || sending}
-                    />
-                  )}
-                  {author && <span className="text-[11px] text-muted-foreground">{author.displayName}</span>}
-                </div>
-              </article>
-            );
-          })}
-        </div>
       )}
     </div>
   );
@@ -358,24 +381,32 @@ function Conversation({
             </div>
           )}
           {(() => {
+            const isInternal = (msg: (typeof rows)[number]) => {
+              if (msg.role === 'user' || msg.notificationKind) return false;
+              const author = agents.data?.find(({ id }) => id === msg.agentId);
+              if (author?.kind === 'agent') return true;
+              const hasTaskCard = msg.cards.some((c) => c.type === 'task');
+              const hasBusinessCard = msg.cards.some((c) => c.type === 'decision' || c.type === 'chart');
+              const hasPendingAction = msg.actions.some((a) => a.status !== 'done' && a.status !== 'expired');
+              return hasTaskCard && !hasBusinessCard && !hasPendingAction;
+            };
             const grouped: Array<
               | { kind: 'single'; message: (typeof rows)[number] }
-              | { kind: 'agents'; messages: (typeof rows)[number][] }
+              | { kind: 'trace'; messages: (typeof rows)[number][] }
             > = [];
             for (const msg of rows) {
-              const author = agents.data?.find(({ id }) => id === msg.agentId);
-              if (msg.role !== 'user' && !msg.notificationKind && author?.kind === 'agent') {
+              if (isInternal(msg)) {
                 const last = grouped[grouped.length - 1];
-                if (last?.kind === 'agents') last.messages.push(msg);
-                else grouped.push({ kind: 'agents', messages: [msg] });
+                if (last?.kind === 'trace') last.messages.push(msg);
+                else grouped.push({ kind: 'trace', messages: [msg] });
               } else {
                 grouped.push({ kind: 'single', message: msg });
               }
             }
             return grouped.map((item) => {
-              if (item.kind === 'agents') {
+              if (item.kind === 'trace') {
                 return (
-                  <AgentWorkGroup
+                  <WorkTraceBlock
                     key={item.messages[0]!.id}
                     messages={item.messages}
                     agents={agents.data ?? []}
@@ -415,6 +446,7 @@ function Conversation({
               const streaming = message.status === 'streaming';
               const value = streaming && liveText?.startsWith(message.text) ? liveText : message.text;
               const author = agents.data?.find(({ id }) => id === message.agentId);
+              const visibleCards = message.cards.filter((card) => card.type !== 'task');
               return (
                 <article key={message.id} className="flex gap-3">
                   <span
@@ -440,7 +472,7 @@ function Conversation({
                         {t('failed')}
                       </p>
                     )}
-                    {message.cards.map((card) => (
+                    {visibleCards.map((card) => (
                       <MessageCard
                         key={`${card.type}-${card.id}`}
                         account={account.id}

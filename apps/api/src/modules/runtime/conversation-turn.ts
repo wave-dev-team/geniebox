@@ -105,23 +105,40 @@ export class ConversationTurn {
     }
     const prior = recent.filter(
       (message) =>
-        message.id !== question.id &&
         message.id !== reply.id &&
-        message.created_at.getTime() <= question.created_at.getTime() &&
+        message.created_at.getTime() < reply.created_at.getTime() &&
         message.status === 'done' &&
         message.role !== 'system' &&
         message.text.trim(),
     );
-    const history: LlmMessage[] = [...prior.slice(-(CONTEXT_MESSAGES - 1)), question].map((message) =>
-      message.role === 'user'
-        ? { role: 'user', content: maskPersonalData(message.text) }
-        : { role: 'assistant', content: message.text },
-    );
+    const timeline = prior.some((message) => message.id === question.id)
+      ? prior.slice(-CONTEXT_MESSAGES)
+      : [...prior.slice(-(CONTEXT_MESSAGES - 1)), question];
+    const history: LlmMessage[] = timeline.map((message) => {
+      if (message.role === 'user') return { role: 'user', content: maskPersonalData(message.text) };
+      if (message.agent_id && message.agent_id !== agent.runtime.id) {
+        return { role: 'user', content: dataBlock('specialist_report', untrusted(message.text)) };
+      }
+      return { role: 'assistant', content: message.text };
+    });
+    const isSynthesisTurn =
+      isManager &&
+      prior.some(
+        (message) =>
+          message.role === 'assistant' &&
+          Boolean(message.agent_id) &&
+          message.agent_id !== agent.runtime.id &&
+          message.created_at.getTime() >= question.created_at.getTime(),
+      );
     const tools = isManager
       ? this.registry.available(
           agent.runtime,
           'manager',
-          ['report_progress', 'finish_task', ...(mode === 'recommend_only' ? ['assign_task'] : [])],
+          [
+            'report_progress',
+            'finish_task',
+            ...(mode === 'recommend_only' || isSynthesisTurn ? ['assign_task'] : []),
+          ],
           { conversation: true },
         )
       : this.registry.available(agent.runtime, 'agent', ['report_progress', 'finish_task'], {

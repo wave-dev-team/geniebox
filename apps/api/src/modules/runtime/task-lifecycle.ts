@@ -170,25 +170,36 @@ export class TaskLifecycle {
       .executeTakeFirst();
     if (!manager || manager.kind !== 'manager') return;
 
-    const active = await tx.db
-      .selectFrom('tasks')
-      .select('id')
-      .where('conversation_id', '=', task.conversation_id)
-      .where('assigned_by_agent_id', '=', manager.id)
-      .where('parent_task_id', 'is', null)
-      .where('status', 'in', ['planned', 'running', 'waiting'])
-      .executeTakeFirst();
-    if (active) return;
-
     const lastUser = await tx.db
       .selectFrom('messages')
-      .select('id')
+      .select(['id', 'created_at'])
       .where('conversation_id', '=', task.conversation_id)
       .where('role', '=', 'user')
       .where('author_user_id', '=', recipientUserId)
       .orderBy('created_at', 'desc')
       .executeTakeFirst();
     if (!lastUser) return;
+
+    const active = await tx.db
+      .selectFrom('tasks')
+      .select('id')
+      .where('conversation_id', '=', task.conversation_id)
+      .where('assigned_by_agent_id', '=', manager.id)
+      .where('parent_task_id', 'is', null)
+      .where('status', 'in', ['planned', 'running'])
+      .where('created_at', '>=', lastUser.created_at)
+      .executeTakeFirst();
+    if (active) return;
+
+    const finishedAt = task.finished_at ?? new Date();
+    const existingReply = await tx.db
+      .selectFrom('messages')
+      .select('id')
+      .where('conversation_id', '=', task.conversation_id)
+      .where('agent_id', '=', manager.id)
+      .where((eb) => eb.or([eb('status', '=', 'streaming'), eb('created_at', '>=', finishedAt)]))
+      .executeTakeFirst();
+    if (existingReply) return;
 
     const reply = await this.conversations.insertMessage(tx.db, {
       account_id: tx.accountId,
