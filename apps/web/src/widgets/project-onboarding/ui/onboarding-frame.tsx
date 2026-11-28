@@ -15,7 +15,7 @@ export function OnboardingFrame({
   children,
   laterHref,
 }: {
-  step: number;
+  step?: number;
   title: string;
   project?: string;
   children: ReactNode;
@@ -37,24 +37,26 @@ export function OnboardingFrame({
             </Link>
           )}
         </header>
-        <ol aria-label={t('progress')} className="grid grid-cols-5 gap-1 sm:gap-3">
-          {steps.map((key, index) => (
-            <li
-              key={key}
-              aria-current={step === index + 1 ? 'step' : undefined}
-              className={cn(
-                'grid gap-2 text-[0.65rem] font-medium sm:text-sm',
-                step === index + 1 ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn('h-1.5 rounded-full', step >= index + 1 ? 'bg-primary' : 'bg-muted')}
-              />
-              {t(`steps.${key}`)}
-            </li>
-          ))}
-        </ol>
+        {step !== undefined && (
+          <ol aria-label={t('progress')} className="grid grid-cols-5 gap-1 sm:gap-3">
+            {steps.map((key, index) => (
+              <li
+                key={key}
+                aria-current={step === index + 1 ? 'step' : undefined}
+                className={cn(
+                  'grid gap-2 text-[0.65rem] font-medium sm:text-sm',
+                  step === index + 1 ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn('h-1.5 rounded-full', step >= index + 1 ? 'bg-primary' : 'bg-muted')}
+                />
+                {t(`steps.${key}`)}
+              </li>
+            ))}
+          </ol>
+        )}
         <section className="grid gap-6 rounded-xl border bg-card p-5 sm:p-8">
           <header className="grid gap-1">
             {project && <p className="break-all text-sm text-muted-foreground">{project}</p>}

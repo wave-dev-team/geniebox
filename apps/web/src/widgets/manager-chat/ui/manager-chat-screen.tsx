@@ -25,11 +25,20 @@ import {
   useSendManagerMessage,
 } from '@/features/manager-chat/model/chat';
 import { Composer } from '@/features/manager-chat/ui/composer';
-import { projectChat } from '@/shared/api';
+import { knowledgeApi, projectChat } from '@/shared/api';
 import { useWorkStream } from '@/shared/api/use-work-stream';
 import { routes } from '@/shared/config/routes';
 import { useErrorMessage } from '@/shared/lib/api-error';
 import { OptionSelect } from '@/shared/ui/option-select';
+
+async function fileToBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
 
 function SetupLink({ project }: { project?: boolean }) {
   const t = useTranslations('workspace');
@@ -323,6 +332,15 @@ function Conversation({
             agents={team}
             disabled={!manager || loading || loadError}
             sending={send.isPending || busy}
+            onAttachFile={async (file) => {
+              const contentBase64 = await fileToBase64(file);
+              await knowledgeApi(account.id, project).createSource({
+                kind: 'upload',
+                filename: file.name,
+                contentBase64,
+              });
+              return { name: file.name };
+            }}
             onSend={submit}
           />
         ) : (

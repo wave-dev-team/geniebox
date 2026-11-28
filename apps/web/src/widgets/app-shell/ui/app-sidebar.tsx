@@ -139,28 +139,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         </nav>
-        <SidebarGroup className="mt-auto">
-          <SidebarMenu>
-            {footerNavigation.map(({ id, href, icon: Icon }) => (
-              <SidebarMenuItem key={id}>
-                <SidebarMenuButton
-                  className="px-2 has-[>svg:first-child]:pl-2"
-                  render={
-                    <Link
-                      href={href}
-                      onClick={closeOnMobile}
-                      aria-current={pathname === href ? 'page' : undefined}
-                    />
-                  }
-                  isActive={pathname === href}
-                >
-                  <Icon />
-                  <span>{t(`sections.${id}`)}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {footerNavigation.length > 0 && (
+          <SidebarGroup className="mt-auto">
+            <SidebarMenu>
+              {footerNavigation.map(({ id, href, icon: Icon }) => (
+                <SidebarMenuItem key={id}>
+                  <SidebarMenuButton
+                    className="px-2 has-[>svg:first-child]:pl-2"
+                    render={
+                      <Link
+                        href={href}
+                        onClick={closeOnMobile}
+                        aria-current={pathname === href ? 'page' : undefined}
+                      />
+                    }
+                    isActive={pathname === href}
+                  >
+                    <Icon />
+                    <span>{t(`sections.${id}`)}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

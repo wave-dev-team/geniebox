@@ -1,6 +1,7 @@
 'use client';
 
-import { CalendarClock, ClipboardList, Plus } from 'lucide-react';
+import { CalendarClock, ClipboardList, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
@@ -24,7 +25,7 @@ import { buildTaskTree, TaskTreeRow } from './task-tree-row';
 
 import { useProjectAgents } from '@/entities/project/operations';
 import { useTasksBoard } from '@/features/tasks/model/use-tasks';
-import { CreateRoutineDialog, CreateTaskDialog } from '@/features/tasks/ui/task-editor';
+import { routes } from '@/shared/config/routes';
 import { SectionLayout } from '@/widgets/section-layout';
 
 const boardTabSchema = z.enum(['active', 'routines', 'done']);
@@ -32,6 +33,7 @@ type BoardTab = z.infer<typeof boardTabSchema>;
 
 export function TasksBoard() {
   const t = useTranslations('tasksSection');
+  const tAgents = useTranslations('agentsSection');
   const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
@@ -53,8 +55,6 @@ export function TasksBoard() {
     return map;
   }, [agents]);
 
-  const [createTaskOpen, setCreateTaskOpen] = useState(false);
-  const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   const tasks = board.tasksQuery.data ?? [];
@@ -96,17 +96,17 @@ export function TasksBoard() {
       subtitle={t('subtitle')}
       nav={[]}
       action={
-        board.canTech && agents.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setCreateRoutineOpen(true)}>
-              <CalendarClock className="mr-1.5 size-4" />
-              {t('createRoutineButton')}
-            </Button>
-            <Button size="sm" onClick={() => setCreateTaskOpen(true)}>
-              <Plus className="mr-1.5 size-4" />
-              {t('createTaskButton')}
-            </Button>
-          </div>
+        board.project ? (
+          <Button
+            nativeButton={false}
+            render={<Link href={routes.chat(board.project.id)} />}
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            <MessageSquare className="mr-2 size-4 shrink-0" />
+            {tAgents('askManager')}
+          </Button>
         ) : undefined
       }
     >
@@ -251,28 +251,6 @@ export function TasksBoard() {
           onCancel={(id) => board.cancelTask.mutate(id)}
         />
       )}
-
-      <CreateTaskDialog
-        open={createTaskOpen}
-        onOpenChange={setCreateTaskOpen}
-        agents={agents}
-        isPending={board.createTask.isPending}
-        onSubmit={async (input) => {
-          const created = await board.createTask.mutateAsync(input);
-          navigate({ tab: undefined, task: created.id });
-        }}
-      />
-
-      <CreateRoutineDialog
-        open={createRoutineOpen}
-        onOpenChange={setCreateRoutineOpen}
-        agents={agents}
-        isPending={board.createRoutine.isPending}
-        onSubmit={async (input) => {
-          await board.createRoutine.mutateAsync(input);
-          navigate({ tab: 'routines' });
-        }}
-      />
     </SectionLayout>
   );
 }

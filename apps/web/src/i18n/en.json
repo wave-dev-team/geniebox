@@ -60,18 +60,20 @@
   "home": {
     "title": "How can I help the project today?",
     "suggestions": {
-      "churn": "Why did conversion fall?",
-      "winBack": "Which hypotheses should we test?",
-      "day": "What impact did the release have?",
-      "servers": "What should we prioritize in the backlog?"
+      "churn": "Audit the project and suggest first steps",
+      "winBack": "Help connect Metrika, backlog, and knowledge base",
+      "day": "Set up Telegram notifications",
+      "servers": "Show agent team and connections"
     },
     "waiting": "{count, plural, one {# decision waits for you} other {# decisions wait for you}}"
   },
   "auth": {
-    "tagline": "Sign in to Geniebox",
+    "tagline": "Enter your email address and password to sign in",
     "email": "Email",
-    "emailPlaceholder": "name@company.com",
+    "emailPlaceholder": "captain@geniebox.ru",
     "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "newPasswordPlaceholder": "Create a strong password",
     "name": "Name",
     "namePlaceholder": "How should we call you",
     "forgot": "Forgot password?",
@@ -84,7 +86,7 @@
     "haveAccount": "Already have an account?",
     "signInLink": "Sign in",
     "login": {
-      "title": "Sign in"
+      "title": "Sign in to your account"
     },
     "code": {
       "title": "Sign in with a code",
@@ -98,7 +100,7 @@
     },
     "signup": {
       "title": "Sign up",
-      "subtitle": "Create an account to open your workspace",
+      "subtitle": "Enter your name, email address, and password to create an account",
       "submit": "Create account",
       "passwordHint": "At least {min} characters"
     },
@@ -129,7 +131,8 @@
       "code": "Enter the 6 digits from the email"
     },
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "hackathonNotice": "Competition entry by WAVE DEV for the IIkuznitsa Hackathon (Softline) · Digital Avatar track · E-commerce Product Manager AI Assistant"
   },
   "roles": {
     "owner": "Owner",
@@ -216,7 +219,7 @@
     "EMAIL_NOT_VERIFIED": "Please verify your email.",
     "SESSION_EXPIRED": "Your session has expired.",
     "REFRESH_CONCURRENT": "The session is being refreshed. Try again.",
-    "CROSS_ORIGIN_REQUEST": "The request must come from Geniebox.",
+    "CROSS_ORIGIN_REQUEST": "The request must come from the application.",
     "PASSWORD_CHANGED": "The password was changed. Try again."
   },
   "timezone": {
@@ -345,6 +348,10 @@
     "send": "Send",
     "mention": "Give to a specific agent",
     "mentionRemove": "Remove the agent",
+    "attachFile": "Attach file to knowledge base",
+    "attachRemove": "Remove attached file",
+    "attachError": "Could not upload file",
+    "attachedPrefix": "[Uploaded file to knowledge base: {name}]",
     "mode": "Mode",
     "modes": {
       "approve_all": {
@@ -363,12 +370,37 @@
     "viewer": "Owners, administrators, and technical specialists can message agents."
   },
   "app": {
-    "brand": "Geniebox",
-    "description": "Geniebox workspace",
+    "brand": "Workspace",
+    "description": "AI agent team management workspace",
     "placeholder": "This section will be available later.",
     "retry": "Try again",
     "connectionError": "Could not load data. Check your connection.",
     "businessUnavailable": "Data for this section is not connected yet."
+  },
+  "eventToasts": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirm": "Confirm",
+    "decisionApproved": "Decision approved",
+    "decisionRejected": "Decision rejected",
+    "taskDone": "Task completed",
+    "taskFailed": "Task failed",
+    "newInsight": "New metric insight published"
+  },
+  "connectLink": {
+    "loadingTitle": "Loading connection form",
+    "loadingSubtitle": "Checking one-time link…",
+    "invalidTitle": "Link is invalid or expired",
+    "invalidSubtitle": "Ask the manager for a new service connection link.",
+    "title": "Connect {provider}",
+    "subtitle": "Project \"{project}\". Credentials are sent directly to encrypted storage.",
+    "submit": "Save and verify",
+    "doneTitle": "Service connected",
+    "doneSubtitle": "{provider} has been connected to \"{project}\".",
+    "checkOk": "Connection check succeeded.",
+    "checkWarn": "Credentials saved, but the service returned a warning.",
+    "backHome": "Back to workspace",
+    "close": "Done"
   },
   "sections": {
     "home": "Manager",
@@ -865,6 +897,7 @@
     "createTitle": "Create a project",
     "setupTitle": "Tell us about your project",
     "projectName": "For example, Online store",
+    "projectAboutPlaceholder": "Briefly describe the product, audience, and key goals",
     "nameRequired": "Enter a project name.",
     "haveInvite": "Have a team invitation?",
     "later": "Finish later",

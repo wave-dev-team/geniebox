@@ -3,13 +3,11 @@
 import {
   BookOpenCheck,
   Building2,
-  CreditCard,
   KeyRound,
   ListChecks,
   Lock,
   Settings2,
   ShieldCheck,
-  Sparkles,
   Users,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,7 +25,6 @@ import { KeysSettings } from '@/features/project-settings/ui/keys-settings';
 import { PermissionsSettings } from '@/features/project-settings/ui/permissions-settings';
 import { RulesSettings } from '@/features/project-settings/ui/rules-settings';
 import { SecuritySettings } from '@/features/project-settings/ui/security-settings';
-import { ComingSoon } from '@/shared/ui/coming-soon';
 import { OptionSelect } from '@/shared/ui/option-select';
 import { SettingsCard } from '@/shared/ui/settings-card';
 import { SettingsQueryStatus } from '@/shared/ui/settings-query-status';
@@ -36,12 +33,10 @@ import { SectionLayout } from '@/widgets/section-layout';
 const tabIcons = {
   general: Building2,
   rules: BookOpenCheck,
-  models: Sparkles,
   permissions: ShieldCheck,
   members: Users,
   keys: KeyRound,
   journal: ListChecks,
-  billing: CreditCard,
   security: Lock,
   account: Settings2,
 };
@@ -105,12 +100,6 @@ export function ProjectSettings({
         accountSettings
       ) : tab === 'members' ? (
         <AccountMembers account={account} />
-      ) : tab === 'models' || tab === 'billing' ? (
-        <ComingSoon
-          icon={tab === 'models' ? <Sparkles /> : <CreditCard />}
-          title={t(`tabs.${tab}`)}
-          text={t(`${tab}Unavailable`)}
-        />
       ) : projects.isPending || projects.isError ? (
         <SettingsQueryStatus query={projects} />
       ) : project ? (
@@ -136,7 +125,7 @@ function ProjectSettingsPanel({
   projectId,
   onDelete,
 }: {
-  tab: Exclude<Tab, 'members' | 'account' | 'models' | 'billing'>;
+  tab: Exclude<Tab, 'members' | 'account'>;
   account: Workspace;
   projectId: string;
   onDelete: () => void;

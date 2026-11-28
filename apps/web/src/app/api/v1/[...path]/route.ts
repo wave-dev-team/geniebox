@@ -24,7 +24,10 @@ const chatReadResources = new RegExp(
   `^${project}/(?:tasks/${uuid}|decisions/${uuid}|metrics(?:/${uuid}/series)?)$`,
 );
 const contextReset = new RegExp(`^${account}/manager-context/(?:me/)?reset$`);
-const chatActions = new RegExp(`^${project}/message-actions/${uuid}/press$`);
+const chatActions = new RegExp(
+  `^${project}/(?:message-actions/${uuid}/press|decisions/${uuid}/(?:accept|reject))$`,
+);
+const connectLink = /^connect\/[A-Za-z0-9_-]{8,128}$/;
 const accessCookie = 'geniebox-access';
 const refreshCookie = 'geniebox-refresh';
 
@@ -33,7 +36,13 @@ async function proxy(req: NextRequest, context: RouteContext<'/api/v1/[...path]'
   const chatResource =
     (req.method === 'GET' && chatReadResources.test(path)) ||
     (req.method === 'POST' && (chatActions.test(path) || contextReset.test(path)));
-  if (!(resources.test(path) || chatResource || publicActions.has(path) || privateActions.has(path))) {
+  if (!(
+    resources.test(path) ||
+    chatResource ||
+    connectLink.test(path) ||
+    publicActions.has(path) ||
+    privateActions.has(path)
+  )) {
     return new Response(null, { status: 404 });
   }
   if (

@@ -21,5 +21,11 @@ export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return healthResponseSchema.parse(await (await request('/health', { signal })).json());
 }
 
-export { listConnectionProviders, listOnboardingAgents, projectOperations } from './project-operations.js';
+export {
+  describeConnectionLink,
+  listConnectionProviders,
+  listOnboardingAgents,
+  projectOperations,
+  submitConnectionLink,
+} from './project-operations.js';
 export { projectWork } from './tasks.js';

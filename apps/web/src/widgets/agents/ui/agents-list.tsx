@@ -47,19 +47,24 @@ export function AgentsList() {
             render={<Link href={routes.chat(project.id)} />}
             size="sm"
             variant="outline"
+            className="w-full sm:w-auto"
           >
-            <MessageSquare className="mr-2 size-4" />
+            <MessageSquare className="mr-2 size-4 shrink-0" />
             {t('askManager')}
           </Button>
         ) : undefined
       }
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
-            <TabsList>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+          <Tabs
+            value={filter}
+            onValueChange={(value) => setFilter(value as Filter)}
+            className="w-full sm:w-auto"
+          >
+            <TabsList className="w-full sm:w-auto">
               {(['all', 'active', 'paused'] as const).map((key) => (
-                <TabsTrigger key={key} value={key}>
+                <TabsTrigger key={key} value={key} className="flex-1 sm:flex-initial">
                   {t(`filters.${key}`)}
                 </TabsTrigger>
               ))}
@@ -69,7 +74,7 @@ export function AgentsList() {
         </div>
 
         {(projectLoading || agents.isLoading) && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 @min-[38rem]/section-layout:grid-cols-2">
             {Array.from({ length: 4 }).map((_, idx) => (
               <Skeleton key={idx} className="h-40 rounded-xl" />
             ))}
@@ -103,13 +108,13 @@ export function AgentsList() {
         )}
 
         {!agents.isLoading && !agents.isError && visible.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 @min-[38rem]/section-layout:grid-cols-2">
             {visible.map((agent) => {
               const isActive = agent.status !== 'paused';
               return (
                 <div
                   key={agent.id}
-                  className="group relative flex flex-col justify-between gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-foreground/20"
+                  className="group relative flex min-w-0 flex-col justify-between gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20 sm:p-5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <Link
@@ -125,6 +130,7 @@ export function AgentsList() {
                       </div>
                     </Link>
                     <Switch
+                      className="shrink-0"
                       checked={isActive}
                       disabled={!canAdmin || toggle.isPending}
                       aria-label={t('toggleLabel', { name: agent.displayName })}

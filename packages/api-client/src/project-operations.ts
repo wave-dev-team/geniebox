@@ -21,6 +21,7 @@ import {
 
 import { projectPath } from './accounts.js';
 import { authenticated } from './authenticated.js';
+import { request } from './request.js';
 
 export function projectOperations(accountId: string, projectId: string) {
   const path = projectPath(accountId, projectId);
@@ -168,4 +169,33 @@ export async function listOnboardingAgents(accountId: string, signal?: AbortSign
   const query = new URLSearchParams({ accountId });
   const response = await authenticated('/v1/agent-catalog?' + query, { signal });
   return onboardingAgentCatalogSchema.parse(await response.json());
+}
+
+export async function describeConnectionLink(token: string, signal?: AbortSignal) {
+  const response = await request('/v1/connect/' + encodeURIComponent(token), { signal });
+  return z
+    .object({
+      projectName: z.string(),
+      provider: connectionProviderSchema,
+      expiresAt: z.string(),
+    })
+    .parse(await response.json());
+}
+
+export async function submitConnectionLink(token: string, fields: Record<string, string>) {
+  const response = await request('/v1/connect/' + encodeURIComponent(token), {
+    method: 'POST',
+    body: JSON.stringify({ fields }),
+  });
+  return z
+    .object({
+      check: z
+        .object({
+          status: z.enum(['ok', 'warn', 'error']),
+          reason: z.string().nullable().optional(),
+          detail: z.string().nullable().optional(),
+        })
+        .nullable(),
+    })
+    .parse(await response.json());
 }

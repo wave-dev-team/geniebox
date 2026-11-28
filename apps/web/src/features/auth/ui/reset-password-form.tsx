@@ -141,6 +141,7 @@ export function ResetPasswordForm() {
               <PasswordInput
                 id="reset-password"
                 autoComplete="new-password"
+                placeholder={t('newPasswordPlaceholder')}
                 value={password}
                 aria-invalid={Boolean(errors.password) || undefined}
                 onChange={(event) => setPassword(event.target.value)}

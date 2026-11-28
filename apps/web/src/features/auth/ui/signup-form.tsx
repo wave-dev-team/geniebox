@@ -89,6 +89,7 @@ export function SignupForm() {
             <PasswordInput
               id="signup-password"
               autoComplete="new-password"
+              placeholder={t('newPasswordPlaceholder')}
               aria-invalid={Boolean(errors.password) || undefined}
               {...form.register('password')}
             />
