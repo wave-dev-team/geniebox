@@ -35,8 +35,8 @@ export const KNOWLEDGE_LIMITS = {
   sourceTitle: 200,
   /** Chunks returned to an agent in one search: the context budget is a product rule. */
   searchChunks: 5,
-  /** A whole page is served only on an explicit read, and never longer than this. */
-  readBody: 20_000,
+  /** Characters per knowledge tool response, leaving room for citation metadata. */
+  readBody: 1_200,
   /** Rows rendered into one page of a spreadsheet; the rest is a separate page. */
   sheetRows: 120,
   sheetColumns: 40,
