@@ -16,6 +16,7 @@ export interface HttpAppOptions {
 export function configureHttpApp(app: NestExpressApplication, options: HttpAppOptions): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
+  app.useBodyParser('json', { limit: '32mb' });
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
   app.disable('x-powered-by');
