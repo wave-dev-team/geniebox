@@ -22,6 +22,10 @@ export class ToolRegistry {
     return this.tools.get(id);
   }
 
+  all(): BrokerTool[] {
+    return [...this.tools.values()];
+  }
+
   /**
    * What an agent may be offered: platform tools of its audience plus catalog tools its role
    * has (template or custom set). The role decides, never the prompt.

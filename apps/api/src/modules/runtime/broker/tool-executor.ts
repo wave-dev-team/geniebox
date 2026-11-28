@@ -151,10 +151,11 @@ export class ToolExecutor {
         return { status: 'executed', toolId, result: value, terminal: tool.terminal ?? false };
       } catch (error) {
         const code = error instanceof ToolError ? error.code : 'EXECUTION_FAILED';
+        const detail = error instanceof ToolError ? error.detail : undefined;
         if (!(error instanceof ToolError)) {
           this.logger.error({ err: error, toolId }, 'Tool execution failed');
         }
-        return this.refuse(context, toolId, 'failed', code, args);
+        return this.refuse(context, toolId, 'failed', code, args, detail);
       }
     }
     if (!tool.execute) return this.refuse(context, toolId, 'rejected', 'UNKNOWN_TOOL', args);
@@ -192,10 +193,18 @@ export class ToolExecutor {
       return { status: 'executed', toolId, result, terminal: tool.terminal ?? false };
     } catch (error) {
       const code = error instanceof ToolError ? error.code : 'EXECUTION_FAILED';
+      const detail = error instanceof ToolError ? error.detail : undefined;
       if (!(error instanceof ToolError)) {
         this.logger.error({ err: error, toolId }, 'Tool execution failed');
       }
-      return this.refuse(context, toolId, code === 'KILL_SWITCH_PROJECT' ? 'blocked' : 'failed', code, args);
+      return this.refuse(
+        context,
+        toolId,
+        code === 'KILL_SWITCH_PROJECT' ? 'blocked' : 'failed',
+        code,
+        args,
+        detail,
+      );
     }
   }
 
@@ -385,9 +394,12 @@ export class ToolExecutor {
   }
 }
 
-/** Raised by tools for expected failures; the code goes back to the model. */
+/** Raised by tools for expected failures; the code and optional detail go back to the model. */
 export class ToolError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly detail?: unknown,
+  ) {
     super(code);
   }
 }
