@@ -1,11 +1,11 @@
 'use client';
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Bot, Maximize2, MessageSquare, WandSparkles, X } from 'lucide-react';
+import { Bot, ChevronDown, Maximize2, MessageSquare, WandSparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { ChatRequest, Workspace } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
@@ -49,6 +49,124 @@ function SetupLink({ project }: { project?: boolean }) {
       <Link href="/settings" className="text-sm font-medium underline underline-offset-4">
         {t('settings')}
       </Link>
+    </div>
+  );
+}
+
+type AgentMessageItem = {
+  id: string;
+  agentId: string | null;
+  status: string;
+  text: string;
+  cards: Parameters<typeof MessageCard>[0]['card'][];
+  actions: Parameters<typeof MessageActions>[0]['actions'];
+};
+
+function AgentWorkGroup({
+  messages,
+  agents,
+  partial,
+  account,
+  project,
+  conversation,
+  canWrite,
+  busy,
+  sending,
+}: {
+  messages: AgentMessageItem[];
+  agents: Array<{ id: string; displayName: string; kind: string }>;
+  partial: Record<string, string | undefined>;
+  account: string;
+  project: string;
+  conversation: string | undefined;
+  canWrite: boolean;
+  busy: boolean;
+  sending: boolean;
+}) {
+  const t = useTranslations('managerChat');
+  const [open, setOpen] = useState(false);
+  const streaming = messages.some((m) => m.status === 'streaming');
+  const names = Array.from(
+    new Set(
+      messages
+        .map((m) => agents.find(({ id }) => id === m.agentId)?.displayName)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  );
+  return (
+    <div className="rounded-xl border bg-muted/30">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <span
+          className={cn(
+            'size-2 shrink-0 rounded-full',
+            streaming ? 'animate-pulse bg-amber-500' : 'bg-emerald-500',
+          )}
+        />
+        <Bot className="size-3.5 shrink-0" />
+        <span className="truncate font-medium">{names.length ? names.join(', ') : t('manager')}</span>
+        <span className="shrink-0 text-muted-foreground/70">· {messages.length}</span>
+        <ChevronDown className={cn('ml-auto size-3.5 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-4 border-t px-3.5 py-3">
+          {messages.map((message) => {
+            const liveText = partial[message.id];
+            const isStreaming = message.status === 'streaming';
+            const value = isStreaming && liveText?.startsWith(message.text) ? liveText : message.text;
+            const author = agents.find(({ id }) => id === message.agentId);
+            return (
+              <article key={message.id} className="flex gap-2.5">
+                <span
+                  className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border bg-background"
+                  title={author?.displayName ?? t('manager')}
+                >
+                  <Bot className="size-3" />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  {(value || isStreaming) && (
+                    <StreamingText
+                      text={value}
+                      streaming={isStreaming}
+                      waiting={t('generating')}
+                      className={cn(
+                        'text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap',
+                        message.status === 'failed' && 'text-muted-foreground',
+                      )}
+                    />
+                  )}
+                  {message.status === 'failed' && (
+                    <p role="status" className="text-xs text-destructive">
+                      {t('failed')}
+                    </p>
+                  )}
+                  {message.cards.map((card) => (
+                    <MessageCard
+                      key={`${card.type}-${card.id}`}
+                      account={account}
+                      project={project}
+                      card={card}
+                    />
+                  ))}
+                  {conversation && message.actions.length > 0 && (
+                    <MessageActions
+                      account={account}
+                      project={project}
+                      conversation={conversation}
+                      actions={message.actions}
+                      disabled={!canWrite || busy || sending}
+                    />
+                  )}
+                  {author && <span className="text-[11px] text-muted-foreground">{author.displayName}</span>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -239,85 +357,111 @@ function Conversation({
               )}
             </div>
           )}
-          {rows.map((message) => {
-            if (message.role === 'user') {
-              return (
-                <p
-                  key={message.id}
-                  className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-[15px] wrap-anywhere whitespace-pre-wrap"
-                >
-                  {message.text}
-                </p>
-              );
+          {(() => {
+            const grouped: Array<
+              | { kind: 'single'; message: (typeof rows)[number] }
+              | { kind: 'agents'; messages: (typeof rows)[number][] }
+            > = [];
+            for (const msg of rows) {
+              const author = agents.data?.find(({ id }) => id === msg.agentId);
+              if (msg.role !== 'user' && !msg.notificationKind && author?.kind === 'agent') {
+                const last = grouped[grouped.length - 1];
+                if (last?.kind === 'agents') last.messages.push(msg);
+                else grouped.push({ kind: 'agents', messages: [msg] });
+              } else {
+                grouped.push({ kind: 'single', message: msg });
+              }
             }
-            if (message.notificationKind) {
+            return grouped.map((item) => {
+              if (item.kind === 'agents') {
+                return (
+                  <AgentWorkGroup
+                    key={item.messages[0]!.id}
+                    messages={item.messages}
+                    agents={agents.data ?? []}
+                    partial={partial}
+                    account={account.id}
+                    project={project}
+                    conversation={conversation}
+                    canWrite={canWrite}
+                    busy={busy}
+                    sending={send.isPending}
+                  />
+                );
+              }
+              const message = item.message;
+              if (message.role === 'user') {
+                return (
+                  <p
+                    key={message.id}
+                    className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-[15px] wrap-anywhere whitespace-pre-wrap"
+                  >
+                    {message.text}
+                  </p>
+                );
+              }
+              if (message.notificationKind) {
+                return (
+                  <article key={message.id} className="grid gap-2 rounded-xl border bg-muted/40 px-4 py-3">
+                    <p className="text-xs font-medium text-muted-foreground">{t('projectNotice')}</p>
+                    <p className="text-sm font-medium">{t(`notices.${message.notificationKind}`)}</p>
+                    {message.cards.map((card) => (
+                      <MessageCard key={card.id} account={account.id} project={project} card={card} />
+                    ))}
+                  </article>
+                );
+              }
+              const liveText = partial[message.id];
+              const streaming = message.status === 'streaming';
+              const value = streaming && liveText?.startsWith(message.text) ? liveText : message.text;
+              const author = agents.data?.find(({ id }) => id === message.agentId);
               return (
-                <article key={message.id} className="grid gap-2 rounded-xl border bg-muted/40 px-4 py-3">
-                  <p className="text-xs font-medium text-muted-foreground">{t('projectNotice')}</p>
-                  <p className="text-sm font-medium">{t(`notices.${message.notificationKind}`)}</p>
-                  {message.cards.map((card) => (
-                    <MessageCard key={card.id} account={account.id} project={project} card={card} />
-                  ))}
+                <article key={message.id} className="flex gap-3">
+                  <span
+                    className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border"
+                    title={author?.displayName ?? t('manager')}
+                  >
+                    <WandSparkles className="size-3.5" />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-3">
+                    {(value || streaming) && (
+                      <StreamingText
+                        text={value}
+                        streaming={streaming}
+                        waiting={t('generating')}
+                        className={cn(
+                          'text-[15px] leading-relaxed wrap-anywhere whitespace-pre-wrap',
+                          message.status === 'failed' && 'text-muted-foreground',
+                        )}
+                      />
+                    )}
+                    {message.status === 'failed' && (
+                      <p role="status" className="text-xs text-destructive">
+                        {t('failed')}
+                      </p>
+                    )}
+                    {message.cards.map((card) => (
+                      <MessageCard
+                        key={`${card.type}-${card.id}`}
+                        account={account.id}
+                        project={project}
+                        card={card}
+                      />
+                    ))}
+                    {conversation && message.actions.length > 0 && (
+                      <MessageActions
+                        account={account.id}
+                        project={project}
+                        conversation={conversation}
+                        actions={message.actions}
+                        disabled={!canWrite || busy || send.isPending}
+                      />
+                    )}
+                  </div>
                 </article>
               );
-            }
-            const liveText = partial[message.id];
-            const streaming = message.status === 'streaming';
-            const value = streaming && liveText?.startsWith(message.text) ? liveText : message.text;
-            const author = agents.data?.find(({ id }) => id === message.agentId);
-            return (
-              <article key={message.id} className="flex gap-3">
-                <span
-                  className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border"
-                  title={author?.displayName ?? t('manager')}
-                >
-                  {author?.kind === 'agent' ? (
-                    <Bot className="size-3.5" />
-                  ) : (
-                    <WandSparkles className="size-3.5" />
-                  )}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  {(value || streaming) && (
-                    <StreamingText
-                      text={value}
-                      streaming={streaming}
-                      waiting={t('generating')}
-                      className={cn(
-                        'text-[15px] leading-relaxed wrap-anywhere whitespace-pre-wrap',
-                        message.status === 'failed' && 'text-muted-foreground',
-                      )}
-                    />
-                  )}
-                  {message.status === 'failed' && (
-                    <p role="status" className="text-xs text-destructive">
-                      {t('failed')}
-                    </p>
-                  )}
-                  {message.cards.map((card) => (
-                    <MessageCard
-                      key={`${card.type}-${card.id}`}
-                      account={account.id}
-                      project={project}
-                      card={card}
-                    />
-                  ))}
-                  {conversation && message.actions.length > 0 && (
-                    <MessageActions
-                      account={account.id}
-                      project={project}
-                      conversation={conversation}
-                      actions={message.actions}
-                      disabled={!canWrite || busy || send.isPending}
-                    />
-                  )}
-                  {author?.kind === 'agent' && (
-                    <span className="text-xs text-muted-foreground">{author.displayName}</span>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+            });
+          })()}
         </div>
       </div>
       <div className={cn('mx-auto w-full space-y-2', !landing && 'pb-4', width)}>

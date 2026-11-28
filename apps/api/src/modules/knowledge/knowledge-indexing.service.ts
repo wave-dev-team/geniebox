@@ -102,10 +102,12 @@ export class KnowledgeIndexingService {
       KNOWLEDGE_FILE_FORMATS.find((value) => value === stored) ?? detectFormat(source.blob_key, data);
     const document = await extractDocument(format, source.title, data);
 
+    const pageIds: string[] = [];
+
     await this.accountDb.transaction(async (tx) => {
       const previous = await this.repo.listNodes(tx.db, projectId, {
         parentId: undefined,
-        statuses: ['draft'],
+        statuses: ['draft', 'published'],
       });
       const root = previous.find(
         (node) => node.source_id === sourceId && node.kind === 'folder' && node.parent_id === null,
@@ -130,7 +132,7 @@ export class KnowledgeIndexingService {
           kind: 'folder',
           title: document.title.slice(0, 120),
           body: '',
-          status: 'draft',
+          status: 'published',
           position: 0,
           content_hash: null,
           source_id: sourceId,
@@ -150,13 +152,14 @@ export class KnowledgeIndexingService {
           kind: 'page',
           title: page.title.slice(0, 120),
           body: page.text.slice(0, 180_000),
-          status: 'draft',
+          status: 'published',
           position,
           content_hash: sha256(`${page.title}\n${page.text}`),
           source_id: sourceId,
           created_by: source.created_by,
           updated_by: source.created_by,
         });
+        pageIds.push(node.id);
         position += 1;
         await this.repo.replaceCitations(
           tx.db,
@@ -183,6 +186,10 @@ export class KnowledgeIndexingService {
         status: 'succeeded',
       });
     });
+
+    for (const pageId of pageIds) {
+      await this.indexNode(projectId, pageId);
+    }
   }
 
   /** Draft pages produced by a source, for the person to review. */
