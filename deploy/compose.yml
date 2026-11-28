@@ -24,6 +24,7 @@ x-app-environment: &app-environment
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
   LLM_MODEL_FAST: ${LLM_MODEL_FAST:-gpt-4.1-mini}
+  AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-15}
   KNOWLEDGE_BLOB_DIR: /var/lib/geniebox/knowledge
   EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
