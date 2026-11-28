@@ -85,9 +85,9 @@ export function AgentDetail({ agentId }: { agentId: string }) {
       subtitle={agent.roleText ?? undefined}
       nav={[]}
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Button nativeButton={false} render={<Link href={routes.agents()} />} size="sm" variant="ghost">
-            <ArrowLeft className="mr-1.5 size-4" />
+            <ArrowLeft className="mr-1.5 size-4 shrink-0" />
             {t('backToList')}
           </Button>
           {project && (
@@ -97,7 +97,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
               size="sm"
               variant="outline"
             >
-              <MessageSquare className="mr-1.5 size-4" />
+              <MessageSquare className="mr-1.5 size-4 shrink-0" />
               {t('askManager')}
             </Button>
           )}
@@ -105,9 +105,9 @@ export function AgentDetail({ agentId }: { agentId: string }) {
       }
     >
       <div className="space-y-6">
-        <div className="sticky top-0 z-10 -mx-1 rounded-xl border bg-card/95 p-4 backdrop-blur md:static md:mx-0">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+        <div className="sticky top-0 z-10 rounded-xl border bg-card/95 p-3.5 backdrop-blur sm:p-4 md:static">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <AgentIcon icon={agent.icon} kind={agent.kind} size="lg" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -130,6 +130,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 
             {agent.kind !== 'manager' && (
               <Switch
+                className="shrink-0"
                 checked={isActive}
                 disabled={!canAdmin || toggle.isPending}
                 aria-label={t('toggleLabel', { name: agent.displayName })}

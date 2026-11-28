@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowUp, AtSign, Bot, ChevronDown, X } from 'lucide-react';
+import { ArrowUp, AtSign, Bot, ChevronDown, FileText, Paperclip, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   chatMessageMaxLength,
@@ -25,12 +26,14 @@ type Agent = { id: string; displayName: string };
 
 export function Composer({
   onSend,
+  onAttachFile,
   disabled,
   sending,
   home = false,
   agents = [],
 }: {
   onSend: (message: ChatRequest) => Promise<boolean>;
+  onAttachFile?: (file: File) => Promise<{ name: string }>;
   disabled: boolean;
   sending: boolean;
   home?: boolean;
@@ -41,10 +44,13 @@ export function Composer({
   const [mode, setMode] = useState<ChatRequestMode>('approve_all');
   const [mentionId, setMentionId] = useState<string>();
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<string>();
+  const [attaching, setAttaching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
   const placeholder = t(home ? 'placeholderHome' : 'placeholderManager');
-  const canSend = !!text.trim() && !disabled && !sending;
+  const canSend = (!!text.trim() || !!attachedFile) && !disabled && !sending && !attaching;
   const mention = agents.find(({ id }) => id === mentionId);
 
   useLayoutEffect(() => {
@@ -62,15 +68,34 @@ export function Composer({
         if (!canSend || submitting.current) return;
         submitting.current = true;
         try {
-          if (await onSend({ text: text.trim(), mode, mentionAgentId: mention?.id })) {
+          const prefix = attachedFile ? `${t('attachedPrefix', { name: attachedFile })}\n` : '';
+          const payloadText = `${prefix}${text.trim()}`.trim();
+          if (await onSend({ text: payloadText, mode, mentionAgentId: mention?.id })) {
             setText((value) => (value === text ? '' : value));
             setMentionId(undefined);
+            setAttachedFile(undefined);
           }
         } finally {
           submitting.current = false;
         }
       }}
     >
+      {attachedFile && (
+        <div className="flex items-center gap-1.5 self-start rounded-full border bg-muted/50 px-2.5 py-1 text-xs">
+          <FileText className="size-3.5 text-muted-foreground" />
+          <span className="max-w-56 truncate">{attachedFile}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t('attachRemove')}
+            onClick={() => setAttachedFile(undefined)}
+            className="size-4 rounded-full p-0 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+      )}
       <textarea
         ref={areaRef}
         value={text}
@@ -90,6 +115,40 @@ export function Composer({
         className="max-h-50 min-h-12 w-full resize-none bg-transparent px-1 text-[15px] outline-none placeholder:text-muted-foreground"
       />
       <div className="flex flex-wrap items-center gap-1">
+        {onAttachFile && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.txt,.csv,.xlsx"
+              className="hidden"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                setAttaching(true);
+                try {
+                  const uploaded = await onAttachFile(file);
+                  setAttachedFile(uploaded.name);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : t('attachError'));
+                } finally {
+                  setAttaching(false);
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={disabled || sending || attaching}
+              aria-label={t('attachFile')}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {attaching ? <Spinner /> : <Paperclip />}
+            </Button>
+          </>
+        )}
         <Popover open={mentionOpen} onOpenChange={setMentionOpen}>
           <PopoverTrigger
             render={

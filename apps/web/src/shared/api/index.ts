@@ -10,6 +10,7 @@ export {
   accountsApi,
   ApiError,
   authApi,
+  describeConnectionLink,
   knowledgeApi,
   listConnectionProviders,
   listOnboardingAgents,
@@ -19,6 +20,7 @@ export {
   projectOperations,
   projectsApi,
   projectWork,
+  submitConnectionLink,
 } from '@workspace/api-client';
 
 export const queryKeys = {

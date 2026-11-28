@@ -72,8 +72,30 @@ export function projectChat(account: string, project: string) {
           meta: z.string().nullable(),
           effect: z.string().nullable(),
           cost: z.string().nullable(),
+          status: z.string().optional(),
+          yesLabel: z.string().nullable().optional(),
         }),
         signal,
+      ),
+    acceptDecision: async (id: string) =>
+      z.object({ id: z.uuid(), status: z.string() }).parse(
+        await (
+          await authenticated(scope + '/decisions/' + encodeURIComponent(id) + '/accept', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          })
+        ).json(),
+      ),
+    rejectDecision: async (id: string) =>
+      z.object({ id: z.uuid(), status: z.string() }).parse(
+        await (
+          await authenticated(scope + '/decisions/' + encodeURIComponent(id) + '/reject', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          })
+        ).json(),
       ),
     chart: async (id: string, days: number, signal?: AbortSignal) => {
       const [metrics, points] = await Promise.all([

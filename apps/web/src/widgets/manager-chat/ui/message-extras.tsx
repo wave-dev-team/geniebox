@@ -1,16 +1,18 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChartNoAxesColumn, Check, ClipboardList, ExternalLink, Scale } from 'lucide-react';
+import { ChartNoAxesColumn, Check, ClipboardList, ExternalLink, KeyRound, Scale } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ChatAction, ChatCard } from '@workspace/types';
 import { Button } from '@workspace/ui/components/button';
+import { Dialog, DialogContent, DialogTitle } from '@workspace/ui/components/dialog';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 import { Spinner } from '@workspace/ui/components/spinner';
 
+import { ConnectLinkForm } from '@/features/project-settings/ui/connect-link-form';
 import { projectChat } from '@/shared/api';
 import { useErrorMessage } from '@/shared/lib/api-error';
 
@@ -21,6 +23,16 @@ function externalUrl(value: string | null) {
     if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
   } catch {
     return;
+  }
+}
+
+function connectTokenFromUrl(value: string): string | undefined {
+  try {
+    const parsed = new URL(value);
+    const match = /^\/connect\/([A-Za-z0-9_-]{8,128})$/.exec(parsed.pathname);
+    return match?.[1];
+  } catch {
+    return undefined;
   }
 }
 
@@ -54,55 +66,81 @@ export function MessageActions({
       client.invalidateQueries({ queryKey: ['chat', account, project, 'messages', conversation] }),
   });
   const replied = actions.some(({ kind, status }) => kind === 'reply' && status === 'done');
+  const [connectToken, setConnectToken] = useState<string | null>(null);
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label={t('actions')}>
-      {actions.map((action) => {
-        if (replied && action.kind === 'reply' && action.status !== 'done') return null;
-        if (action.kind === 'link') {
-          const url = externalUrl(action.url);
-          return url ? (
-            <Button
-              key={action.id}
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<a href={url} target="_blank" rel="noopener noreferrer" />}
-            >
-              {action.label}
-              <ExternalLink />
-            </Button>
-          ) : null;
-        }
-        if (action.status === 'done') {
+    <>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('actions')}>
+        {actions.map((action) => {
+          if (replied && action.kind === 'reply' && action.status !== 'done') return null;
+          if (action.kind === 'link') {
+            const url = externalUrl(action.url);
+            if (!url) return null;
+            const token = connectTokenFromUrl(url);
+            if (token) {
+              return (
+                <Button key={action.id} variant="outline" size="sm" onClick={() => setConnectToken(token)}>
+                  <KeyRound className="size-3.5" />
+                  {action.label}
+                </Button>
+              );
+            }
+            return (
+              <Button
+                key={action.id}
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+              >
+                {action.label}
+                <ExternalLink />
+              </Button>
+            );
+          }
+          if (action.status === 'done') {
+            return (
+              <span
+                key={action.id}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-dashed px-3 text-sm text-muted-foreground"
+              >
+                <Check className="size-3.5" />
+                {action.kind === 'reply' ? action.label : (action.result ?? action.label)}
+              </span>
+            );
+          }
+          const expired = action.status === 'expired';
           return (
-            <span
-              key={action.id}
-              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-dashed px-3 text-sm text-muted-foreground"
-            >
-              <Check className="size-3.5" />
-              {action.kind === 'reply' ? action.label : (action.result ?? action.label)}
-            </span>
+            <div key={action.id} className="flex flex-col gap-1">
+              <Button
+                variant={action.kind === 'action' ? 'default' : 'outline'}
+                size="sm"
+                disabled={disabled || expired || press.isPending}
+                className="whitespace-normal"
+                title={expired ? t('actionExpired') : undefined}
+                onClick={() => press.mutate(action.id)}
+              >
+                {press.isPending && press.variables === action.id && <Spinner />}
+                {action.label}
+              </Button>
+              {action.result && <span className="text-xs text-muted-foreground">{action.result}</span>}
+            </div>
           );
-        }
-        const expired = action.status === 'expired';
-        return (
-          <div key={action.id} className="flex flex-col gap-1">
-            <Button
-              variant={action.kind === 'action' ? 'default' : 'outline'}
-              size="sm"
-              disabled={disabled || expired || press.isPending}
-              className="whitespace-normal"
-              title={expired ? t('actionExpired') : undefined}
-              onClick={() => press.mutate(action.id)}
-            >
-              {press.isPending && press.variables === action.id && <Spinner />}
-              {action.label}
-            </Button>
-            {action.result && <span className="text-xs text-muted-foreground">{action.result}</span>}
-          </div>
-        );
-      })}
-    </div>
+        })}
+      </div>
+      <Dialog
+        open={Boolean(connectToken)}
+        onOpenChange={(open) => {
+          if (!open) setConnectToken(null);
+        }}
+      >
+        <DialogContent showCloseButton>
+          <DialogTitle className="sr-only">Подключение интеграции</DialogTitle>
+          {connectToken ? (
+            <ConnectLinkForm token={connectToken} embedded onDone={() => setConnectToken(null)} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -9,6 +9,7 @@ import { cn } from '@workspace/ui/lib/utils';
 
 import { AgentRail } from './agent-rail';
 import { AppSidebar } from './app-sidebar';
+import { ProjectEventsToast } from './project-events-toast';
 
 import { AppHeaderTarget } from '@/shared/ui/app-header-slot';
 import { ManagerChatScreen } from '@/widgets/manager-chat/ui/manager-chat-screen';
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [panel, setPanel] = useState(false);
   const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
   const showPanel = showRail && panel;
+  const isInChat = !showRail || showPanel;
 
   useEffect(() => {
     function openSearch(event: KeyboardEvent) {
@@ -54,6 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider style={sidebarStyle} className="relative h-svh overflow-hidden bg-sidebar">
+      <ProjectEventsToast isInChat={isInChat} />
       <AppSidebar />
       <SidebarInset
         className={cn('min-w-0 overflow-hidden', showRail && 'md:peer-data-[variant=inset]:mr-0')}
