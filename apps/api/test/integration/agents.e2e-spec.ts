@@ -127,7 +127,7 @@ describe('agents (HTTP)', () => {
       expect.arrayContaining([expect.objectContaining({ key: 'channel', required: true })]),
     );
     expect(catalog.tools.find((t) => t.id === 'policy.update')?.systemDenied).toBe(true);
-    expect(catalog.skills).toEqual(['surveys', 'promo', 'ab', 'digest']);
+    expect(catalog.skills).toEqual(['surveys', 'promo', 'ab', 'digest', 'metrika_analysis', 'backlog_sync']);
   });
 
   it('gives every new project its manager', async () => {
