@@ -34,5 +34,9 @@
   "account_unblocked": {
     "subject": "Account “{accountName}” is unblocked",
     "text": "The block of “{accountName}” is lifted.\n\n{reason}\n\nOpen Geniebox: {link}"
+  },
+  "agent_alert": {
+    "subject": "[{project}] {title}",
+    "text": "{message}\n\nOpen project: {link}"
   }
 }

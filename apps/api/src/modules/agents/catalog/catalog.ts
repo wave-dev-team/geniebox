@@ -30,7 +30,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   { id: 'payments.refund', risk: 'high', providers: ['yookassa'] },
   { id: 'analytics.read', risk: 'low', providers: ['yandex_metrika'] },
   { id: 'db.query', risk: 'low', providers: ['postgres'] },
-  { id: 'api.read', risk: 'low', providers: ['http_api'] },
+  { id: 'api.read', risk: 'low', providers: ['http_api', 'yandex_metrika'] },
   { id: 'api.call', risk: 'medium', providers: ['http_api'] },
   { id: 'monitoring.read', risk: 'low', providers: ['grafana'] },
   { id: 'server.runbook', risk: 'medium', providers: ['ssh_server'] },
@@ -75,7 +75,7 @@ export type LimitKind = keyof typeof LIMIT_KINDS;
 export type LimitValue = number | string;
 
 /** Built-in skills: free and on for every project. */
-export const SKILLS = ['surveys', 'promo', 'ab', 'digest'] as const;
+export const SKILLS = ['surveys', 'promo', 'ab', 'digest', 'metrika_analysis', 'backlog_sync'] as const;
 
 const TOOL_BY_ID = new Map(TOOLS.map((tool) => [tool.id, tool]));
 

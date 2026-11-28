@@ -110,7 +110,8 @@ export class ToolExecutor {
     if (limitError) return this.refuse(context, toolId, 'rejected', limitError, args);
     let connectionId: string | null = null;
     if (tool.providers?.length) {
-      connectionId = await this.connectionFor(context.agent.id, tool.providers);
+      const preferred = typeof args.connectionId === 'string' ? args.connectionId : undefined;
+      connectionId = await this.connectionFor(context.agent.id, tool.providers, preferred);
       if (!connectionId) return this.refuse(context, toolId, 'rejected', 'NO_CONNECTION', args);
     }
     if (policy.mode === 'approve' && !options.approvedBy) {
@@ -247,18 +248,22 @@ export class ToolExecutor {
     return row?.always_ask ?? [];
   }
 
-  private async connectionFor(agentId: string, providers: string[]): Promise<string | null> {
-    const row = await this.accountDb.transaction((tx) =>
-      tx.db
+  private async connectionFor(
+    agentId: string,
+    providers: string[],
+    preferredId?: string,
+  ): Promise<string | null> {
+    const row = await this.accountDb.transaction((tx) => {
+      let query = tx.db
         .selectFrom('agent_connections')
         .innerJoin('connections', 'connections.id', 'agent_connections.connection_id')
         .select('connections.id')
         .where('agent_connections.agent_id', '=', agentId)
         .where('connections.provider_key', 'in', providers)
-        .where('connections.deleted_at', 'is', null)
-        .orderBy('connections.status')
-        .executeTakeFirst(),
-    );
+        .where('connections.deleted_at', 'is', null);
+      if (preferredId) query = query.where('connections.id', '=', preferredId);
+      return query.orderBy('connections.status').executeTakeFirst();
+    });
     return row?.id ?? null;
   }
 

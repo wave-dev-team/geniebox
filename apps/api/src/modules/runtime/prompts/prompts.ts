@@ -1,3 +1,4 @@
+import { resolveSkillPlaybooks } from '../../agents/catalog/skills.js';
 import { fillPrompt } from '../../catalog/catalog-content.js';
 
 /**
@@ -93,7 +94,7 @@ export function managerPrompt(project: ProjectBrief, team: TeamMember[], mode: s
       : 'The team is empty: suggest adding agents in the marketplace.',
     modeLine(mode),
     'When the current member asks for work, give it to the best-fitting agent with assign_task (one task per distinct job, a clear title and why). Then tell the owner in one or two sentences who is doing what. For questions about the project, use project_overview first.',
-    'You also act for the person you talk to, with their rights (panel_* tools): read the project, hire or pause agents, change rules, answer decisions — everything the panel does. Changes that spend money, change access or reach outside become a button under your answer: say what the button does and that the person presses it to confirm; never claim it is done before that. Keys and passwords never go through chat: give a connection link instead (panel_connection_link). Offer choices with offer_buttons; attach a metric chart with send_chart when numbers over time help.',
+    'You also act for the person you talk to, with their rights (panel_* tools): read the project, hire or pause agents, change rules, answer decisions — everything the panel does. Changes that spend money, change access or reach outside become a button under your answer: say what the button does and that the person presses it to confirm; never claim it is done before that. Keys and passwords never go through chat: give a connection link instead (panel_connection_link). Offer choices with offer_buttons; attach a metric chart with send_chart when numbers over time help. If the owner asks for Telegram notifications and telegram_bot is not connected, briefly explain creating a bot in @BotFather, sending /start to it, and share panel_connection_link(providerKey="telegram_bot").',
     'The shared state is a snapshot of recorded facts. A decision being accepted only means it was authorized; check task status and tools before saying the action finished. Respect the project pause and existing work.',
     ...COMMON,
   ].join('\n\n');
@@ -103,10 +104,15 @@ function agentSection(agent: AgentBrief, project: ProjectBrief): string {
   const role = agent.rolePrompt
     ? fillPrompt(agent.rolePrompt, { project: project.name, metric: project.mainMetric })
     : (agent.role ?? agent.template ?? 'custom agent');
+  const playbooks = resolveSkillPlaybooks(agent.instructions, agent.template);
+  const customInstructions = agent.instructions.filter((i) => !i.topic.startsWith('skill:'));
   return [
     `You are the agent «${agent.name}». ${role}`,
-    agent.instructions.length
-      ? `Owner's instructions:\n${agent.instructions.map((i) => `- ${i.topic}: ${i.rule}`).join('\n')}`
+    playbooks.length
+      ? `Active skill playbooks:\n${playbooks.map((s) => `- ${s.title}: ${s.prompt}`).join('\n')}`
+      : null,
+    customInstructions.length
+      ? `Owner's instructions:\n${customInstructions.map((i) => `- ${i.topic}: ${i.rule}`).join('\n')}`
       : null,
     Object.keys(agent.limits).length
       ? `Your limits (enforced by the system): ${Object.entries(agent.limits)
@@ -135,7 +141,7 @@ export function agentTaskPrompt(
     projectSection(project),
     ...teamBlock,
     modeLine(mode),
-    "You are working on the task from the next message. Work in this order: plan 2–5 steps with report_progress (steps), use the data tools you have, move through steps with report_progress (currentStep), then either finish_task with a short result for the owner, or propose_decision if something needs the owner's yes. If you need another agent's help, call assign_task (and wait for their result). Anything that changes the outside world goes through a decision or is refused by the system — do not claim you did it.",
+    "You are working on the task from the next message. Work in this order: plan 2–5 steps with report_progress (steps), use the data tools you have, move through steps with report_progress (currentStep), then either finish_task with a short result for the owner, continue_task if a deep analysis needs another stage, or propose_decision if something needs the owner's yes. If you need another agent's help, call assign_task (and wait for their result). Anything that changes the outside world goes through a decision or is refused by the system — do not claim you did it.",
     'A proposal whose effect can be measured gets an experiment (an official metric key from metrics_read, control group share, duration, minimum sample, guardrail metrics) and a check, so the effect is confirmed against a control group before anyone counts it. If you found something the owner should know today, publish it with publish_insight together with the numbers it rests on.',
     'When the task is a check of an earlier proposal: read the official metrics, compare the group with the control group and end with record_check. Say worked only with a comparison and a sample not below the minimum; no clear difference is inconclusive.',
     ...COMMON,

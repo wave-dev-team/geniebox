@@ -60,12 +60,48 @@ export const PROVIDERS: readonly ProviderDefinition[] = [
         pattern: /^\d{5,12}:[A-Za-z0-9_-]{30,50}$/,
         envKeys: ['TELEGRAM_BOT_TOKEN', 'BOT_TOKEN', 'TG_TOKEN'],
       },
+      {
+        key: 'chat_id',
+        kind: 'text',
+        required: false,
+        pattern: /^-?\d{5,20}$/,
+        envKeys: ['TELEGRAM_CHAT_ID', 'CHAT_ID'],
+        aliases: ['chat', 'чат'],
+      },
     ],
-    check: (c) =>
-      httpCheck(c, `https://api.telegram.org/bot${c.secret.token}/getMe`, {}, false, (body) => {
-        const username = str((body as { result?: { username?: unknown } }).result?.username);
-        return { status: 'ok', configPatch: username ? { username } : undefined };
-      }),
+    check: async (c) => {
+      const me = await httpCheck(
+        c,
+        `https://api.telegram.org/bot${c.secret.token}/getMe`,
+        {},
+        false,
+        (body) => {
+          const username = str((body as { result?: { username?: unknown } }).result?.username);
+          return { status: 'ok', configPatch: username ? { username } : undefined };
+        },
+      );
+      if (me.status !== 'ok' || c.config.chat_id) return me;
+      // Auto-detect chat_id if the owner already sent /start to the bot.
+      try {
+        const updates = await probe(`https://api.telegram.org/bot${c.secret.token}/getUpdates?limit=10`, {
+          timeoutMs: c.timeoutMs,
+          checkHost: false,
+          allowPrivate: c.allowPrivateHosts,
+        });
+        const items =
+          (updates.body as { result?: Array<{ message?: { chat?: { id?: number } } }> }).result ?? [];
+        const chatId = items
+          .map((item) => item.message?.chat?.id)
+          .filter((id): id is number => typeof id === 'number')
+          .at(-1);
+        if (chatId !== undefined) {
+          return { ...me, configPatch: { ...me.configPatch, chat_id: String(chatId) } };
+        }
+      } catch {
+        // Non-fatal: chat_id can be detected on next check or entered manually.
+      }
+      return me;
+    },
   },
   {
     key: 'yookassa',

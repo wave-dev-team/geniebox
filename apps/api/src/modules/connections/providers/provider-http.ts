@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { probe, type ProbeResponse } from './egress.js';
+import { type HttpMethod, probe, type ProbeResponse, request as egressRequest } from './egress.js';
 
 export interface ProviderRequest {
   headers?: Record<string, string>;
@@ -10,13 +10,22 @@ export interface ProviderRequest {
   allowPrivate: boolean;
 }
 
+export interface ProviderMutateRequest extends ProviderRequest {
+  method: HttpMethod;
+  body?: unknown;
+}
+
 /**
- * Outbound GETs of the worker to provider APIs (data tools, metric collectors). One injectable
- * seam so integration tests can answer for YooKassa or Metrika without the network.
+ * Outbound HTTP calls of the worker to provider APIs. One injectable seam so integration
+ * tests can answer for YooKassa, Metrika or HTTP APIs without the network.
  */
 @Injectable()
 export class ProviderHttp {
   get(url: string, request: ProviderRequest): Promise<ProbeResponse> {
     return probe(url, request);
+  }
+
+  request(url: string, options: ProviderMutateRequest): Promise<ProbeResponse> {
+    return egressRequest(url, options);
   }
 }

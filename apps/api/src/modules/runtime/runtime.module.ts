@@ -29,8 +29,10 @@ import { RuntimeTexts } from './runtime-texts.js';
 import { RuntimeWorker } from './runtime-worker.js';
 import { TaskLifecycle } from './task-lifecycle.js';
 import { TaskRunner } from './task-runner.js';
+import { ConnectorTools } from './tools/connector-tools.js';
 import { DataTools } from './tools/data-tools.js';
 import { KnowledgeTools } from './tools/knowledge-tools.js';
+import { NotifyTools } from './tools/notify-tools.js';
 import { PanelTools } from './tools/panel-tools.js';
 import { PlatformTools } from './tools/platform-tools.js';
 import { ResultsTools } from './tools/results-tools.js';
@@ -79,8 +81,10 @@ const llmProvider = {
     ToolExecutor,
     PlatformTools,
     PanelTools,
+    ConnectorTools,
     DataTools,
     KnowledgeTools,
+    NotifyTools,
     ResultsTools,
     AgentLoop,
     RuntimeContextLoader,
