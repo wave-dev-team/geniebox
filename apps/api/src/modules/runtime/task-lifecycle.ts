@@ -5,6 +5,7 @@ import { JournalService } from '../../journal/journal.service.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { StreamPublisher } from '../stream/stream.publisher.js';
 import {
+  type MessagePostedEvent,
   type MessageReadyEvent,
   type TaskFinishedEvent,
   type TaskRunRequestedEvent,
@@ -52,6 +53,7 @@ export class TaskLifecycle {
       await this.record(tx, moved, `tasks.${outcome.status}`);
       if (outcome.status === 'done') await this.finished(tx, moved, 'done');
       await this.maybeWakeParent(tx, moved);
+      if (outcome.status === 'done') await this.maybeWakeManager(tx, moved);
       return true;
     });
   }
@@ -146,6 +148,87 @@ export class TaskLifecycle {
       payload: { projectId: parent.project_id, taskId: parent.id, byUserId: parent.created_by },
     });
     tx.afterCommit(() => this.stream.publish(parent.project_id, { type: 'task.updated', taskId: parent.id }));
+  }
+
+  private async maybeWakeManager(tx: AccountTx, task: TaskRow): Promise<void> {
+    if (
+      task.parent_task_id ||
+      !task.conversation_id ||
+      !task.assigned_by_agent_id ||
+      task.assigned_by_agent_id === task.agent_id
+    ) {
+      return;
+    }
+    const conversation = await this.conversations.find(tx.db, task.project_id, task.conversation_id);
+    const recipientUserId = conversation?.created_by;
+    if (!recipientUserId || conversation.private_archive) return;
+
+    const manager = await tx.db
+      .selectFrom('agents')
+      .select(['id', 'kind'])
+      .where('id', '=', task.assigned_by_agent_id)
+      .executeTakeFirst();
+    if (!manager || manager.kind !== 'manager') return;
+
+    const lastUser = await tx.db
+      .selectFrom('messages')
+      .select(['id', 'created_at'])
+      .where('conversation_id', '=', task.conversation_id)
+      .where('role', '=', 'user')
+      .where('author_user_id', '=', recipientUserId)
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+    if (!lastUser) return;
+
+    const active = await tx.db
+      .selectFrom('tasks')
+      .select('id')
+      .where('conversation_id', '=', task.conversation_id)
+      .where('assigned_by_agent_id', '=', manager.id)
+      .where('parent_task_id', 'is', null)
+      .where('status', 'in', ['planned', 'running'])
+      .where('created_at', '>=', lastUser.created_at)
+      .executeTakeFirst();
+    if (active) return;
+
+    const finishedAt = task.finished_at ?? new Date();
+    const existingReply = await tx.db
+      .selectFrom('messages')
+      .select('id')
+      .where('conversation_id', '=', task.conversation_id)
+      .where('agent_id', '=', manager.id)
+      .where((eb) => eb.or([eb('status', '=', 'streaming'), eb('created_at', '>=', finishedAt)]))
+      .executeTakeFirst();
+    if (existingReply) return;
+
+    const reply = await this.conversations.insertMessage(tx.db, {
+      account_id: tx.accountId,
+      conversation_id: task.conversation_id,
+      role: 'assistant',
+      agent_id: manager.id,
+      text: '',
+      status: 'streaming',
+    });
+    await this.conversations.touch(tx.db, task.conversation_id);
+    const conversationId = task.conversation_id;
+    await this.outbox.add<MessagePostedEvent>(tx, {
+      type: WORK_EVENTS.MESSAGE_POSTED,
+      payload: {
+        projectId: task.project_id,
+        conversationId,
+        userMessageId: lastUser.id,
+        replyMessageId: reply.id,
+        byUserId: recipientUserId,
+      },
+    });
+    tx.afterCommit(() =>
+      this.stream.publish(task.project_id, {
+        type: 'message.created',
+        recipientUserId,
+        conversationId,
+        messageId: reply.id,
+      }),
+    );
   }
 
   private async afterRun(tx: AccountTx, task: TaskRow, summary: string): Promise<void> {
